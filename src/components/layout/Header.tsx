@@ -6,7 +6,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Menu, X, Heart, Globe } from 'lucide-react';
 
 const navItems = [
-  { label: 'Home', href: '/' },
+  { label: 'Home', href: '/home' },
   { label: 'About', href: '/about' },
   { label: 'Causes', href: '/causes' },
   { label: 'Gallery', href: '/gallery' },
