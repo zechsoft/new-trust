@@ -26,8 +26,8 @@ export default function FeaturedCausesManagement() {
   const [hasChanges, setHasChanges] = useState(false);
 
   const [sectionData, setSectionData] = useState({
-    title: "Featured Causes",
-    subtitle: "Your support makes a difference in these urgent causes",
+    title: "Current Causes",
+    subtitle: "These are the initiatives that need your support right now. Every contribution makes a difference.",
     description: "These causes need immediate attention and support. Every contribution helps us reach our goals and create meaningful impact in communities worldwide.",
     maxDisplayed: 3,
     causes: [
@@ -168,7 +168,7 @@ export default function FeaturedCausesManagement() {
   };
 
   const handleSave = () => {
-    console.log('Saving featured causes data:', sectionData);
+    console.log('Saving current causes data:', sectionData);
     setHasChanges(false);
     setIsEditing(false);
   };
@@ -190,10 +190,10 @@ export default function FeaturedCausesManagement() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
-            Featured Causes Management
+            Current Causes Management
           </h1>
           <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-            Manage featured causes displayed on your homepage
+            Manage current causes displayed on your homepage
           </p>
         </div>
         <div className="flex space-x-3">
@@ -291,11 +291,11 @@ export default function FeaturedCausesManagement() {
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                 Subtitle
               </label>
-              <input
-                type="text"
+              <textarea
                 value={sectionData.subtitle}
                 onChange={(e) => handleSectionChange('subtitle', e.target.value)}
                 disabled={!isEditing}
+                rows={3}
                 className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white disabled:opacity-50"
               />
             </div>

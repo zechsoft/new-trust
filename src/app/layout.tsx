@@ -1,8 +1,11 @@
-import { ThemeProvider } from '@/context/ThemeContext'; // Adjust the import path as needed
+'use client';
+
+import { ThemeProvider } from '@/context/ThemeContext';
 import './globals.css';
 import { Inter } from 'next/font/google';
 import Header from '@/components/layout/Header';
 import Footer from '@/components/layout/Footer';
+import { usePathname } from 'next/navigation';
 
 const inter = Inter({ subsets: ['latin'] });
 
@@ -11,6 +14,11 @@ export default function RootLayout({
 }: {
   children: React.ReactNode;
 }) {
+  const pathname = usePathname();
+  
+  // Check if current path starts with /adminlogin
+  const isAdminLoginPath = pathname?.startsWith('/adminlogin');
+
   return (
     <html lang="en">
       <head>
@@ -21,11 +29,14 @@ export default function RootLayout({
         />
       </head>
       <body className={inter.className}>
-        {/* Wrap your application with ThemeProvider */}
         <ThemeProvider>
-          <Header />
+          {/* Conditionally render Header */}
+          {!isAdminLoginPath && <Header />}
+          
           {children}
-          <Footer />
+          
+          {/* Conditionally render Footer */}
+          {!isAdminLoginPath && <Footer />}
         </ThemeProvider>
       </body>
     </html>
