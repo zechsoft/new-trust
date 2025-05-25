@@ -1,132 +1,295 @@
 'use client';
-
 import { useState, useEffect } from 'react';
-import { motion } from 'framer-motion';
 import {
+  Activity,
   Save,
   Eye,
-  Upload,
-  Play,
-  Pause,
-  RotateCcw,
-  ArrowLeft,
-  Settings,
-  Image as ImageIcon,
-  Video,
+  RefreshCw,
+  Image,
   Type,
-  Palette
+  Palette,
+  Target,
+  BarChart3,
+  TrendingUp,
+  MousePointer,
+  Heart,
+  Users,
+  DollarSign,
+  Plus,
+  Trash2
 } from 'lucide-react';
-import Link from 'next/link';
-import AdminCard from '@/components/admin/ui/AdminCard';
 
-export default function HeroSectionManagement() {
+interface CTASection {
+  id: string;
+  title: string;
+  description: string;
+  primaryButton: {
+    text: string;
+    url: string;
+    className: string;
+  };
+  secondaryButton: {
+    text: string;
+    url: string;
+    className: string;
+  };
+  sectionClassName: string;
+  containerClassName: string;
+  enabled: boolean;
+  animation: {
+    title: {
+      initial: { opacity: number; y: number };
+      animate: { opacity: number; y: number };
+      transition: { duration: number };
+    };
+    description: {
+      initial: { opacity: number; y: number };
+      animate: { opacity: number; y: number };
+      transition: { duration: number; delay: number };
+    };
+    buttons: {
+      initial: { opacity: number; y: number };
+      animate: { opacity: number; y: number };
+      transition: { duration: number; delay: number };
+    };
+  };
+}
+
+interface CTAAnalytics {
+  views: number;
+  clicks: number;
+  conversions: number;
+  ctr: number;
+  conversionRate: number;
+}
+
+const AdminCard = ({ children, className = "" }) => (
+  <div className={`bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6 ${className}`}>
+    {children}
+  </div>
+);
+
+export default function CallToActionManagement() {
   const [mounted, setMounted] = useState(false);
-  const [heroData, setHeroData] = useState({
-    title: 'Making a Difference, One Life at a Time',
-    subtitle: 'Join our mission to create positive change in communities worldwide through compassion, dedication, and sustainable impact.',
-    primaryButton: {
-      text: 'Donate Now',
-      link: '/donate'
-    },
-    secondaryButton: {
-      text: 'Learn More',
-      link: '/about'
-    },
-    backgroundVideo: {
-      url: '/videos/hero-background.mp4',
-      poster: '/images/hero-poster.jpg'
-    },
-    overlayOpacity: 60,
-    textAlignment: 'center',
-    isActive: true
+  const [ctaSections, setCtaSections] = useState<CTASection[]>([]);
+  const [analytics, setAnalytics] = useState<CTAAnalytics>({
+    views: 0,
+    clicks: 0,
+    conversions: 0,
+    ctr: 0,
+    conversionRate: 0
   });
-
-  const [isPreviewMode, setIsPreviewMode] = useState(false);
-  const [hasChanges, setHasChanges] = useState(false);
+  const [activeTab, setActiveTab] = useState<string>('main-cta');
+  const [previewMode, setPreviewMode] = useState(false);
 
   useEffect(() => {
     setMounted(true);
+    // Mock data matching the client-side component
+    setCtaSections([
+      {
+        id: 'main-cta',
+        title: 'Join Us in Making a Difference',
+        description: 'Your contribution can change lives. Together, we can create a better world for all.',
+        primaryButton: {
+          text: 'Donate Now',
+          url: '/donate',
+          className: 'px-8 py-4 bg-white text-purple-600 font-bold rounded-full text-xl hover:bg-gray-100 transition-all duration-300 hover:scale-105 shadow-lg'
+        },
+        secondaryButton: {
+          text: 'Get Involved',
+          url: '/get-involved',
+          className: 'px-8 py-4 bg-transparent border-2 border-white text-white font-bold rounded-full text-xl hover:bg-white/10 transition-all duration-300 hover:scale-105'
+        },
+        sectionClassName: 'py-20 bg-gradient-to-r from-purple-600 to-blue-500 text-white',
+        containerClassName: 'container mx-auto px-4 text-center',
+        enabled: true,
+        animation: {
+          title: {
+            initial: { opacity: 0, y: 20 },
+            animate: { opacity: 1, y: 0 },
+            transition: { duration: 0.6 }
+          },
+          description: {
+            initial: { opacity: 0, y: 20 },
+            animate: { opacity: 1, y: 0 },
+            transition: { duration: 0.6, delay: 0.2 }
+          },
+          buttons: {
+            initial: { opacity: 0, y: 20 },
+            animate: { opacity: 1, y: 0 },
+            transition: { duration: 0.6, delay: 0.4 }
+          }
+        }
+      },
+      {
+        id: 'volunteer-cta',
+        title: 'Become a Volunteer Today',
+        description: 'Join our community of dedicated volunteers and make a hands-on difference in the lives of those who need it most.',
+        primaryButton: {
+          text: 'Volunteer Now',
+          url: '/volunteer',
+          className: 'px-8 py-4 bg-white text-blue-600 font-bold rounded-full text-xl hover:bg-gray-100 transition-all duration-300 hover:scale-105 shadow-lg'
+        },
+        secondaryButton: {
+          text: 'Learn More',
+          url: '/volunteer/about',
+          className: 'px-8 py-4 bg-transparent border-2 border-white text-white font-bold rounded-full text-xl hover:bg-white/10 transition-all duration-300 hover:scale-105'
+        },
+        sectionClassName: 'py-20 bg-gradient-to-r from-blue-600 to-teal-500 text-white',
+        containerClassName: 'container mx-auto px-4 text-center',
+        enabled: false,
+        animation: {
+          title: {
+            initial: { opacity: 0, y: 20 },
+            animate: { opacity: 1, y: 0 },
+            transition: { duration: 0.6 }
+          },
+          description: {
+            initial: { opacity: 0, y: 20 },
+            animate: { opacity: 1, y: 0 },
+            transition: { duration: 0.6, delay: 0.2 }
+          },
+          buttons: {
+            initial: { opacity: 0, y: 20 },
+            animate: { opacity: 1, y: 0 },
+            transition: { duration: 0.6, delay: 0.4 }
+          }
+        }
+      }
+    ]);
+
+    // Mock analytics data
+    setAnalytics({
+      views: 15420,
+      clicks: 1205,
+      conversions: 187,
+      ctr: 7.8,
+      conversionRate: 15.5
+    });
   }, []);
 
-  const handleInputChange = (field: string, value: any) => {
-    setHeroData(prev => ({
-      ...prev,
-      [field]: value
-    }));
-    setHasChanges(true);
+  const activeCTA = ctaSections.find(cta => cta.id === activeTab) || ctaSections[0];
+
+  const updateCTASection = (field: string, value: any) => {
+    setCtaSections(prev => prev.map(cta => 
+      cta.id === activeTab 
+        ? { ...cta, [field]: value }
+        : cta
+    ));
   };
 
-  const handleNestedInputChange = (parent: string, field: string, value: any) => {
-    setHeroData(prev => ({
-      ...prev,
-      [parent]: {
-        ...prev[parent as keyof typeof prev],
-        [field]: value
+  const updateButton = (buttonType: 'primaryButton' | 'secondaryButton', field: string, value: string) => {
+    setCtaSections(prev => prev.map(cta => 
+      cta.id === activeTab 
+        ? { 
+            ...cta, 
+            [buttonType]: { 
+              ...cta[buttonType], 
+              [field]: value 
+            } 
+          }
+        : cta
+    ));
+  };
+
+  const updateAnimation = (animationType: 'title' | 'description' | 'buttons', field: string, value: any) => {
+    setCtaSections(prev => prev.map(cta => 
+      cta.id === activeTab 
+        ? { 
+            ...cta, 
+            animation: {
+              ...cta.animation,
+              [animationType]: {
+                ...cta.animation[animationType],
+                [field]: field === 'transition' ? { ...cta.animation[animationType].transition, ...value } : value
+              }
+            }
+          }
+        : cta
+    ));
+  };
+
+  const saveCTASection = () => {
+    console.log('Saving CTA section:', activeCTA);
+    // Show success notification
+  };
+
+  const addNewCTA = () => {
+    const newId = `cta-${Date.now()}`;
+    const newCTA: CTASection = {
+      id: newId,
+      title: 'New Call to Action',
+      description: 'Add your compelling description here.',
+      primaryButton: {
+        text: 'Primary Action',
+        url: '/',
+        className: 'px-8 py-4 bg-white text-purple-600 font-bold rounded-full text-xl hover:bg-gray-100 transition-all duration-300 hover:scale-105 shadow-lg'
+      },
+      secondaryButton: {
+        text: 'Secondary Action',
+        url: '/',
+        className: 'px-8 py-4 bg-transparent border-2 border-white text-white font-bold rounded-full text-xl hover:bg-white/10 transition-all duration-300 hover:scale-105'
+      },
+      sectionClassName: 'py-20 bg-gradient-to-r from-purple-600 to-blue-500 text-white',
+      containerClassName: 'container mx-auto px-4 text-center',
+      enabled: false,
+      animation: {
+        title: {
+          initial: { opacity: 0, y: 20 },
+          animate: { opacity: 1, y: 0 },
+          transition: { duration: 0.6 }
+        },
+        description: {
+          initial: { opacity: 0, y: 20 },
+          animate: { opacity: 1, y: 0 },
+          transition: { duration: 0.6, delay: 0.2 }
+        },
+        buttons: {
+          initial: { opacity: 0, y: 20 },
+          animate: { opacity: 1, y: 0 },
+          transition: { duration: 0.6, delay: 0.4 }
+        }
       }
-    }));
-    setHasChanges(true);
+    };
+    
+    setCtaSections(prev => [...prev, newCTA]);
+    setActiveTab(newId);
   };
 
-  const handleSave = async () => {
-    try {
-      // API call to save hero section data
-      console.log('Saving hero data:', heroData);
-      setHasChanges(false);
-      // Show success notification
-    } catch (error) {
-      console.error('Error saving hero data:', error);
-      // Show error notification
+  const deleteCTA = (id: string) => {
+    if (ctaSections.length <= 1) return; // Don't delete if it's the last one
+    
+    setCtaSections(prev => prev.filter(cta => cta.id !== id));
+    if (activeTab === id) {
+      setActiveTab(ctaSections[0].id);
     }
-  };
-
-  const handleReset = () => {
-    // Reset to original data
-    setHasChanges(false);
   };
 
   if (!mounted) return null;
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
+    <div className="space-y-6 p-6 bg-gray-50 dark:bg-gray-900 min-h-screen">
+      {/* Page Header */}
       <div className="flex items-center justify-between">
-        <div className="flex items-center space-x-4">
-          <Link 
-            href="/admin/home" 
-            className="p-2 rounded-lg bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
-          >
-            <ArrowLeft className="w-5 h-5" />
-          </Link>
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
-              Hero Section Management
-            </h1>
-            <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-              Configure the main banner section of your homepage
-            </p>
-          </div>
+        <div>
+          <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
+            Call-to-Action Management
+          </h1>
+          <p className="mt-2 text-gray-600 dark:text-gray-400">
+            Manage your homepage call-to-action sections and track their performance
+          </p>
         </div>
-        <div className="flex items-center space-x-3">
+        <div className="flex space-x-3">
           <button
-            onClick={() => setIsPreviewMode(!isPreviewMode)}
-            className="inline-flex items-center px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700"
+            onClick={() => setPreviewMode(!previewMode)}
+            className="inline-flex items-center px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg shadow-sm text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
           >
             <Eye className="w-4 h-4 mr-2" />
-            {isPreviewMode ? 'Edit Mode' : 'Preview'}
+            {previewMode ? 'Edit Mode' : 'Preview'}
           </button>
-          {hasChanges && (
-            <button
-              onClick={handleReset}
-              className="inline-flex items-center px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700"
-            >
-              <RotateCcw className="w-4 h-4 mr-2" />
-              Reset
-            </button>
-          )}
           <button
-            onClick={handleSave}
-            disabled={!hasChanges}
-            className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+            onClick={saveCTASection}
+            className="inline-flex items-center px-4 py-2 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 transition-colors"
           >
             <Save className="w-4 h-4 mr-2" />
             Save Changes
@@ -134,271 +297,499 @@ export default function HeroSectionManagement() {
         </div>
       </div>
 
-      {hasChanges && (
-        <motion.div
-          initial={{ opacity: 0, y: -10 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4"
-        >
-          <p className="text-sm text-yellow-800 dark:text-yellow-200">
-            You have unsaved changes. Don't forget to save your work!
-          </p>
-        </motion.div>
-      )}
-
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Main Content Form */}
-        <div className="lg:col-span-2 space-y-6">
-          {/* Text Content */}
-          <AdminCard>
-            <div className="p-6">
-              <div className="flex items-center mb-4">
-                <Type className="w-5 h-5 mr-2 text-blue-600" />
-                <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-                  Text Content
-                </h3>
-              </div>
-              
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    Main Title
-                  </label>
-                  <input
-                    type="text"
-                    value={heroData.title}
-                    onChange={(e) => handleInputChange('title', e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:text-white"
-                    placeholder="Enter main title"
-                  />
-                </div>
-                
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    Subtitle
-                  </label>
-                  <textarea
-                    value={heroData.subtitle}
-                    onChange={(e) => handleInputChange('subtitle', e.target.value)}
-                    rows={3}
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:text-white"
-                    placeholder="Enter subtitle description"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    Text Alignment
-                  </label>
-                  <select
-                    value={heroData.textAlignment}
-                    onChange={(e) => handleInputChange('textAlignment', e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:text-white"
-                  >
-                    <option value="left">Left</option>
-                    <option value="center">Center</option>
-                    <option value="right">Right</option>
-                  </select>
-                </div>
-              </div>
+      {/* Analytics Overview */}
+      <div className="grid grid-cols-1 md:grid-cols-5 gap-6">
+        <AdminCard>
+          <div className="text-center">
+            <div className="flex items-center justify-center w-12 h-12 bg-blue-100 dark:bg-blue-900 rounded-lg mx-auto mb-3">
+              <Eye className="w-6 h-6 text-blue-600" />
             </div>
-          </AdminCard>
+            <div className="text-2xl font-bold text-blue-600">{analytics.views.toLocaleString()}</div>
+            <div className="text-sm text-gray-500 dark:text-gray-400">Total Views</div>
+          </div>
+        </AdminCard>
+        <AdminCard>
+          <div className="text-center">
+            <div className="flex items-center justify-center w-12 h-12 bg-green-100 dark:bg-green-900 rounded-lg mx-auto mb-3">
+              <MousePointer className="w-6 h-6 text-green-600" />
+            </div>
+            <div className="text-2xl font-bold text-green-600">{analytics.clicks.toLocaleString()}</div>
+            <div className="text-sm text-gray-500 dark:text-gray-400">Total Clicks</div>
+          </div>
+        </AdminCard>
+        <AdminCard>
+          <div className="text-center">
+            <div className="flex items-center justify-center w-12 h-12 bg-purple-100 dark:bg-purple-900 rounded-lg mx-auto mb-3">
+              <Target className="w-6 h-6 text-purple-600" />
+            </div>
+            <div className="text-2xl font-bold text-purple-600">{analytics.conversions}</div>
+            <div className="text-sm text-gray-500 dark:text-gray-400">Conversions</div>
+          </div>
+        </AdminCard>
+        <AdminCard>
+          <div className="text-center">
+            <div className="flex items-center justify-center w-12 h-12 bg-orange-100 dark:bg-orange-900 rounded-lg mx-auto mb-3">
+              <TrendingUp className="w-6 h-6 text-orange-600" />
+            </div>
+            <div className="text-2xl font-bold text-orange-600">{analytics.ctr}%</div>
+            <div className="text-sm text-gray-500 dark:text-gray-400">Click Rate</div>
+          </div>
+        </AdminCard>
+        <AdminCard>
+          <div className="text-center">
+            <div className="flex items-center justify-center w-12 h-12 bg-red-100 dark:bg-red-900 rounded-lg mx-auto mb-3">
+              <DollarSign className="w-6 h-6 text-red-600" />
+            </div>
+            <div className="text-2xl font-bold text-red-600">{analytics.conversionRate}%</div>
+            <div className="text-sm text-gray-500 dark:text-gray-400">Conversion Rate</div>
+          </div>
+        </AdminCard>
+      </div>
 
-          {/* Call-to-Action Buttons */}
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+        {/* CTA Section Tabs */}
+        <div className="lg:col-span-1">
           <AdminCard>
-            <div className="p-6">
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-                Call-to-Action Buttons
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                CTA Sections
               </h3>
-              
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
-                  <h4 className="font-medium text-gray-900 dark:text-white mb-3">Primary Button</h4>
-                  <div className="space-y-3">
-                    <input
-                      type="text"
-                      value={heroData.primaryButton.text}
-                      onChange={(e) => handleNestedInputChange('primaryButton', 'text', e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:text-white"
-                      placeholder="Button text"
-                    />
-                    <input
-                      type="text"
-                      value={heroData.primaryButton.link}
-                      onChange={(e) => handleNestedInputChange('primaryButton', 'link', e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:text-white"
-                      placeholder="Button link"
-                    />
-                  </div>
-                </div>
-                
-                <div>
-                  <h4 className="font-medium text-gray-900 dark:text-white mb-3">Secondary Button</h4>
-                  <div className="space-y-3">
-                    <input
-                      type="text"
-                      value={heroData.secondaryButton.text}
-                      onChange={(e) => handleNestedInputChange('secondaryButton', 'text', e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:text-white"
-                      placeholder="Button text"
-                    />
-                    <input
-                      type="text"
-                      value={heroData.secondaryButton.link}
-                      onChange={(e) => handleNestedInputChange('secondaryButton', 'link', e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:text-white"
-                      placeholder="Button link"
-                    />
-                  </div>
-                </div>
-              </div>
+              <button
+                onClick={addNewCTA}
+                className="p-2 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900 rounded-lg transition-colors"
+                title="Add New CTA"
+              >
+                <Plus className="w-4 h-4" />
+              </button>
             </div>
-          </AdminCard>
-
-          {/* Background Media */}
-          <AdminCard>
-            <div className="p-6">
-              <div className="flex items-center mb-4">
-                <Video className="w-5 h-5 mr-2 text-purple-600" />
-                <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-                  Background Media
-                </h3>
-              </div>
-              
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    Background Video URL
-                  </label>
-                  <div className="flex space-x-2">
-                    <input
-                      type="text"
-                      value={heroData.backgroundVideo.url}
-                      onChange={(e) => handleNestedInputChange('backgroundVideo', 'url', e.target.value)}
-                      className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:text-white"
-                      placeholder="Video URL"
-                    />
-                    <button className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700">
-                      <Upload className="w-4 h-4" />
-                    </button>
-                  </div>
+            <div className="space-y-2">
+              {ctaSections.map((cta) => (
+                <div
+                  key={cta.id}
+                  className={`p-3 rounded-lg border-2 transition-all ${
+                    activeTab === cta.id
+                      ? 'bg-blue-50 dark:bg-blue-900/20 border-blue-500'
+                      : 'bg-gray-50 dark:bg-gray-700 border-transparent hover:bg-gray-100 dark:hover:bg-gray-600'
+                  }`}
+                >
+                  <button
+                    onClick={() => setActiveTab(cta.id)}
+                    className="w-full text-left"
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex-1">
+                        <div className="font-medium text-gray-900 dark:text-white truncate">
+                          {cta.title}
+                        </div>
+                        <div className="text-sm text-gray-500 dark:text-gray-400">
+                          {cta.enabled ? 'Active' : 'Disabled'}
+                        </div>
+                      </div>
+                      <div className="flex items-center space-x-2 ml-2">
+                        <div className={`w-2 h-2 rounded-full ${
+                          cta.enabled ? 'bg-green-500' : 'bg-gray-400'
+                        }`} />
+                        {ctaSections.length > 1 && (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              deleteCTA(cta.id);
+                            }}
+                            className="p-1 text-red-600 hover:bg-red-50 dark:hover:bg-red-900 rounded transition-colors"
+                          >
+                            <Trash2 className="w-3 h-3" />
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  </button>
                 </div>
-                
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    Poster Image URL
-                  </label>
-                  <div className="flex space-x-2">
-                    <input
-                      type="text"
-                      value={heroData.backgroundVideo.poster}
-                      onChange={(e) => handleNestedInputChange('backgroundVideo', 'poster', e.target.value)}
-                      className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:text-white"
-                      placeholder="Poster image URL"
-                    />
-                    <button className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700">
-                      <ImageIcon className="w-4 h-4" />
-                    </button>
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    Overlay Opacity: {heroData.overlayOpacity}%
-                  </label>
-                  <input
-                    type="range"
-                    min="0"
-                    max="100"
-                    value={heroData.overlayOpacity}
-                    onChange={(e) => handleInputChange('overlayOpacity', parseInt(e.target.value))}
-                    className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer dark:bg-gray-700"
-                  />
-                </div>
-              </div>
+              ))}
             </div>
           </AdminCard>
         </div>
 
-        {/* Settings Sidebar */}
-        <div className="space-y-6">
-          {/* Section Status */}
+        {/* CTA Editor */}
+        <div className="lg:col-span-3">
           <AdminCard>
-            <div className="p-6">
-              <div className="flex items-center mb-4">
-                <Settings className="w-5 h-5 mr-2 text-gray-600" />
+            <div className="space-y-6">
+              <div className="flex items-center justify-between">
                 <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-                  Section Settings
+                  Edit CTA Section: {activeCTA.title}
                 </h3>
-              </div>
-              
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                    Active
+                <label className="flex items-center cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={activeCTA.enabled}
+                    onChange={(e) => updateCTASection('enabled', e.target.checked)}
+                    className="sr-only"
+                  />
+                  <div className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                    activeCTA.enabled ? 'bg-blue-600' : 'bg-gray-200 dark:bg-gray-700'
+                  }`}>
+                    <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                      activeCTA.enabled ? 'translate-x-6' : 'translate-x-1'
+                    }`} />
+                  </div>
+                  <span className="ml-3 text-sm text-gray-700 dark:text-gray-300">
+                    {activeCTA.enabled ? 'Enabled' : 'Disabled'}
                   </span>
-                  <label className="relative inline-flex items-center cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={heroData.isActive}
-                      onChange={(e) => handleInputChange('isActive', e.target.checked)}
-                      className="sr-only peer"
-                    />
-                    <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600"></div>
+                </label>
+              </div>
+
+              {/* Content Fields */}
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Title
                   </label>
+                  <input
+                    type="text"
+                    value={activeCTA.title}
+                    onChange={(e) => updateCTASection('title', e.target.value)}
+                    className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                    placeholder="Enter compelling title..."
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Description
+                  </label>
+                  <textarea
+                    value={activeCTA.description}
+                    onChange={(e) => updateCTASection('description', e.target.value)}
+                    rows={3}
+                    className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                    placeholder="Enter description..."
+                  />
                 </div>
               </div>
-            </div>
-          </AdminCard>
 
-          {/* Preview */}
-          <AdminCard>
-            <div className="p-6">
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-                Preview
-              </h3>
-              <div className="bg-gray-100 dark:bg-gray-800 rounded-lg p-4 min-h-[200px] flex items-center justify-center">
-                <div className="text-center">
-                  <div className="text-sm font-medium text-gray-900 dark:text-white mb-2">
-                    {heroData.title}
+              {/* Button Configuration */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-4">
+                  <h4 className="font-medium text-gray-900 dark:text-white border-l-4 border-blue-500 pl-3">
+                    Primary Button
+                  </h4>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                      Button Text
+                    </label>
+                    <input
+                      type="text"
+                      value={activeCTA.primaryButton.text}
+                      onChange={(e) => updateButton('primaryButton', 'text', e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    />
                   </div>
-                  <div className="text-xs text-gray-500 dark:text-gray-400 mb-4">
-                    {heroData.subtitle.substring(0, 50)}...
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                      Button URL
+                    </label>
+                    <input
+                      type="text"
+                      value={activeCTA.primaryButton.url}
+                      onChange={(e) => updateButton('primaryButton', 'url', e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    />
                   </div>
-                  <div className="flex space-x-2 justify-center">
-                    <div className="px-3 py-1 bg-blue-600 text-white text-xs rounded">
-                      {heroData.primaryButton.text}
-                    </div>
-                    <div className="px-3 py-1 border border-gray-300 text-gray-700 text-xs rounded">
-                      {heroData.secondaryButton.text}
-                    </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                      Button Classes
+                    </label>
+                    <textarea
+                      value={activeCTA.primaryButton.className}
+                      onChange={(e) => updateButton('primaryButton', 'className', e.target.value)}
+                      rows={2}
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm font-mono"
+                      placeholder="Tailwind CSS classes..."
+                    />
+                  </div>
+                </div>
+                
+                <div className="space-y-4">
+                  <h4 className="font-medium text-gray-900 dark:text-white border-l-4 border-gray-500 pl-3">
+                    Secondary Button
+                  </h4>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                      Button Text
+                    </label>
+                    <input
+                      type="text"
+                      value={activeCTA.secondaryButton.text}
+                      onChange={(e) => updateButton('secondaryButton', 'text', e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                      Button URL
+                    </label>
+                    <input
+                      type="text"
+                      value={activeCTA.secondaryButton.url}
+                      onChange={(e) => updateButton('secondaryButton', 'url', e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                      Button Classes
+                    </label>
+                    <textarea
+                      value={activeCTA.secondaryButton.className}
+                      onChange={(e) => updateButton('secondaryButton', 'className', e.target.value)}
+                      rows={2}
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm font-mono"
+                      placeholder="Tailwind CSS classes..."
+                    />
                   </div>
                 </div>
               </div>
-            </div>
-          </AdminCard>
 
-          {/* Quick Actions */}
-          <AdminCard>
-            <div className="p-6">
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-                Quick Actions
-              </h3>
-              <div className="space-y-2">
-                <button className="w-full text-left px-3 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md">
-                  View Analytics
-                </button>
-                <button className="w-full text-left px-3 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md">
-                  A/B Test Settings
-                </button>
-                <button className="w-full text-left px-3 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md">
-                  SEO Settings
-                </button>
+              {/* Style Configuration */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Section Classes
+                  </label>
+                  <textarea
+                    value={activeCTA.sectionClassName}
+                    onChange={(e) => updateCTASection('sectionClassName', e.target.value)}
+                    rows={2}
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm font-mono"
+                    placeholder="Section styling classes..."
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Container Classes
+                  </label>
+                  <textarea
+                    value={activeCTA.containerClassName}
+                    onChange={(e) => updateCTASection('containerClassName', e.target.value)}
+                    rows={2}
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm font-mono"
+                    placeholder="Container styling classes..."
+                  />
+                </div>
+              </div>
+
+              {/* Animation Configuration */}
+              <div className="space-y-4">
+                <h4 className="font-medium text-gray-900 dark:text-white border-l-4 border-purple-500 pl-3">
+                  Animation Settings
+                </h4>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="space-y-3">
+                    <h5 className="text-sm font-medium text-gray-700 dark:text-gray-300">Title Animation</h5>
+                    <div>
+                      <label className="block text-xs text-gray-500 mb-1">Duration (seconds)</label>
+                      <input
+                        type="number"
+                        step="0.1"
+                        value={activeCTA.animation.title.transition.duration}
+                        onChange={(e) => updateAnimation('title', 'transition', { duration: parseFloat(e.target.value) })}
+                        className="w-full px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+                      />
+                    </div>
+                  </div>
+                  <div className="space-y-3">
+                    <h5 className="text-sm font-medium text-gray-700 dark:text-gray-300">Description Animation</h5>
+                    <div>
+                      <label className="block text-xs text-gray-500 mb-1">Delay (seconds)</label>
+                      <input
+                        type="number"
+                        step="0.1"
+                        value={activeCTA.animation.description.transition.delay}
+                        onChange={(e) => updateAnimation('description', 'transition', { delay: parseFloat(e.target.value) })}
+                        className="w-full px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+                      />
+                    </div>
+                  </div>
+                  <div className="space-y-3">
+                    <h5 className="text-sm font-medium text-gray-700 dark:text-gray-300">Buttons Animation</h5>
+                    <div>
+                      <label className="block text-xs text-gray-500 mb-1">Delay (seconds)</label>
+                      <input
+                        type="number"
+                        step="0.1"
+                        value={activeCTA.animation.buttons.transition.delay}
+                        onChange={(e) => updateAnimation('buttons', 'transition', { delay: parseFloat(e.target.value) })}
+                        className="w-full px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+                      />
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
           </AdminCard>
         </div>
       </div>
+
+      {/* Preview */}
+      {previewMode && (
+        <AdminCard>
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                Live Preview
+              </h3>
+              <div className="text-sm text-gray-500 dark:text-gray-400">
+                This preview shows how the CTA will appear on your website
+              </div>
+            </div>
+            
+            {/* Preview Container */}
+            <div className="border-2 border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
+              <section className={activeCTA.sectionClassName}>
+                <div className={activeCTA.containerClassName}>
+                  <h2 className="text-3xl md:text-5xl font-bold mb-6">
+                    {activeCTA.title}
+                  </h2>
+                  
+                  <p className="text-xl mb-8 max-w-2xl mx-auto">
+                    {activeCTA.description}
+                  </p>
+                  
+                  <div className="flex flex-col sm:flex-row gap-4 justify-center">
+                    <button className={activeCTA.primaryButton.className}>
+                      {activeCTA.primaryButton.text}
+                    </button>
+                    <button className={activeCTA.secondaryButton.className}>
+                      {activeCTA.secondaryButton.text}
+                    </button>
+                  </div>
+                </div>
+              </section>
+            </div>
+            
+            {/* Preview Info */}
+            <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+              <div className="flex items-start space-x-3">
+                <div className="flex-shrink-0">
+                  <div className="w-8 h-8 bg-blue-100 dark:bg-blue-900 rounded-full flex items-center justify-center">
+                    <Eye className="w-4 h-4 text-blue-600" />
+                  </div>
+                </div>
+                <div className="flex-1">
+                  <h4 className="text-sm font-medium text-blue-900 dark:text-blue-100">
+                    Preview Information
+                  </h4>
+                  <div className="mt-2 text-sm text-blue-700 dark:text-blue-200">
+                    <p>• Animations will be visible on the live website</p>
+                    <p>• Button hover effects are functional in this preview</p>
+                    <p>• Mobile responsiveness is included</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </AdminCard>
+      )}
+
+      {/* Quick Actions */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <AdminCard className="hover:shadow-md transition-shadow">
+          <div className="text-center">
+            <div className="w-12 h-12 bg-green-100 dark:bg-green-900 rounded-lg flex items-center justify-center mx-auto mb-3">
+              <Activity className="w-6 h-6 text-green-600" />
+            </div>
+            <h3 className="font-semibold text-gray-900 dark:text-white mb-2">Performance</h3>
+            <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+              Your CTAs are performing well with a {analytics.ctr}% click-through rate
+            </p>
+            <button className="text-sm text-blue-600 hover:text-blue-700 font-medium">
+              View Detailed Analytics →
+            </button>
+          </div>
+        </AdminCard>
+
+        <AdminCard className="hover:shadow-md transition-shadow">
+          <div className="text-center">
+            <div className="w-12 h-12 bg-purple-100 dark:bg-purple-900 rounded-lg flex items-center justify-center mx-auto mb-3">
+              <Palette className="w-6 h-6 text-purple-600" />
+            </div>
+            <h3 className="font-semibold text-gray-900 dark:text-white mb-2">Templates</h3>
+            <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+              Use pre-designed templates to quickly create effective CTAs
+            </p>
+            <button className="text-sm text-blue-600 hover:text-blue-700 font-medium">
+              Browse Templates →
+            </button>
+          </div>
+        </AdminCard>
+
+        <AdminCard className="hover:shadow-md transition-shadow">
+          <div className="text-center">
+            <div className="w-12 h-12 bg-orange-100 dark:bg-orange-900 rounded-lg flex items-center justify-center mx-auto mb-3">
+              <RefreshCw className="w-6 h-6 text-orange-600" />
+            </div>
+            <h3 className="font-semibold text-gray-900 dark:text-white mb-2">A/B Testing</h3>
+            <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+              Test different variations to optimize your conversion rates
+            </p>
+            <button className="text-sm text-blue-600 hover:text-blue-700 font-medium">
+              Start A/B Test →
+            </button>
+          </div>
+        </AdminCard>
+      </div>
+
+      {/* Recent Activity */}
+      <AdminCard>
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+            Recent Activity
+          </h3>
+          <button className="text-sm text-blue-600 hover:text-blue-700 font-medium">
+            View All →
+          </button>
+        </div>
+        <div className="space-y-3">
+          <div className="flex items-center justify-between py-2 border-b border-gray-100 dark:border-gray-700">
+            <div className="flex items-center space-x-3">
+              <div className="w-8 h-8 bg-blue-100 dark:bg-blue-900 rounded-full flex items-center justify-center">
+                <Save className="w-4 h-4 text-blue-600" />
+              </div>
+              <div>
+                <p className="text-sm font-medium text-gray-900 dark:text-white">
+                  CTA "Join Us in Making a Difference" updated
+                </p>
+                <p className="text-xs text-gray-500 dark:text-gray-400">2 minutes ago</p>
+              </div>
+            </div>
+          </div>
+          <div className="flex items-center justify-between py-2 border-b border-gray-100 dark:border-gray-700">
+            <div className="flex items-center space-x-3">
+              <div className="w-8 h-8 bg-green-100 dark:bg-green-900 rounded-full flex items-center justify-center">
+                <TrendingUp className="w-4 h-4 text-green-600" />
+              </div>
+              <div>
+                <p className="text-sm font-medium text-gray-900 dark:text-white">
+                  Conversion rate increased by 2.3%
+                </p>
+                <p className="text-xs text-gray-500 dark:text-gray-400">1 hour ago</p>
+              </div>
+            </div>
+          </div>
+          <div className="flex items-center justify-between py-2">
+            <div className="flex items-center space-x-3">
+              <div className="w-8 h-8 bg-purple-100 dark:bg-purple-900 rounded-full flex items-center justify-center">
+                <Eye className="w-4 h-4 text-purple-600" />
+              </div>
+              <div>
+                <p className="text-sm font-medium text-gray-900 dark:text-white">
+                  New CTA template "Volunteer" created
+                </p>
+                <p className="text-xs text-gray-500 dark:text-gray-400">3 hours ago</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </AdminCard>
     </div>
   );
 }

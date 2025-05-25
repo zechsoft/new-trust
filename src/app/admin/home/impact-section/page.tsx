@@ -15,87 +15,143 @@ import {
   Save,
   RotateCcw,
   Image as ImageIcon,
-  BarChart3
+  BarChart3,
+  Loader2,
+  Trash2
 } from 'lucide-react';
 import AdminCard from '@/components/admin/ui/AdminCard';
+
+// API service functions
+const impactAPI = {
+  // Fetch impact data
+  async getImpactData() {
+    const response = await fetch('/api/impact', {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${localStorage.getItem('token')}`,
+        'Content-Type': 'application/json',
+      },
+    });
+    
+    if (!response.ok) {
+      throw new Error('Failed to fetch impact data');
+    }
+    
+    return response.json();
+  },
+
+  // Update impact data
+  async updateImpactData(data) {
+    const response = await fetch('/api/impact', {
+      method: 'PUT',
+      headers: {
+        'Authorization': `Bearer ${localStorage.getItem('token')}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(data),
+    });
+    
+    if (!response.ok) {
+      throw new Error('Failed to update impact data');
+    }
+    
+    return response.json();
+  },
+
+  // Upload image
+  async uploadImage(file) {
+    const formData = new FormData();
+    formData.append('image', file);
+    
+    const response = await fetch('/api/impact/upload-image', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${localStorage.getItem('token')}`,
+      },
+      body: formData,
+    });
+    
+    if (!response.ok) {
+      throw new Error('Failed to upload image');
+    }
+    
+    return response.json();
+  },
+
+  // Delete stat
+  async deleteStat(statId) {
+    const response = await fetch(`/api/impact/stats/${statId}`, {
+      method: 'DELETE',
+      headers: {
+        'Authorization': `Bearer ${localStorage.getItem('token')}`,
+        'Content-Type': 'application/json',
+      },
+    });
+    
+    if (!response.ok) {
+      throw new Error('Failed to delete stat');
+    }
+    
+    return response.json();
+  },
+
+  // Delete achievement
+  async deleteAchievement(achievementId) {
+    const response = await fetch(`/api/impact/achievements/${achievementId}`, {
+      method: 'DELETE',
+      headers: {
+        'Authorization': `Bearer ${localStorage.getItem('token')}`,
+        'Content-Type': 'application/json',
+      },
+    });
+    
+    if (!response.ok) {
+      throw new Error('Failed to delete achievement');
+    }
+    
+    return response.json();
+  }
+};
 
 export default function ImpactSectionManagement() {
   const [mounted, setMounted] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [hasChanges, setHasChanges] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState(null);
+  const [originalData, setOriginalData] = useState(null);
 
   const [impactData, setImpactData] = useState({
     title: "Our Global Impact",
     subtitle: "Making a difference in communities worldwide through dedicated action and support",
     description: "Every donation, every volunteer hour, and every act of kindness creates a ripple effect that transforms lives and communities. Here's how we're making a lasting impact together.",
     backgroundImage: "/images/impact/impact-bg.jpg",
-    stats: [
-      {
-        id: 1,
-        icon: "Users",
-        number: "50,000+",
-        label: "Lives Transformed",
-        description: "People whose lives have been positively impacted by our programs",
-        color: "blue"
-      },
-      {
-        id: 2,
-        icon: "Globe",
-        number: "25",
-        label: "Countries Reached",
-        description: "Nations where our humanitarian efforts have made a difference",
-        color: "green"
-      },
-      {
-        id: 3,
-        icon: "Heart",
-        number: "$2.5M",
-        label: "Funds Raised",
-        description: "Total amount raised for various charitable causes and initiatives",
-        color: "red"
-      },
-      {
-        id: 4,
-        icon: "Award",
-        number: "150+",
-        label: "Projects Completed",
-        description: "Successfully implemented projects across different sectors",
-        color: "purple"
-      }
-    ],
-    achievements: [
-      {
-        id: 1,
-        title: "Clean Water Access",
-        description: "Provided clean water access to 15,000 people in rural communities",
-        image: "/images/impact/water-project.jpg",
-        category: "Infrastructure",
-        year: "2024"
-      },
-      {
-        id: 2,
-        title: "Education Initiative",
-        description: "Built 12 schools and educated over 3,000 children",
-        image: "/images/impact/education-project.jpg",
-        category: "Education",
-        year: "2023-2024"
-      },
-      {
-        id: 3,
-        title: "Healthcare Program",
-        description: "Delivered medical aid to 8,500 patients through mobile clinics",
-        image: "/images/impact/healthcare-project.jpg",
-        category: "Healthcare",
-        year: "2024"
-      }
-    ]
+    stats: [],
+    achievements: []
   });
 
   useEffect(() => {
     setMounted(true);
+    loadImpactData();
   }, []);
 
-  const handleInputChange = (field: string, value: any) => {
+  const loadImpactData = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const data = await impactAPI.getImpactData();
+      setImpactData(data);
+      setOriginalData(JSON.parse(JSON.stringify(data))); // Deep copy for reset
+    } catch (err) {
+      setError(err.message);
+      console.error('Error loading impact data:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleInputChange = (field, value) => {
     setImpactData(prev => ({
       ...prev,
       [field]: value
@@ -103,7 +159,7 @@ export default function ImpactSectionManagement() {
     setHasChanges(true);
   };
 
-  const handleStatChange = (statId: number, field: string, value: string) => {
+  const handleStatChange = (statId, field, value) => {
     setImpactData(prev => ({
       ...prev,
       stats: prev.stats.map(stat => 
@@ -113,7 +169,7 @@ export default function ImpactSectionManagement() {
     setHasChanges(true);
   };
 
-  const handleAchievementChange = (achievementId: number, field: string, value: string) => {
+  const handleAchievementChange = (achievementId, field, value) => {
     setImpactData(prev => ({
       ...prev,
       achievements: prev.achievements.map(achievement => 
@@ -125,12 +181,13 @@ export default function ImpactSectionManagement() {
 
   const addNewStat = () => {
     const newStat = {
-      id: Math.max(...impactData.stats.map(s => s.id)) + 1,
+      id: `temp_${Date.now()}`, // Temporary ID for new items
       icon: "Target",
       number: "0",
       label: "New Metric",
       description: "Description for new metric",
-      color: "blue"
+      color: "blue",
+      isNew: true
     };
     setImpactData(prev => ({
       ...prev,
@@ -141,12 +198,13 @@ export default function ImpactSectionManagement() {
 
   const addNewAchievement = () => {
     const newAchievement = {
-      id: Math.max(...impactData.achievements.map(a => a.id)) + 1,
+      id: `temp_${Date.now()}`, // Temporary ID for new items
       title: "New Achievement",
       description: "Description of the new achievement",
       image: "/images/impact/placeholder.jpg",
       category: "General",
-      year: "2024"
+      year: "2024",
+      isNew: true
     };
     setImpactData(prev => ({
       ...prev,
@@ -155,23 +213,124 @@ export default function ImpactSectionManagement() {
     setHasChanges(true);
   };
 
-  const handleSave = () => {
-    // Here you would save the data to your backend
-    console.log('Saving impact data:', impactData);
-    setHasChanges(false);
-    setIsEditing(false);
+  const deleteStat = async (statId) => {
+    if (window.confirm('Are you sure you want to delete this statistic?')) {
+      try {
+        // If it's a new stat (not saved yet), just remove from state
+        if (String(statId).startsWith('temp_')) {
+          setImpactData(prev => ({
+            ...prev,
+            stats: prev.stats.filter(stat => stat.id !== statId)
+          }));
+        } else {
+          // If it's an existing stat, call API to delete
+          await impactAPI.deleteStat(statId);
+          setImpactData(prev => ({
+            ...prev,
+            stats: prev.stats.filter(stat => stat.id !== statId)
+          }));
+        }
+        setHasChanges(true);
+      } catch (err) {
+        setError(err.message);
+      }
+    }
+  };
+
+  const deleteAchievement = async (achievementId) => {
+    if (window.confirm('Are you sure you want to delete this achievement?')) {
+      try {
+        // If it's a new achievement (not saved yet), just remove from state
+        if (String(achievementId).startsWith('temp_')) {
+          setImpactData(prev => ({
+            ...prev,
+            achievements: prev.achievements.filter(achievement => achievement.id !== achievementId)
+          }));
+        } else {
+          // If it's an existing achievement, call API to delete
+          await impactAPI.deleteAchievement(achievementId);
+          setImpactData(prev => ({
+            ...prev,
+            achievements: prev.achievements.filter(achievement => achievement.id !== achievementId)
+          }));
+        }
+        setHasChanges(true);
+      } catch (err) {
+        setError(err.message);
+      }
+    }
+  };
+
+  const handleImageUpload = async (file, type, id = null) => {
+    try {
+      const result = await impactAPI.uploadImage(file);
+      
+      if (type === 'background') {
+        handleInputChange('backgroundImage', result.imageUrl);
+      } else if (type === 'achievement' && id) {
+        handleAchievementChange(id, 'image', result.imageUrl);
+      }
+    } catch (err) {
+      setError(err.message);
+    }
+  };
+
+  const handleSave = async () => {
+    try {
+      setSaving(true);
+      setError(null);
+      
+      const result = await impactAPI.updateImpactData(impactData);
+      setImpactData(result);
+      setOriginalData(JSON.parse(JSON.stringify(result)));
+      setHasChanges(false);
+      setIsEditing(false);
+      
+      // Show success message
+      alert('Impact section updated successfully!');
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setSaving(false);
+    }
   };
 
   const handleReset = () => {
-    // Reset to original data or fetch from backend
-    setHasChanges(false);
-    setIsEditing(false);
+    if (originalData) {
+      setImpactData(JSON.parse(JSON.stringify(originalData)));
+      setHasChanges(false);
+      setIsEditing(false);
+    }
   };
 
   if (!mounted) return null;
 
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <Loader2 className="w-8 h-8 animate-spin text-blue-600 mx-auto mb-4" />
+          <p className="text-gray-600 dark:text-gray-400">Loading impact data...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
+      {/* Error Display */}
+      {error && (
+        <motion.div
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4"
+        >
+          <div className="text-red-800 dark:text-red-200 text-sm font-medium">
+            Error: {error}
+          </div>
+        </motion.div>
+      )}
+
       {/* Page Header */}
       <div className="flex items-center justify-between">
         <div>
@@ -189,7 +348,8 @@ export default function ImpactSectionManagement() {
           </button>
           <button 
             onClick={() => setIsEditing(!isEditing)}
-            className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700"
+            disabled={saving}
+            className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50"
           >
             <Edit className="w-4 h-4 mr-2" />
             {isEditing ? 'Stop Editing' : 'Edit Section'}
@@ -241,17 +401,23 @@ export default function ImpactSectionManagement() {
             <div className="flex space-x-3">
               <button
                 onClick={handleReset}
-                className="inline-flex items-center px-3 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700"
+                disabled={saving}
+                className="inline-flex items-center px-3 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50"
               >
                 <RotateCcw className="w-4 h-4 mr-1" />
                 Reset
               </button>
               <button
                 onClick={handleSave}
-                className="inline-flex items-center px-3 py-1.5 border border-transparent rounded-md text-sm font-medium text-white bg-green-600 hover:bg-green-700"
+                disabled={saving}
+                className="inline-flex items-center px-3 py-1.5 border border-transparent rounded-md text-sm font-medium text-white bg-green-600 hover:bg-green-700 disabled:opacity-50"
               >
-                <Save className="w-4 h-4 mr-1" />
-                Save Changes
+                {saving ? (
+                  <Loader2 className="w-4 h-4 mr-1 animate-spin" />
+                ) : (
+                  <Save className="w-4 h-4 mr-1" />
+                )}
+                {saving ? 'Saving...' : 'Save Changes'}
               </button>
             </div>
           </div>
@@ -316,9 +482,15 @@ export default function ImpactSectionManagement() {
                     className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white disabled:opacity-50"
                   />
                   {isEditing && (
-                    <button className="p-2 border border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-50 dark:hover:bg-gray-700">
+                    <label className="cursor-pointer p-2 border border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-50 dark:hover:bg-gray-700">
                       <ImageIcon className="w-4 h-4" />
-                    </button>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={(e) => e.target.files[0] && handleImageUpload(e.target.files[0], 'background')}
+                      />
+                    </label>
                   )}
                 </div>
               </div>
@@ -344,7 +516,15 @@ export default function ImpactSectionManagement() {
           >
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {impactData.stats.map((stat) => (
-                <div key={stat.id} className="p-4 border border-gray-200 dark:border-gray-700 rounded-lg">
+                <div key={stat.id} className="relative p-4 border border-gray-200 dark:border-gray-700 rounded-lg">
+                  {isEditing && (
+                    <button
+                      onClick={() => deleteStat(stat.id)}
+                      className="absolute top-2 right-2 p-1 text-red-600 hover:bg-red-100 dark:hover:bg-red-900/20 rounded"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  )}
                   <div className="space-y-3">
                     <div className="grid grid-cols-2 gap-2">
                       <div>
@@ -418,9 +598,36 @@ export default function ImpactSectionManagement() {
       >
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {impactData.achievements.map((achievement) => (
-            <div key={achievement.id} className="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
-              <div className="aspect-video bg-gray-100 dark:bg-gray-800 flex items-center justify-center">
-                <ImageIcon className="w-8 h-8 text-gray-400" />
+            <div key={achievement.id} className="relative border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
+              {isEditing && (
+                <button
+                  onClick={() => deleteAchievement(achievement.id)}
+                  className="absolute top-2 right-2 z-10 p-1 text-red-600 hover:bg-red-100 dark:hover:bg-red-900/20 rounded bg-white dark:bg-gray-800"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
+              )}
+              <div className="aspect-video bg-gray-100 dark:bg-gray-800 flex items-center justify-center relative">
+                {achievement.image && achievement.image !== '/images/impact/placeholder.jpg' ? (
+                  <img 
+                    src={achievement.image} 
+                    alt={achievement.title}
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <ImageIcon className="w-8 h-8 text-gray-400" />
+                )}
+                {isEditing && (
+                  <label className="absolute bottom-2 right-2 cursor-pointer p-1 bg-black bg-opacity-50 text-white rounded">
+                    <ImageIcon className="w-4 h-4" />
+                    <input
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={(e) => e.target.files[0] && handleImageUpload(e.target.files[0], 'achievement', achievement.id)}
+                    />
+                  </label>
+                )}
               </div>
               <div className="p-4 space-y-3">
                 <div>

@@ -400,164 +400,192 @@ export default function VolunteerOpportunitiesManagement() {
       </div>
 
       {/* Opportunities List */}
-      <AdminCard>
-        <div className="p-6">
-          <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-            Volunteer Opportunities ({opportunities.length})
-          </h3>
-          <div className="space-y-4">
-            {opportunities.map((opportunity) => {
-              const availability = getAvailabilityStatus(opportunity.currentVolunteers, opportunity.spotsAvailable);
-              return (
-                <motion.div
-                  key={opportunity.id}
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  className={`border rounded-lg p-4 hover:shadow-md transition-shadow ${
-                    opportunity.urgent 
-                      ? 'border-red-200 dark:border-red-800 bg-red-50/20 dark:bg-red-900/10' 
-                      : 'border-gray-200 dark:border-gray-700'
-                  }`}
-                >
-                  <div className="flex items-start justify-between">
-                    <div className="flex space-x-4">
-                      <div className={`w-12 h-12 ${opportunity.color} rounded-lg flex items-center justify-center text-white text-xl flex-shrink-0`}>
-                        {opportunity.icon}
-                      </div>
-                      <div className="flex-1">
-                        <div className="flex items-center space-x-2 mb-2">
-                          <h4 className="text-lg font-medium text-gray-900 dark:text-white">
-                            {opportunity.title}
-                          </h4>
-                          {opportunity.urgent && (
-                            <span className="px-2 py-1 text-xs font-medium bg-red-100 text-red-800 dark:bg-red-900/20 dark:text-red-300 rounded-full">
-                              URGENT
-                            </span>
-                          )}
-                          {opportunity.remote && (
-                            <span className="px-2 py-1 text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-300 rounded-full">
-                              REMOTE
-                            </span>
-                          )}
-                          <span className="px-2 py-1 text-xs font-medium bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300 rounded-full">
-                            {opportunity.category}
-                          </span>
+     // Replace the opportunities list section (AdminCard with opportunities) with this updated version:
+
+<AdminCard>
+  <div className="p-6">
+    <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+      Volunteer Opportunities ({opportunities.length})
+    </h3>
+    <div className="space-y-4">
+      {opportunities.map((opportunity) => {
+        const availability = getAvailabilityStatus(opportunity.currentVolunteers, opportunity.spotsAvailable);
+        return (
+          <motion.div
+            key={opportunity.id}
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className={`rounded-xl overflow-hidden shadow-lg hover:shadow-xl transition-all duration-300 ${
+              opportunity.urgent 
+                ? 'bg-gradient-to-r from-red-50 to-pink-50 dark:from-red-900/20 dark:to-pink-900/20 border border-red-200 dark:border-red-800' 
+                : 'bg-gradient-to-r from-gray-50 to-blue-50 dark:from-gray-800 dark:to-blue-900/20 border border-gray-200 dark:border-gray-700'
+            }`}
+          >
+            <div className="p-6">
+              <div className="flex items-start justify-between">
+                <div className="flex space-x-4 flex-1">
+                  <div className={`w-16 h-16 ${opportunity.color} rounded-xl flex items-center justify-center text-white text-2xl flex-shrink-0 shadow-lg`}>
+                    {opportunity.icon}
+                  </div>
+                  <div className="flex-1">
+                    <div className="flex items-center space-x-3 mb-3">
+                      <h4 className="text-xl font-bold text-gray-900 dark:text-white">
+                        {opportunity.title}
+                      </h4>
+                      {opportunity.urgent && (
+                        <span className="px-3 py-1 text-xs font-bold bg-gradient-to-r from-red-500 to-pink-500 text-white rounded-full shadow-sm">
+                          URGENT
+                        </span>
+                      )}
+                      {opportunity.remote && (
+                        <span className="px-3 py-1 text-xs font-medium bg-gradient-to-r from-blue-100 to-purple-100 text-blue-800 dark:from-blue-900/20 dark:to-purple-900/20 dark:text-blue-300 rounded-full">
+                          REMOTE
+                        </span>
+                      )}
+                      <span className="px-3 py-1 text-xs font-medium bg-white/70 backdrop-blur-sm text-gray-700 dark:bg-gray-800/70 dark:text-gray-300 rounded-full border border-gray-200 dark:border-gray-600">
+                        {opportunity.category}
+                      </span>
+                    </div>
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                      <div className="bg-white/60 backdrop-blur-sm dark:bg-gray-800/60 rounded-lg p-3 border border-gray-200/50 dark:border-gray-600/50">
+                        <div className="flex items-center text-sm text-gray-600 dark:text-gray-300">
+                          <Clock className="w-4 h-4 mr-2 text-orange-500" />
+                          <span className="font-medium">Time:</span>
                         </div>
-                        <div className="flex items-center space-x-4 text-sm text-gray-500 dark:text-gray-400 mb-2">
-                          <div className="flex items-center">
-                            <Clock className="w-4 h-4 mr-1" />
-                            {opportunity.timeCommitment}
-                          </div>
-                          <div className="flex items-center">
-                            <MapPin className="w-4 h-4 mr-1" />
-                            {opportunity.location}
-                          </div>
-                          <div className="flex items-center">
-                            <Users className="w-4 h-4 mr-1" />
-                            <span className={availability.color}>
-                              {opportunity.currentVolunteers}/{opportunity.spotsAvailable} filled
-                            </span>
-                          </div>
-                        </div>
-                        <p className="text-sm text-gray-600 dark:text-gray-300 mb-3">
-                          {opportunity.description}
+                        <p className="text-sm text-gray-800 dark:text-gray-200 mt-1">
+                          {opportunity.timeCommitment}
                         </p>
-                        
-                        {/* Skills Required */}
-                        <div className="mb-3">
-                          <span className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1 block">
-                            SKILLS REQUIRED:
-                          </span>
-                          <div className="flex flex-wrap gap-1">
-                            {opportunity.skillsRequired.map((skill, index) => (
-                              <span
-                                key={index}
-                                className="px-2 py-1 text-xs bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-300 rounded"
-                              >
-                                {skill}
-                              </span>
-                            ))}
-                          </div>
+                      </div>
+                      
+                      <div className="bg-white/60 backdrop-blur-sm dark:bg-gray-800/60 rounded-lg p-3 border border-gray-200/50 dark:border-gray-600/50">
+                        <div className="flex items-center text-sm text-gray-600 dark:text-gray-300">
+                          <MapPin className="w-4 h-4 mr-2 text-orange-500" />
+                          <span className="font-medium">Location:</span>
                         </div>
-
-                        {/* Benefits */}
-                        <div className="mb-3">
-                          <span className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1 block">
-                            BENEFITS:
-                          </span>
-                          <div className="flex flex-wrap gap-1">
-                            {opportunity.benefits.map((benefit, index) => (
-                              <span
-                                key={index}
-                                className="px-2 py-1 text-xs bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-300 rounded"
-                              >
-                                {benefit}
-                              </span>
-                            ))}
-                          </div>
+                        <p className="text-sm text-gray-800 dark:text-gray-200 mt-1">
+                          {opportunity.location}
+                        </p>
+                      </div>
+                      
+                      <div className="bg-white/60 backdrop-blur-sm dark:bg-gray-800/60 rounded-lg p-3 border border-gray-200/50 dark:border-gray-600/50">
+                        <div className="flex items-center text-sm text-gray-600 dark:text-gray-300">
+                          <Users className="w-4 h-4 mr-2 text-orange-500" />
+                          <span className="font-medium">Spots:</span>
                         </div>
-
-                        {/* Requirements */}
-                        <div>
-                          <span className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1 block">
-                            REQUIREMENTS:
-                          </span>
-                          <ul className="text-xs text-gray-600 dark:text-gray-300 space-y-1">
-                            {opportunity.requirements.map((req, index) => (
-                              <li key={index} className="flex items-center">
-                                <CheckCircle className="w-3 h-3 text-green-500 mr-1 flex-shrink-0" />
-                                {req}
-                              </li>
-                            ))}
-                          </ul>
-                        </div>
+                        <p className={`text-sm mt-1 font-medium ${availability.color}`}>
+                          {opportunity.currentVolunteers}/{opportunity.spotsAvailable} filled
+                        </p>
                       </div>
                     </div>
-                    <div className="flex items-center space-x-2">
-                      <button
-                        onClick={() => handleToggleUrgent(opportunity.id)}
-                        className={`p-2 rounded-md ${
-                          opportunity.urgent
-                            ? 'text-red-600 bg-red-100 dark:bg-red-900/20'
-                            : 'text-gray-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20'
-                        }`}
-                        title="Toggle Urgent Status"
-                      >
-                        <AlertCircle className="w-4 h-4" />
-                      </button>
-                      <button
-                        onClick={() => handleToggleOpportunityVisibility(opportunity.id)}
-                        className={`p-2 rounded-md ${
-                          opportunity.visible
-                            ? 'text-green-600 bg-green-100 dark:bg-green-900/20'
-                            : 'text-gray-400 bg-gray-100 dark:bg-gray-800'
-                        }`}
-                        title="Toggle Visibility"
-                      >
-                        {opportunity.visible ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
-                      </button>
-                      <button
-                        onClick={() => setEditingOpportunity(opportunity)}
-                        className="p-2 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-md"
-                        title="Edit Opportunity"
-                      >
-                        <Edit className="w-4 h-4" />
-                      </button>
-                      <button
-                        onClick={() => handleDeleteOpportunity(opportunity.id)}
-                        className="p-2 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-md"
-                        title="Delete Opportunity"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
+                    
+                    <p className="text-gray-700 dark:text-gray-300 mb-4 leading-relaxed">
+                      {opportunity.description}
+                    </p>
+                    
+                    {/* Skills Required */}
+                    <div className="mb-4">
+                      <h5 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2 flex items-center">
+                        <Award className="w-4 h-4 mr-1 text-blue-500" />
+                        Skills Required:
+                      </h5>
+                      <div className="flex flex-wrap gap-2">
+                        {opportunity.skillsRequired.map((skill, index) => (
+                          <span
+                            key={index}
+                            className="px-3 py-1 text-xs font-medium bg-gradient-to-r from-blue-100 to-indigo-100 text-blue-800 dark:from-blue-900/30 dark:to-indigo-900/30 dark:text-blue-300 rounded-full border border-blue-200 dark:border-blue-700"
+                          >
+                            {skill}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Benefits */}
+                    <div className="mb-4">
+                      <h5 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2 flex items-center">
+                        <Heart className="w-4 h-4 mr-1 text-green-500" />
+                        Benefits:
+                      </h5>
+                      <div className="flex flex-wrap gap-2">
+                        {opportunity.benefits.map((benefit, index) => (
+                          <span
+                            key={index}
+                            className="px-3 py-1 text-xs font-medium bg-gradient-to-r from-green-100 to-emerald-100 text-green-800 dark:from-green-900/30 dark:to-emerald-900/30 dark:text-green-300 rounded-full border border-green-200 dark:border-green-700"
+                          >
+                            {benefit}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Requirements */}
+                    <div>
+                      <h5 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2 flex items-center">
+                        <CheckCircle className="w-4 h-4 mr-1 text-purple-500" />
+                        Requirements:
+                      </h5>
+                      <div className="bg-white/40 backdrop-blur-sm dark:bg-gray-800/40 rounded-lg p-3 border border-gray-200/50 dark:border-gray-600/50">
+                        <ul className="text-sm text-gray-700 dark:text-gray-300 space-y-2">
+                          {opportunity.requirements.map((req, index) => (
+                            <li key={index} className="flex items-start">
+                              <CheckCircle className="w-4 h-4 text-green-500 mr-2 flex-shrink-0 mt-0.5" />
+                              {req}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
                     </div>
                   </div>
-                </motion.div>
-              );
-            })}
-          </div>
-        </div>
-      </AdminCard>
+                </div>
+                
+                {/* Action Buttons */}
+                <div className="flex flex-col space-y-2 ml-4">
+                  <button
+                    onClick={() => handleToggleUrgent(opportunity.id)}
+                    className={`p-2 rounded-lg transition-all duration-200 ${
+                      opportunity.urgent
+                        ? 'text-red-600 bg-red-100 dark:bg-red-900/30 shadow-sm'
+                        : 'text-gray-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20'
+                    }`}
+                    title="Toggle Urgent Status"
+                  >
+                    <AlertCircle className="w-5 h-5" />
+                  </button>
+                  <button
+                    onClick={() => handleToggleOpportunityVisibility(opportunity.id)}
+                    className={`p-2 rounded-lg transition-all duration-200 ${
+                      opportunity.visible
+                        ? 'text-green-600 bg-green-100 dark:bg-green-900/30 shadow-sm'
+                        : 'text-gray-400 bg-gray-100 dark:bg-gray-800'
+                    }`}
+                    title="Toggle Visibility"
+                  >
+                    {opportunity.visible ? <Eye className="w-5 h-5" /> : <EyeOff className="w-5 h-5" />}
+                  </button>
+                  <button
+                    onClick={() => setEditingOpportunity(opportunity)}
+                    className="p-2 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-all duration-200"
+                    title="Edit Opportunity"
+                  >
+                    <Edit className="w-5 h-5" />
+                  </button>
+                  <button
+                    onClick={() => handleDeleteOpportunity(opportunity.id)}
+                    className="p-2 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-all duration-200"
+                    title="Delete Opportunity"
+                  >
+                    <Trash2 className="w-5 h-5" />
+                  </button>
+                </div>
+              </div>
+            </div>
+          </motion.div>
+        );
+      })}
+    </div>
+  </div>
+</AdminCard>
     </div>
   );
 }

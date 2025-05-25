@@ -15,7 +15,9 @@ import {
   Save,
   RotateCcw,
   AlertCircle,
-  Activity
+  Activity,
+  X,
+  Check
 } from 'lucide-react';
 import AdminCard from '@/components/admin/ui/AdminCard';
 
@@ -32,6 +34,26 @@ interface DailyActivity {
   icon: string;
   color: string;
 }
+
+const defaultActivity: Omit<DailyActivity, 'id'> = {
+  title: '',
+  time: '',
+  location: '',
+  description: '',
+  days: [],
+  visible: true,
+  volunteers: 0,
+  beneficiaries: 0,
+  icon: '🎯',
+  color: 'bg-blue-500'
+};
+
+const availableIcons = ['🍽️', '📚', '👴', '🏥', '🎯', '🏠', '🌱', '💡', '🎨', '⚽', '🔧', '💊'];
+const availableColors = [
+  'bg-blue-500', 'bg-green-500', 'bg-red-500', 'bg-yellow-500', 
+  'bg-purple-500', 'bg-pink-500', 'bg-indigo-500', 'bg-gray-500',
+  'bg-orange-500', 'bg-teal-500', 'bg-cyan-500', 'bg-lime-500'
+];
 
 export default function DailyActivitiesManagement() {
   const [mounted, setMounted] = useState(false);
@@ -102,6 +124,7 @@ export default function DailyActivitiesManagement() {
   const [editingActivity, setEditingActivity] = useState<DailyActivity | null>(null);
   const [showAddForm, setShowAddForm] = useState(false);
   const [hasChanges, setHasChanges] = useState(false);
+  const [formData, setFormData] = useState<Omit<DailyActivity, 'id'>>(defaultActivity);
 
   const daysOfWeek = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 
@@ -125,14 +148,80 @@ export default function DailyActivitiesManagement() {
     }
   };
 
+  const handleEditActivity = (activity: DailyActivity) => {
+    setEditingActivity(activity);
+    setFormData({
+      title: activity.title,
+      time: activity.time,
+      location: activity.location,
+      description: activity.description,
+      days: [...activity.days],
+      visible: activity.visible,
+      volunteers: activity.volunteers,
+      beneficiaries: activity.beneficiaries,
+      icon: activity.icon,
+      color: activity.color
+    });
+  };
+
+  const handleAddActivity = () => {
+    setShowAddForm(true);
+    setFormData(defaultActivity);
+  };
+
+  const handleSaveActivity = () => {
+    if (!formData.title || !formData.time || !formData.location || !formData.description) {
+      alert('Please fill in all required fields');
+      return;
+    }
+
+    if (editingActivity) {
+      // Update existing activity
+      setActivities(activities.map(activity =>
+        activity.id === editingActivity.id
+          ? { ...activity, ...formData }
+          : activity
+      ));
+    } else {
+      // Add new activity
+      const newActivity: DailyActivity = {
+        ...formData,
+        id: Math.max(...activities.map(a => a.id), 0) + 1
+      };
+      setActivities([...activities, newActivity]);
+    }
+
+    setEditingActivity(null);
+    setShowAddForm(false);
+    setFormData(defaultActivity);
+    setHasChanges(true);
+  };
+
+  const handleCancelEdit = () => {
+    setEditingActivity(null);
+    setShowAddForm(false);
+    setFormData(defaultActivity);
+  };
+
+  const handleDayToggle = (day: string) => {
+    setFormData({
+      ...formData,
+      days: formData.days.includes(day)
+        ? formData.days.filter(d => d !== day)
+        : [...formData.days, day]
+    });
+  };
+
   const handleSaveChanges = () => {
     console.log('Saving changes...', { activities, sectionSettings });
     setHasChanges(false);
+    alert('Changes saved successfully!');
   };
 
   const handleResetChanges = () => {
     if (confirm('Are you sure you want to reset all changes?')) {
       setHasChanges(false);
+      // Reset to original state or reload from server
     }
   };
 
@@ -181,7 +270,7 @@ export default function DailyActivitiesManagement() {
             </>
           )}
           <button
-            onClick={() => setShowAddForm(true)}
+            onClick={handleAddActivity}
             className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700"
           >
             <Plus className="w-4 h-4 mr-2" />
@@ -197,6 +286,209 @@ export default function DailyActivitiesManagement() {
             <span className="text-sm text-yellow-800 dark:text-yellow-200">
               You have unsaved changes. Don't forget to save your work!
             </span>
+          </div>
+        </div>
+      )}
+
+      {/* Add/Edit Activity Modal */}
+      {(showAddForm || editingActivity) && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="p-6 border-b border-gray-200 dark:border-gray-700">
+              <div className="flex items-center justify-between">
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                  {editingActivity ? 'Edit Activity' : 'Add New Activity'}
+                </h3>
+                <button
+                  onClick={handleCancelEdit}
+                  className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+                >
+                  <X className="w-6 h-6" />
+                </button>
+              </div>
+            </div>
+            
+            <div className="p-6 space-y-6">
+              {/* Basic Information */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Activity Title *
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.title}
+                    onChange={(e) => setFormData({...formData, title: e.target.value})}
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white"
+                    placeholder="Enter activity title"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Time Schedule *
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.time}
+                    onChange={(e) => setFormData({...formData, time: e.target.value})}
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white"
+                    placeholder="e.g., Daily, 12:00 PM - 2:00 PM"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Location *
+                </label>
+                <input
+                  type="text"
+                  value={formData.location}
+                  onChange={(e) => setFormData({...formData, location: e.target.value})}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white"
+                  placeholder="Enter activity location"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Description *
+                </label>
+                <textarea
+                  value={formData.description}
+                  onChange={(e) => setFormData({...formData, description: e.target.value})}
+                  rows={3}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white"
+                  placeholder="Describe the activity"
+                />
+              </div>
+
+              {/* Schedule Days */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Active Days
+                </label>
+                <div className="flex flex-wrap gap-2">
+                  {daysOfWeek.map(day => (
+                    <button
+                      key={day}
+                      type="button"
+                      onClick={() => handleDayToggle(day)}
+                      className={`px-3 py-1 text-sm rounded-md border transition-colors ${
+                        formData.days.includes(day)
+                          ? 'bg-blue-100 text-blue-800 border-blue-300 dark:bg-blue-900/20 dark:text-blue-300 dark:border-blue-600'
+                          : 'bg-gray-100 text-gray-600 border-gray-300 dark:bg-gray-700 dark:text-gray-300 dark:border-gray-600'
+                      }`}
+                    >
+                      {day}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Visual Settings */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Icon
+                  </label>
+                  <div className="grid grid-cols-6 gap-2">
+                    {availableIcons.map(icon => (
+                      <button
+                        key={icon}
+                        type="button"
+                        onClick={() => setFormData({...formData, icon})}
+                        className={`p-2 text-xl rounded-md border-2 transition-colors ${
+                          formData.icon === icon
+                            ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
+                            : 'border-gray-300 dark:border-gray-600 hover:border-gray-400'
+                        }`}
+                      >
+                        {icon}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Color
+                  </label>
+                  <div className="grid grid-cols-6 gap-2">
+                    {availableColors.map(color => (
+                      <button
+                        key={color}
+                        type="button"
+                        onClick={() => setFormData({...formData, color})}
+                        className={`w-8 h-8 rounded-md border-2 transition-all ${color} ${
+                          formData.color === color
+                            ? 'border-gray-800 dark:border-white scale-110'
+                            : 'border-gray-300 dark:border-gray-600'
+                        }`}
+                      />
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              {/* Statistics */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Number of Volunteers
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={formData.volunteers}
+                    onChange={(e) => setFormData({...formData, volunteers: parseInt(e.target.value) || 0})}
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Number of Beneficiaries
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={formData.beneficiaries}
+                    onChange={(e) => setFormData({...formData, beneficiaries: parseInt(e.target.value) || 0})}
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white"
+                  />
+                </div>
+              </div>
+
+              {/* Visibility */}
+              <div>
+                <label className="flex items-center">
+                  <input
+                    type="checkbox"
+                    checked={formData.visible}
+                    onChange={(e) => setFormData({...formData, visible: e.target.checked})}
+                    className="rounded border-gray-300 text-blue-600 shadow-sm focus:border-blue-300 focus:ring focus:ring-blue-200 focus:ring-opacity-50"
+                  />
+                  <span className="ml-2 text-sm text-gray-700 dark:text-gray-300">
+                    Make this activity visible on the website
+                  </span>
+                </label>
+              </div>
+            </div>
+
+            <div className="p-6 border-t border-gray-200 dark:border-gray-700 flex justify-end space-x-3">
+              <button
+                onClick={handleCancelEdit}
+                className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-50 dark:hover:bg-gray-700"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSaveActivity}
+                className="px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-md hover:bg-blue-700"
+              >
+                <Check className="w-4 h-4 mr-2 inline" />
+                {editingActivity ? 'Update Activity' : 'Create Activity'}
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -416,7 +708,7 @@ export default function DailyActivitiesManagement() {
                       {activity.visible ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
                     </button>
                     <button
-                      onClick={() => setEditingActivity(activity)}
+                      onClick={() => handleEditActivity(activity)}
                       className="p-2 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-md"
                       title="Edit Activity"
                     >
@@ -433,6 +725,27 @@ export default function DailyActivitiesManagement() {
                 </div>
               </motion.div>
             ))}
+            
+            {activities.length === 0 && (
+              <div className="text-center py-12">
+                <div className="text-gray-400 mb-4">
+                  <Activity className="w-12 h-12 mx-auto" />
+                </div>
+                <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
+                  No activities yet
+                </h3>
+                <p className="text-gray-500 dark:text-gray-400 mb-4">
+                  Get started by creating your first daily activity.
+                </p>
+                <button
+                  onClick={handleAddActivity}
+                  className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700"
+                >
+                  <Plus className="w-4 h-4 mr-2" />
+                  Add Your First Activity
+                </button>
+              </div>
+            )}
           </div>
         </div>
       </AdminCard>
