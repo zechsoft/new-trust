@@ -1,6 +1,9 @@
 "use client";
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useRouter } from 'next/navigation';
+
+
 import { 
   Mail, 
   Lock, 
@@ -18,8 +21,82 @@ import {
   RefreshCw
 } from 'lucide-react';
 
+const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
+
+const apiService = {
+  // Auth endpoints
+  register: async (userData) => {
+    const response = await fetch(`${API_BASE_URL}/auth/register`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(userData),
+    });
+    return response.json();
+  },
+
+  login: async (credentials) => {
+    const response = await fetch(`${API_BASE_URL}/auth/login`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(credentials),
+    });
+    return response.json();
+  },
+
+  verifyOTP: async (otpData) => {
+    const response = await fetch(`${API_BASE_URL}/auth/verify-otp`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(otpData),
+    });
+    return response.json();
+  },
+
+  resendOTP: async (email, type) => {
+  const response = await fetch(`${API_BASE_URL}/auth/resend-otp`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ email, type }),
+  });
+  return response.json();
+},
+
+
+  forgotPassword: async (email) => {
+    const response = await fetch(`${API_BASE_URL}/auth/forgot-password`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ email }),
+    });
+    return response.json();
+  },
+
+  resetPassword: async (resetData) => {
+    const response = await fetch(`${API_BASE_URL}/auth/reset-password`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(resetData),
+    });
+    return response.json();
+  }
+};
+
+
 const AdminAuthSystem = () => {
   const [currentView, setCurrentView] = useState('login'); // login, register, otp, forgot, reset
+  const [otpContext, setOtpContext] = useState(''); // Track OTP context: 'registration' or 'password_reset'
   const [formData, setFormData] = useState({
     email: '',
     password: '',
@@ -37,7 +114,10 @@ const AdminAuthSystem = () => {
   const [errors, setErrors] = useState({});
   const [otpTimer, setOtpTimer] = useState(0);
   const [canResendOtp, setCanResendOtp] = useState(false);
-  
+  const [resetToken, setResetToken] = useState(''); 
+  const [resetData, setResetData] = useState({ email: '', newPassword: '', confirmPassword: '' });
+  const router = useRouter();
+
   const otpRefs = useRef([]);
 
   // OTP Timer Effect
@@ -52,6 +132,22 @@ const AdminAuthSystem = () => {
     }
     return () => clearInterval(interval);
   }, [otpTimer, currentView]);
+
+  useEffect(() => {
+    let interval;
+    if (otpTimer > 0) {
+      interval = setInterval(() => {
+        setOtpTimer(prev => {
+          if (prev <= 1) {
+            setCanResendOtp(true);
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+    }
+    return () => clearInterval(interval);
+  }, [otpTimer]);
 
   // Handle form input changes
   const handleInputChange = (field, value) => {
@@ -98,81 +194,207 @@ const AdminAuthSystem = () => {
   };
 
   // Handle Login
-  const handleLogin = async (e) => {
-    e.preventDefault();
-    const newErrors = {};
-    
-    if (!formData.email) newErrors.email = 'Email is required';
-    else if (!validateEmail(formData.email)) newErrors.email = 'Invalid email format';
-    
-    if (!formData.password) newErrors.password = 'Password is required';
-    
-    if (Object.keys(newErrors).length > 0) {
-      setErrors(newErrors);
+
+const handleLogin = async (e) => {
+  e.preventDefault();
+
+  const newErrors = {};
+
+  // ✅ Client-side validation
+  if (!formData.email) {
+    newErrors.email = 'Email is required';
+  } else if (!validateEmail(formData.email)) {
+    newErrors.email = 'Invalid email format';
+  }
+
+  if (!formData.password) {
+    newErrors.password = 'Password is required';
+  }
+
+  if (Object.keys(newErrors).length > 0) {
+    setErrors(newErrors);
+    return;
+  }
+
+  setIsLoading(true);
+  setErrors({});
+
+  try {
+    const result = await apiService.login({
+      email: formData.email,
+      password: formData.password,
+    });
+
+    if (result.error || !result.accessToken || !result.refreshToken) {
+      // ✅ Detailed server-side error handling
+      if (result.status === 423) {
+        setErrors({ form: result.error || 'Account locked. Contact support.' });
+      } else if (result.status === 401) {
+        setErrors({ form: result.error || 'Invalid credentials.' });
+      } else {
+        setErrors({ form: result.error || 'Login failed. Please try again.' });
+      }
       return;
     }
-    
-    setIsLoading(true);
-    // Simulate API call
-    setTimeout(() => {
-      setIsLoading(false);
-      // For demo, go to OTP verification
-      setCurrentView('otp');
-      setOtpTimer(60);
-      setCanResendOtp(false);
-    }, 2000);
-  };
+
+    // ✅ Login success
+    localStorage.setItem('accessToken', result.accessToken);
+    localStorage.setItem('refreshToken', result.refreshToken);
+    localStorage.setItem('adminInfo', JSON.stringify(result.admin));
+
+    setFormData({ email: '', password: '' });
+    setErrors({});
+    router.push('/admin');
+
+  } catch (error) {
+    console.error('Login error:', error);
+    setErrors({
+      form: 'Network error. Please check your connection and try again.',
+    });
+  } finally {
+    setIsLoading(false);
+  }
+};
+
+
 
   // Handle Register
-  const handleRegister = async (e) => {
-    e.preventDefault();
-    const newErrors = {};
-    
-    if (!formData.fullName) newErrors.fullName = 'Full name is required';
-    if (!formData.email) newErrors.email = 'Email is required';
-    else if (!validateEmail(formData.email)) newErrors.email = 'Invalid email format';
-    if (!formData.phone) newErrors.phone = 'Phone number is required';
-    else if (!validatePhone(formData.phone)) newErrors.phone = 'Invalid phone number';
-    if (!formData.organization) newErrors.organization = 'Organization is required';
-    if (!formData.password) newErrors.password = 'Password is required';
-    else if (!validatePassword(formData.password)) newErrors.password = 'Password must be at least 8 characters';
-    if (formData.password !== formData.confirmPassword) newErrors.confirmPassword = 'Passwords do not match';
-    
-    if (Object.keys(newErrors).length > 0) {
-      setErrors(newErrors);
-      return;
-    }
-    
-    setIsLoading(true);
-    setTimeout(() => {
-      setIsLoading(false);
+const handleRegister = async (e) => {
+  e.preventDefault();
+  const newErrors = {};
+
+  if (!formData.fullName) newErrors.fullName = 'Full name is required';
+  if (!formData.email) newErrors.email = 'Email is required';
+  else if (!validateEmail(formData.email)) newErrors.email = 'Invalid email format';
+  if (!formData.phone) newErrors.phone = 'Phone number is required';
+  else if (!validatePhone(formData.phone)) newErrors.phone = 'Invalid phone number';
+  if (!formData.organization) newErrors.organization = 'Organization is required';
+  if (!formData.password) newErrors.password = 'Password is required';
+  else if (!validatePassword(formData.password)) newErrors.password = 'Password must be at least 8 characters';
+  if (formData.password !== formData.confirmPassword) newErrors.confirmPassword = 'Passwords do not match';
+
+  if (Object.keys(newErrors).length > 0) {
+    setErrors(newErrors);
+    return;
+  }
+
+  setIsLoading(true);
+  setErrors({});
+
+  try {
+    const result = await apiService.register({
+      fullName: formData.fullName,
+      email: formData.email,
+      phone: formData.phone,
+      organization: formData.organization,
+      password: formData.password
+    });
+
+    if (result.email) {
+      // Set the correct OTP context for registration
+      setOtpContext('registration');
       setCurrentView('otp');
       setOtpTimer(60);
       setCanResendOtp(false);
-    }, 2000);
-  };
+      // Clear OTP array
+      setFormData(prev => ({ ...prev, otp: ['', '', '', '', '', ''] }));
+    } else {
+      setErrors({ general: result.error || 'Registration failed' });
+    }
+  } catch (error) {
+    console.error('Registration error:', error);
+    setErrors({ general: 'Network error. Please try again.' });
+  } finally {
+    setIsLoading(false);
+  }
+};
 
-  // Handle OTP Verification
-  const handleOtpVerify = async (e) => {
-    e.preventDefault();
-    const otpString = formData.otp.join('');
-    
-    if (otpString.length !== 6) {
-      setErrors({ otp: 'Please enter complete OTP' });
+//verify OTP
+
+// Updated handleOtpVerify function with correct navigation logic
+const handleOtpVerify = async (e) => {
+  e.preventDefault();
+
+  const otpString = Array.isArray(formData.otp) ? formData.otp.join('') : formData.otp;
+
+  if (otpString.length !== 6) {
+    setErrors({ otp: 'Please enter complete 6-digit OTP' });
+    return;
+  }
+
+  setIsLoading(true);
+  setErrors({});
+
+  try {
+    // Use the stored context to determine OTP type
+    const otpType = otpContext || (currentView === 'forgot' ? 'password_reset' : 'registration');
+
+    const response = await fetch(`${API_BASE_URL}/auth/verify-otp`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        email: formData.email,
+        otp: otpString,
+        type: otpType,
+      }),
+    });
+
+    const result = await response.json();
+
+    if (!response.ok) {
+      setErrors({ otp: result.error || 'OTP verification failed' });
       return;
     }
-    
-    setIsLoading(true);
-    setTimeout(() => {
-      setIsLoading(false);
-      // Simulate successful verification
-      alert('Authentication successful!');
-    }, 2000);
-  };
+
+    // Show success message
+    alert(result.message);
+
+    if (otpType === 'password_reset') {
+      // For forgot password flow: store reset token and go to reset password page
+      setResetToken(result.resetToken);
+      setCurrentView('reset');
+      // Reset OTP context
+      setOtpContext('');
+    } else {
+      // For registration flow: clear form data and go to login page
+      setFormData({
+        email: '',
+        password: '',
+        confirmPassword: '',
+        fullName: '',
+        phone: '',
+        organization: '',
+        otp: ['', '', '', '', '', ''],
+        newPassword: '',
+        confirmNewPassword: ''
+      });
+      setCurrentView('login');
+      // Reset OTP context
+      setOtpContext('');
+      
+      // Optional: Show a success message that registration is complete
+      setTimeout(() => {
+        alert('Registration completed successfully! Please login with your credentials.');
+      }, 100);
+    }
+
+  } catch (error) {
+    console.error('OTP verification error:', error);
+    setErrors({ otp: 'Network error. Please try again.' });
+  } finally {
+    setIsLoading(false);
+  }
+};
+
+
 
   // Handle Forgot Password
   const handleForgotPassword = async (e) => {
     e.preventDefault();
+    setErrors({});
+    
     if (!formData.email) {
       setErrors({ email: 'Email is required' });
       return;
@@ -181,22 +403,90 @@ const AdminAuthSystem = () => {
       setErrors({ email: 'Invalid email format' });
       return;
     }
-    
+
     setIsLoading(true);
-    setTimeout(() => {
+    try {
+      const response = await apiService.forgotPassword(formData.email);
+      
+      if (response.message) {
+        // Set context and move to OTP view
+        setOtpContext('password_reset'); // ✅ Set the correct context
+        setCurrentView('otp');
+        setOtpTimer(60);
+        setCanResendOtp(false);
+        // Clear OTP array
+        setFormData(prev => ({ ...prev, otp: ['', '', '', '', '', ''] }));
+      } else if (response.error) {
+        setErrors({ email: response.error });
+      }
+    } catch (error) {
+      setErrors({ email: 'Something went wrong. Please try again later.' });
+    } finally {
       setIsLoading(false);
-      setCurrentView('otp');
-      setOtpTimer(60);
-      setCanResendOtp(false);
-    }, 2000);
+    }
   };
 
+
   // Resend OTP
-  const handleResendOtp = () => {
-    setOtpTimer(60);
-    setCanResendOtp(false);
-    setFormData(prev => ({ ...prev, otp: ['', '', '', '', '', ''] }));
+  const handleResendOtp = async () => {
+    try {
+      setOtpTimer(60);
+      setCanResendOtp(false);
+      setFormData(prev => ({ ...prev, otp: ['', '', '', '', '', ''] }));
+
+      // ✅ Use the stored context instead of hardcoding
+      const otpType = otpContext || (currentView === 'forgot' ? 'password_reset' : 'registration');
+      
+      console.log('Resending OTP with type:', otpType, 'for email:', formData.email); // Debug log
+
+      const result = await apiService.resendOTP(formData.email, otpType);
+      
+      if (result.error) {
+        console.error('Error resending OTP:', result.error);
+        setErrors({ otp: result.error });
+      } else {
+        console.log('OTP resent successfully');
+        // Optionally show success message
+      }
+    } catch (error) {
+      console.error('Resend OTP failed:', error);
+      setErrors({ otp: 'Failed to resend OTP. Please try again.' });
+    }
   };
+
+const handleResetPassword = async (e: React.FormEvent) => {
+  e.preventDefault();
+
+  if (resetData.newPassword !== resetData.confirmPassword) {
+    setErrors({ ...errors, reset: "Passwords do not match" });
+    return;
+  }
+
+  try {
+    setIsLoading(true);
+    const res = await fetch("http://localhost:5000/api/auth/reset-password", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        resetToken,
+        newPassword: resetData.newPassword,
+        confirmPassword: resetData.confirmPassword, // ✅ Added this
+        // ❌ Removed email since backend doesn't use it
+      }),
+    });
+
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.message || data.error || "Reset failed");
+
+    alert("Password reset successful!");
+    setCurrentView("login");
+  } catch (err: any) {
+    setErrors({ ...errors, reset: err.message });
+  } finally {
+    setIsLoading(false);
+  }
+};
+
 
   // Animation variants
   const containerVariants = {
@@ -699,6 +989,85 @@ const AdminAuthSystem = () => {
             )}
           </AnimatePresence>
         </div>
+
+        {/* Reset Password */}
+{currentView === 'reset' && (
+  <motion.form
+    key="reset"
+    variants={containerVariants}
+    initial="hidden"
+    animate="visible"
+    exit="exit"
+    onSubmit={handleResetPassword}
+    className="space-y-6"
+  >
+    <div className="text-center">
+      <h3 className="text-xl font-semibold text-white mb-2">Set New Password</h3>
+      <p className="text-white/70">Enter and confirm your new password.</p>
+    </div>
+
+    <div>
+      <motion.div className="relative" variants={inputVariants} whileFocus="focus">
+        <Lock className="absolute left-4 top-4 w-5 h-5 text-white/50" />
+        <input
+          type="password"
+          placeholder="New Password"
+          value={resetData.newPassword}
+          onChange={(e) => setResetData({ ...resetData, newPassword: e.target.value })}
+          className="w-full bg-white/10 border border-white/20 rounded-xl px-12 py-4 text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"
+        />
+      </motion.div>
+    </div>
+
+    <div>
+      <motion.div className="relative" variants={inputVariants} whileFocus="focus">
+        <Lock className="absolute left-4 top-4 w-5 h-5 text-white/50" />
+        <input
+          type="password"
+          placeholder="Confirm Password"
+          value={resetData.confirmPassword}
+          onChange={(e) => setResetData({ ...resetData, confirmPassword: e.target.value })}
+          className="w-full bg-white/10 border border-white/20 rounded-xl px-12 py-4 text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"
+        />
+      </motion.div>
+    </div>
+
+    {errors.reset && (
+      <p className="text-red-400 text-sm mt-1 flex items-center">
+        <AlertCircle className="w-4 h-4 mr-1" />
+        {errors.reset}
+      </p>
+    )}
+
+    <motion.button
+      type="submit"
+      disabled={isLoading}
+      className="w-full bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-xl py-4 font-semibold flex items-center justify-center space-x-2 hover:from-green-600 hover:to-emerald-700 transition-all transform hover:scale-105 disabled:opacity-50"
+      whileHover={{ scale: 1.05 }}
+      whileTap={{ scale: 0.95 }}
+    >
+      {isLoading ? (
+        <RefreshCw className="w-5 h-5 animate-spin" />
+      ) : (
+        <>
+          <span>Reset Password</span>
+          <ArrowRight className="w-5 h-5" />
+        </>
+      )}
+    </motion.button>
+
+    <div className="text-center">
+      <button
+        type="button"
+        onClick={() => setCurrentView('login')}
+        className="text-white/70 hover:text-white transition-colors"
+      >
+        ← Back to Login
+      </button>
+    </div>
+  </motion.form>
+)}
+
 
         {/* Footer */}
         <div className="text-center mt-8">
