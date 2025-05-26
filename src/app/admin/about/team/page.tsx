@@ -85,9 +85,15 @@ export default function TeamManagement() {
   };
 
   const handleEditMember = (member: TeamMember) => {
+    // Add safety check
+    if (!member) {
+      console.error('Cannot edit: member is undefined');
+      return;
+    }
+    
     setEditingMember(member);
     setFormData(member);
-    setImagePreview(member.image);
+    setImagePreview(member.image || '');
     setIsModalOpen(true);
   };
 
@@ -103,7 +109,12 @@ export default function TeamManagement() {
       // Add new member
       const newMember: TeamMember = {
         id: Date.now().toString(),
-        ...formData as TeamMember
+        name: formData.name || '',
+        role: formData.role || '',
+        bio: formData.bio || '',
+        image: formData.image || '',
+        order: formData.order || teamMembers.length + 1,
+        isVisible: formData.isVisible !== undefined ? formData.isVisible : true
       };
       setTeamMembers(prev => [...prev, newMember]);
     }
@@ -144,31 +155,50 @@ export default function TeamManagement() {
     { name: 'Light Green', value: 'green-50' }
   ];
 
+  // Fixed columns definition with proper safety checks
   const columns = [
     {
       key: 'image',
       label: 'Photo',
-      render: (member: TeamMember) => (
-        <img 
-          src={member.image || '/api/placeholder/40/40'} 
-          alt={member.name}
-          className="w-10 h-10 rounded-full object-cover"
-        />
-      )
+      render: (member: TeamMember) => {
+        if (!member) return <div className="w-10 h-10 bg-gray-200 rounded-full" />;
+        return (
+          <img 
+            src={member.image || '/api/placeholder/40/40'} 
+            alt={member.name || 'Team member'}
+            className="w-10 h-10 rounded-full object-cover"
+          />
+        );
+      }
     },
-    { key: 'name', label: 'Name' },
-    { key: 'role', label: 'Role' },
-    { key: 'order', label: 'Order' },
+    { 
+      key: 'name', 
+      label: 'Name',
+      render: (member: TeamMember) => member?.name || 'N/A'
+    },
+    { 
+      key: 'role', 
+      label: 'Role',
+      render: (member: TeamMember) => member?.role || 'N/A'
+    },
+    { 
+      key: 'order', 
+      label: 'Order',
+      render: (member: TeamMember) => member?.order || 0
+    },
     {
       key: 'isVisible',
       label: 'Status',
-      render: (member: TeamMember) => (
-        <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-          member.isVisible ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
-        }`}>
-          {member.isVisible ? 'Visible' : 'Hidden'}
-        </span>
-      )
+      render: (member: TeamMember) => {
+        if (!member) return <span className="px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-800">Unknown</span>;
+        return (
+          <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+            member.isVisible ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
+          }`}>
+            {member.isVisible ? 'Visible' : 'Hidden'}
+          </span>
+        );
+      }
     },
     {
       key: 'bio',
@@ -176,7 +206,7 @@ export default function TeamManagement() {
       render: (member: TeamMember) => (
         <div className="max-w-xs">
           <p className="text-sm text-gray-600 truncate">
-            {member.bio || 'No bio provided'}
+            {member?.bio || 'No bio provided'}
           </p>
         </div>
       )
@@ -184,27 +214,35 @@ export default function TeamManagement() {
     {
       key: 'actions',
       label: 'Actions',
-      render: (member: TeamMember) => (
-        <div className="flex gap-2">
-          <AdminButton 
-            variant="outline" 
-            size="sm"
-            onClick={() => handleEditMember(member)}
-          >
-            <Edit className="w-4 h-4" />
-          </AdminButton>
-          <AdminButton 
-            variant="outline" 
-            size="sm"
-            onClick={() => handleDeleteMember(member.id)}
-            className="text-red-600 hover:text-red-700"
-          >
-            <Trash2 className="w-4 h-4" />
-          </AdminButton>
-        </div>
-      )
+      render: (member: TeamMember) => {
+        if (!member) return null;
+        return (
+          <div className="flex gap-2">
+            <AdminButton 
+              variant="outline" 
+              size="sm"
+              onClick={() => handleEditMember(member)}
+            >
+              <Edit className="w-4 h-4" />
+            </AdminButton>
+            <AdminButton 
+              variant="outline" 
+              size="sm"
+              onClick={() => handleDeleteMember(member.id)}
+              className="text-red-600 hover:text-red-700"
+            >
+              <Trash2 className="w-4 h-4" />
+            </AdminButton>
+          </div>
+        );
+      }
     }
   ];
+
+  // Filter and sort team members safely
+  const sortedTeamMembers = teamMembers
+    .filter(member => member && member.id) // Filter out any undefined/invalid members
+    .sort((a, b) => (a.order || 0) - (b.order || 0));
 
   return (
     <div className="space-y-6">
@@ -243,7 +281,7 @@ export default function TeamManagement() {
             <Eye className="w-8 h-8 text-green-500 mr-3" />
             <div>
               <h3 className="text-lg font-semibold">
-                {teamMembers.filter(m => m.isVisible).length}
+                {teamMembers.filter(m => m?.isVisible).length}
               </h3>
               <p className="text-gray-600">Visible Members</p>
             </div>
@@ -268,10 +306,8 @@ export default function TeamManagement() {
         <div className="p-6">
           <h2 className="text-lg font-semibold mb-4">Team Members</h2>
           <AdminTable
-            data={teamMembers.sort((a, b) => a.order - b.order)}
+            data={sortedTeamMembers}
             columns={columns}
-            onEdit={handleEditMember}
-            onDelete={handleDeleteMember}
           />
         </div>
       </AdminCard>
@@ -290,24 +326,28 @@ export default function TeamManagement() {
           </div>
           
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            {teamMembers.filter(m => m.isVisible).slice(0, 4).map((member) => (
-              <div key={member.id} className="bg-white rounded-lg shadow-md overflow-hidden">
-                <div className="h-32 overflow-hidden">
-                  <img
-                    src={member.image || '/api/placeholder/400/400'}
-                    alt={member.name}
-                    className="w-full h-full object-cover"
-                  />
+            {teamMembers
+              .filter(m => m?.isVisible)
+              .slice(0, 4)
+              .map((member) => (
+                <div key={member.id} className="bg-white rounded-lg shadow-md overflow-hidden">
+                  <div className="h-32 overflow-hidden">
+                    <img
+                      src={member.image || '/api/placeholder/400/400'}
+                      alt={member.name}
+                      className="w-full h-full object-cover"
+                    />
+                  </div>
+                  <div className="p-4">
+                    <h3 className="font-bold text-sm">{member.name}</h3>
+                    <p className="text-purple-600 text-xs">{member.role}</p>
+                    <p className="text-gray-600 text-xs mt-2 line-clamp-2">
+                      {member.bio}
+                    </p>
+                  </div>
                 </div>
-                <div className="p-4">
-                  <h3 className="font-bold text-sm">{member.name}</h3>
-                  <p className="text-purple-600 text-xs">{member.role}</p>
-                  <p className="text-gray-600 text-xs mt-2 line-clamp-2">
-                    {member.bio}
-                  </p>
-                </div>
-              </div>
-            ))}
+              ))
+            }
           </div>
           
           {sectionSettings.showCtaSection && (
@@ -413,7 +453,7 @@ export default function TeamManagement() {
               <label className="relative inline-flex items-center cursor-pointer">
                 <input
                   type="checkbox"
-                  checked={formData.isVisible || false}
+                  checked={formData.isVisible !== undefined ? formData.isVisible : true}
                   onChange={(e) => setFormData(prev => ({ ...prev, isVisible: e.target.checked }))}
                   className="sr-only peer"
                 />
@@ -585,4 +625,4 @@ export default function TeamManagement() {
       </AdminModal>
     </div>
   );
-}   
+}

@@ -4,8 +4,8 @@
 import { useState } from 'react';
 import { Plus, Edit, Trash2, Save } from 'lucide-react';
 import AdminCard from '@/components/admin/ui/AdminCard';
-import AdminButton from '@/components/admin/ui/AdminButton';
-import AdminModal from '@/components/admin/ui/AdminModal';
+import AdminButton  from '@/components/admin/ui/AdminButton';
+import {AdminModal} from '@/components/admin/ui/AdminModal';
 
 interface TimelineItem {
   id: number;

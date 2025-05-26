@@ -2,6 +2,8 @@
 
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
+import { X } from 'lucide-react';
+
 import {
   MessageSquare,
   Plus,
@@ -34,6 +36,16 @@ interface Testimonial {
   category: 'beneficiary' | 'volunteer' | 'donor' | 'partner';
 }
 
+interface TestimonialFormData {
+  name: string;
+  role: string;
+  organization: string;
+  content: string;
+  rating: number;
+  location: string;
+  category: 'beneficiary' | 'volunteer' | 'donor' | 'partner';
+}
+
 export default function TestimonialsManagement() {
   const [mounted, setMounted] = useState(false);
   const [testimonials, setTestimonials] = useState<Testimonial[]>([]);
@@ -42,6 +54,73 @@ export default function TestimonialsManagement() {
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [showAddModal, setShowAddModal] = useState(false);
   const [editingTestimonial, setEditingTestimonial] = useState<Testimonial | null>(null);
+  const [formData, setFormData] = useState<TestimonialFormData>({
+    name: '',
+    role: '',
+    organization: '',
+    content: '',
+    rating: 5,
+    location: '',
+    category: 'beneficiary'
+  });
+
+  const resetForm = () => {
+    setFormData({
+      name: '',
+      role: '',
+      organization: '',
+      content: '',
+      rating: 5,
+      location: '',
+      category: 'beneficiary'
+    });
+  };
+
+  const handleAddTestimonial = () => {
+    const newTestimonial: Testimonial = {
+      id: Math.max(...testimonials.map(t => t.id), 0) + 1,
+      ...formData,
+      image: '/images/testimonials/default.jpg',
+      featured: false,
+      approved: false,
+      dateSubmitted: new Date().toISOString().split('T')[0]
+    };
+    
+    setTestimonials(prev => [newTestimonial, ...prev]);
+    setShowAddModal(false);
+    resetForm();
+  };
+
+  const handleEditTestimonial = () => {
+    if (!editingTestimonial) return;
+    
+    setTestimonials(prev => prev.map(testimonial => 
+      testimonial.id === editingTestimonial.id 
+        ? { ...testimonial, ...formData }
+        : testimonial
+    ));
+    setEditingTestimonial(null);
+    resetForm();
+  };
+
+  const openEditModal = (testimonial: Testimonial) => {
+    setFormData({
+      name: testimonial.name,
+      role: testimonial.role,
+      organization: testimonial.organization || '',
+      content: testimonial.content,
+      rating: testimonial.rating,
+      location: testimonial.location,
+      category: testimonial.category
+    });
+    setEditingTestimonial(testimonial);
+  };
+
+  const closeModals = () => {
+    setShowAddModal(false);
+    setEditingTestimonial(null);
+    resetForm();
+  };
 
   useEffect(() => {
     setMounted(true);
@@ -134,6 +213,156 @@ export default function TestimonialsManagement() {
       setTestimonials(prev => prev.filter(testimonial => testimonial.id !== id));
     }
   };
+
+  const Modal = ({ isOpen, onClose, title, children }: {
+    isOpen: boolean;
+    onClose: () => void;
+    title: string;
+    children: React.ReactNode;
+  }) => {
+    if (!isOpen) return null;
+
+    return (
+      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+        <div className="bg-white dark:bg-gray-800 rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+          <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700">
+            <h2 className="text-xl font-semibold text-gray-900 dark:text-white">{title}</h2>
+            <button
+              onClick={onClose}
+              className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+            >
+              <X className="w-6 h-6" />
+            </button>
+          </div>
+          {children}
+        </div>
+      </div>
+    );
+  };
+
+  const TestimonialForm = ({ onSubmit, submitText }: {
+    onSubmit: () => void;
+    submitText: string;
+  }) => (
+    <div className="p-6 space-y-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div>
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+            Name *
+          </label>
+          <input
+            type="text"
+            value={formData.name}
+            onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
+            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500"
+            required
+          />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+            Role *
+          </label>
+          <input
+            type="text"
+            value={formData.role}
+            onChange={(e) => setFormData(prev => ({ ...prev, role: e.target.value }))}
+            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500"
+            required
+          />
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div>
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+            Organization
+          </label>
+          <input
+            type="text"
+            value={formData.organization}
+            onChange={(e) => setFormData(prev => ({ ...prev, organization: e.target.value }))}
+            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500"
+          />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+            Location *
+          </label>
+          <input
+            type="text"
+            value={formData.location}
+            onChange={(e) => setFormData(prev => ({ ...prev, location: e.target.value }))}
+            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500"
+            required
+          />
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div>
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+            Category *
+          </label>
+          <select
+            value={formData.category}
+            onChange={(e) => setFormData(prev => ({ ...prev, category: e.target.value as any }))}
+            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500"
+          >
+            <option value="beneficiary">Beneficiary</option>
+            <option value="volunteer">Volunteer</option>
+            <option value="donor">Donor</option>
+            <option value="partner">Partner</option>
+          </select>
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+            Rating *
+          </label>
+          <select
+            value={formData.rating}
+            onChange={(e) => setFormData(prev => ({ ...prev, rating: parseInt(e.target.value) }))}
+            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500"
+          >
+            {[1, 2, 3, 4, 5].map(num => (
+              <option key={num} value={num}>{num} Star{num !== 1 ? 's' : ''}</option>
+            ))}
+          </select>
+        </div>
+      </div>
+
+      <div>
+        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+          Testimonial Content *
+        </label>
+        <textarea
+          value={formData.content}
+          onChange={(e) => setFormData(prev => ({ ...prev, content: e.target.value }))}
+          rows={4}
+          className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500"
+          placeholder="Enter the testimonial content..."
+          required
+        />
+      </div>
+
+      <div className="flex justify-end space-x-3 pt-4 border-t border-gray-200 dark:border-gray-700">
+        <button
+          type="button"
+          onClick={closeModals}
+          className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600"
+        >
+          Cancel
+        </button>
+        <button
+          type="button"
+          onClick={onSubmit}
+          disabled={!formData.name || !formData.role || !formData.content || !formData.location}
+          className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
+        >
+          {submitText}
+        </button>
+      </div>
+    </div>
+  );
 
   if (!mounted) return null;
 
@@ -350,7 +579,7 @@ export default function TestimonialsManagement() {
                       {testimonial.approved ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
                     </button>
                     <button
-                      onClick={() => setEditingTestimonial(testimonial)}
+                      onClick={() => openEditModal(testimonial)}
                       className="p-1 text-blue-600 hover:bg-blue-100 dark:hover:bg-blue-900 rounded-md transition-colors"
                       title="Edit testimonial"
                     >
@@ -393,6 +622,29 @@ export default function TestimonialsManagement() {
           </div>
         </AdminCard>
       )}
+
+      {/* Add/Edit Testimonial Modals */}
+      <Modal
+        isOpen={showAddModal}
+        onClose={closeModals}
+        title="Add New Testimonial"
+      >
+        <TestimonialForm
+          onSubmit={handleAddTestimonial}
+          submitText="Add Testimonial"
+        />
+      </Modal>
+
+      <Modal
+        isOpen={!!editingTestimonial}
+        onClose={closeModals}
+        title="Edit Testimonial"
+      >
+        <TestimonialForm
+          onSubmit={handleEditTestimonial}
+          submitText="Update Testimonial"
+        />
+      </Modal>
     </div>
   );
 }

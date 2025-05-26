@@ -105,6 +105,17 @@ export default function FeaturedCausesManagement() {
     }));
     setHasChanges(true);
   };
+  const handleImageUpload = (causeId: number, event: React.ChangeEvent<HTMLInputElement>) => {
+  const file = event.target.files?.[0];
+  if (file) {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const imageUrl = e.target?.result as string;
+      handleCauseChange(causeId, 'image', imageUrl);
+    };
+    reader.readAsDataURL(file);
+  }
+};
 
   const handleCauseChange = (causeId: number, field: string, value: any) => {
     setSectionData(prev => ({
@@ -359,48 +370,105 @@ export default function FeaturedCausesManagement() {
               <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
                 {/* Cause Image & Basic Info */}
                 <div className="space-y-4">
-                  <div className="aspect-video bg-gray-100 dark:bg-gray-800 rounded-lg flex items-center justify-center">
-                    <ImageIcon className="w-8 h-8 text-gray-400" />
-                  </div>
-                  
-                  <div className="flex items-center space-x-2">
-                    {cause.featured && (
-                      <span className="inline-flex items-center px-2 py-1 text-xs font-medium bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300 rounded-full">
-                        <Star className="w-3 h-3 mr-1" />
-                        Featured
-                      </span>
-                    )}
-                    <span className={`px-2 py-1 text-xs font-medium rounded-full ${
-                      cause.status === 'active' 
-                        ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300'
-                        : 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300'
-                    }`}>
-                      {cause.status}
-                    </span>
-                  </div>
+  <div className="relative group">
+    <div className="aspect-video bg-gray-100 dark:bg-gray-800 rounded-lg overflow-hidden">
+      {cause.image && cause.image !== '/images/causes/placeholder.jpg' ? (
+        <img 
+          src={cause.image} 
+          alt={cause.title}
+          className="w-full h-full object-cover"
+        />
+      ) : (
+        <div className="w-full h-full flex items-center justify-center">
+          <ImageIcon className="w-8 h-8 text-gray-400" />
+        </div>
+      )}
+      
+      {/* Image Upload Overlay */}
+      {isEditing && (
+        <div className="absolute inset-0 bg-black bg-opacity-50 opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex items-center justify-center">
+          <label className="cursor-pointer bg-white dark:bg-gray-800 px-4 py-2 rounded-lg shadow-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+            <div className="flex items-center space-x-2 text-sm font-medium text-gray-700 dark:text-gray-300">
+              <ImageIcon className="w-4 h-4" />
+              <span>Change Image</span>
+            </div>
+            <input
+              type="file"
+              accept="image/*"
+              onChange={(e) => handleImageUpload(cause.id, e)}
+              className="hidden"
+            />
+          </label>
+        </div>
+      )}
+    </div>
+    
+    {/* Image URL Input (Alternative Method) */}
+    {isEditing && (
+      <div className="mt-2">
+        <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+          Image URL
+        </label>
+        <div className="flex space-x-2">
+          <input
+            type="url"
+            value={cause.image}
+            onChange={(e) => handleCauseChange(cause.id, 'image', e.target.value)}
+            placeholder="Enter image URL or upload above"
+            className="flex-1 px-2 py-1 text-xs border border-gray-300 dark:border-gray-600 rounded shadow-sm focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white"
+          />
+          {cause.image && cause.image !== '/images/causes/placeholder.jpg' && (
+            <button
+              onClick={() => handleCauseChange(cause.id, 'image', '/images/causes/placeholder.jpg')}
+              className="px-2 py-1 text-xs border border-red-300 text-red-600 rounded hover:bg-red-50"
+              title="Remove image"
+            >
+              <Trash2 className="w-3 h-3" />
+            </button>
+          )}
+        </div>
+      </div>
+    )}
+  </div>
+  
+  <div className="flex items-center space-x-2">
+    {cause.featured && (
+      <span className="inline-flex items-center px-2 py-1 text-xs font-medium bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300 rounded-full">
+        <Star className="w-3 h-3 mr-1" />
+        Featured
+      </span>
+    )}
+    <span className={`px-2 py-1 text-xs font-medium rounded-full ${
+      cause.status === 'active' 
+        ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300'
+        : 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300'
+    }`}>
+      {cause.status}
+    </span>
+  </div>
 
-                  {/* Priority Controls */}
-                  {isEditing && (
-                    <div className="flex items-center space-x-2">
-                      <span className="text-sm text-gray-500">Priority:</span>
-                      <button
-                        onClick={() => moveCausePriority(cause.id, 'up')}
-                        disabled={cause.priority === 1}
-                        className="p-1 border border-gray-300 dark:border-gray-600 rounded hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50"
-                      >
-                        <ArrowUp className="w-4 h-4" />
-                      </button>
-                      <span className="text-sm font-medium">{cause.priority}</span>
-                      <button
-                        onClick={() => moveCausePriority(cause.id, 'down')}
-                        disabled={cause.priority === sectionData.causes.length}
-                        className="p-1 border border-gray-300 dark:border-gray-600 rounded hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50"
-                      >
-                        <ArrowDown className="w-4 h-4" />
-                      </button>
-                    </div>
-                  )}
-                </div>
+  {/* Priority Controls */}
+  {isEditing && (
+    <div className="flex items-center space-x-2">
+      <span className="text-sm text-gray-500">Priority:</span>
+      <button
+        onClick={() => moveCausePriority(cause.id, 'up')}
+        disabled={cause.priority === 1}
+        className="p-1 border border-gray-300 dark:border-gray-600 rounded hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50"
+      >
+        <ArrowUp className="w-4 h-4" />
+      </button>
+      <span className="text-sm font-medium">{cause.priority}</span>
+      <button
+        onClick={() => moveCausePriority(cause.id, 'down')}
+        disabled={cause.priority === sectionData.causes.length}
+        className="p-1 border border-gray-300 dark:border-gray-600 rounded hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50"
+      >
+        <ArrowDown className="w-4 h-4" />
+      </button>
+    </div>
+  )}
+</div>
 
                 {/* Cause Details */}
                 <div className="lg:col-span-2 space-y-4">

@@ -5,7 +5,7 @@ import { useState } from 'react';
 import { Save, Eye, Plus, Edit, Trash2, Heart, Globe, Lightbulb, Star } from 'lucide-react';
 import AdminCard from '@/components/admin/ui/AdminCard';
 import AdminButton from '@/components/admin/ui/AdminButton';
-import AdminModal from '@/components/admin/ui/AdminModal';
+import {AdminModal} from '@/components/admin/ui/AdminModal';
 
 interface CoreValue {
   id: number;

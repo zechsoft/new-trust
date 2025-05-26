@@ -80,8 +80,8 @@ export default function NewsletterManagement() {
     privacyText: 'We respect your privacy. Unsubscribe at any time.'
   });
 
-  // Mock data for subscribers
-  const [subscribers] = useState<Subscriber[]>([
+  // State for subscribers and campaigns with setters
+  const [subscribers, setSubscribers] = useState<Subscriber[]>([
     {
       id: '1',
       email: 'john.doe@example.com',
@@ -110,8 +110,7 @@ export default function NewsletterManagement() {
     }
   ]);
 
-  // Mock data for campaigns
-  const [campaigns] = useState<NewsletterCampaign[]>([
+  const [campaigns, setCampaigns] = useState<NewsletterCampaign[]>([
     {
       id: '1',
       subject: 'March Impact Report - Your Support Changes Lives',
@@ -136,6 +135,15 @@ export default function NewsletterManagement() {
     }
   ]);
 
+  // New state variables
+  const [editingSubscriber, setEditingSubscriber] = useState<Subscriber | null>(null);
+  const [showAddSubscriber, setShowAddSubscriber] = useState(false);
+  const [editingCampaign, setEditingCampaign] = useState<NewsletterCampaign | null>(null);
+  const [showAddCampaign, setShowAddCampaign] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [sourceFilter, setSourceFilter] = useState<string>('all');
+
   useEffect(() => {
     setMounted(true);
   }, []);
@@ -158,6 +166,73 @@ export default function NewsletterManagement() {
       [field]: value
     }));
   };
+
+  // Handler functions
+  const handleAddSubscriber = (newSubscriber: Omit<Subscriber, 'id'>) => {
+    const subscriber: Subscriber = {
+      ...newSubscriber,
+      id: Date.now().toString(),
+    };
+    setSubscribers(prev => [...prev, subscriber]);
+    setShowAddSubscriber(false);
+  };
+
+  const handleEditSubscriber = (updatedSubscriber: Subscriber) => {
+    setSubscribers(prev => prev.map(sub => 
+      sub.id === updatedSubscriber.id ? updatedSubscriber : sub
+    ));
+    setEditingSubscriber(null);
+  };
+
+  const handleDeleteSubscriber = (id: string) => {
+    if (confirm('Are you sure you want to delete this subscriber?')) {
+      setSubscribers(prev => prev.filter(sub => sub.id !== id));
+    }
+  };
+
+  const handleAddCampaign = (newCampaign: Omit<NewsletterCampaign, 'id'>) => {
+    const campaign: NewsletterCampaign = {
+      ...newCampaign,
+      id: Date.now().toString(),
+    };
+    setCampaigns(prev => [...prev, campaign]);
+    setShowAddCampaign(false);
+  };
+
+  const handleEditCampaign = (updatedCampaign: NewsletterCampaign) => {
+    setCampaigns(prev => prev.map(camp => 
+      camp.id === updatedCampaign.id ? updatedCampaign : camp
+    ));
+    setEditingCampaign(null);
+  };
+
+  const handleDeleteCampaign = (id: string) => {
+    if (confirm('Are you sure you want to delete this campaign?')) {
+      setCampaigns(prev => prev.filter(camp => camp.id !== id));
+    }
+  };
+
+  const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const result = e.target?.result as string;
+        handleContentChange('backgroundImage', result);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  // Filtered subscribers logic
+  const filteredSubscribers = subscribers.filter(subscriber => {
+    const matchesSearch = subscriber.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (subscriber.name?.toLowerCase().includes(searchTerm.toLowerCase()) || false);
+    const matchesStatus = statusFilter === 'all' || subscriber.status === statusFilter;
+    const matchesSource = sourceFilter === 'all' || subscriber.source === sourceFilter;
+    
+    return matchesSearch && matchesStatus && matchesSource;
+  });
 
   if (!mounted) return null;
 
@@ -441,17 +516,38 @@ export default function NewsletterManagement() {
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                       Background Image
                     </label>
-                    <div className="flex items-center space-x-2">
-                      <input
-                        type="text"
-                        value={newsletterContent.backgroundImage}
-                        onChange={(e) => handleContentChange('backgroundImage', e.target.value)}
-                        placeholder="Image URL"
-                        className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white"
-                      />
-                      <button className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-50 dark:hover:bg-gray-700">
-                        <Upload className="w-4 h-4" />
-                      </button>
+                    <div className="space-y-2">
+                      <div className="flex items-center space-x-2">
+                        <input
+                          type="text"
+                          value={newsletterContent.backgroundImage}
+                          onChange={(e) => handleContentChange('backgroundImage', e.target.value)}
+                          placeholder="Image URL or data URL"
+                          className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white"
+                        />
+                        <label className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer">
+                          <Upload className="w-4 h-4" />
+                          <input
+                            type="file"
+                            accept="image/*"
+                            onChange={handleImageUpload}
+                            className="hidden"
+                          />
+                        </label>
+                      </div>
+                      {newsletterContent.backgroundImage && (
+                        <div className="mt-2">
+                          <img
+                            src={newsletterContent.backgroundImage}
+                            alt="Background preview"
+                            className="w-full h-32 object-cover rounded-md border border-gray-300 dark:border-gray-600"
+                            onError={(e) => {
+                              const target = e.target as HTMLImageElement;
+                              target.style.display = 'none';
+                            }}
+                          />
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -506,21 +602,38 @@ export default function NewsletterManagement() {
                     <input
                       type="text"
                       placeholder="Search subscribers..."
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
                       className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white"
                     />
                   </div>
-                  <select className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white">
-                    <option>All Status</option>
-                    <option>Active</option>
-                    <option>Unsubscribed</option>
-                    <option>Bounced</option>
+                  <select 
+                    value={statusFilter}
+                    onChange={(e) => setStatusFilter(e.target.value)}
+                    className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white"
+                  >
+                    <option value="all">All Status</option>
+                    <option value="active">Active</option>
+                    <option value="unsubscribed">Unsubscribed</option>
+                    <option value="bounced">Bounced</option>
                   </select>
-                  <select className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white">
-                    <option>All Sources</option>
-                    <option>Homepage</option>
-                    <option>Event Registration</option>
-                    <option>Social Media</option>
+                  <select
+                    value={sourceFilter}
+                    onChange={(e) => setSourceFilter(e.target.value)}
+                    className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white"
+                  >
+                    <option value="all">All Sources</option>
+                    <option value="Homepage">Homepage</option>
+                    <option value="Event Registration">Event Registration</option>
+                    <option value="Social Media">Social Media</option>
                   </select>
+                  <button
+                    onClick={() => setShowAddSubscriber(true)}
+                    className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 flex items-center"
+                  >
+                    <Plus className="w-4 h-4 mr-2" />
+                    Add Subscriber
+                  </button>
                 </div>
                 
                 {/* Subscribers Table */}
@@ -546,7 +659,7 @@ export default function NewsletterManagement() {
                       </tr>
                     </thead>
                     <tbody className="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-700">
-                      {subscribers.map((subscriber) => (
+                      {filteredSubscribers.map((subscriber) => (
                         <tr key={subscriber.id}>
                           <td className="px-6 py-4 whitespace-nowrap">
                             <div>
@@ -558,6 +671,16 @@ export default function NewsletterManagement() {
                                   {subscriber.email}
                                 </div>
                               )}
+                              <div className="flex space-x-1 mt-1">
+                                {subscriber.tags.map((tag) => (
+                                  <span
+                                    key={tag}
+                                    className="inline-flex px-2 py-1 text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300 rounded-full"
+                                  >
+                                    {tag}
+                                  </span>
+                                ))}
+                              </div>
                             </div>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
@@ -579,10 +702,16 @@ export default function NewsletterManagement() {
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                             <div className="flex space-x-2">
-                              <button className="text-blue-600 hover:text-blue-900 dark:text-blue-400">
+                              <button 
+                                onClick={() => setEditingSubscriber(subscriber)}
+                                className="text-blue-600 hover:text-blue-900 dark:text-blue-400"
+                              >
                                 <Edit2 className="w-4 h-4" />
                               </button>
-                              <button className="text-red-600 hover:text-red-900 dark:text-red-400">
+                              <button 
+                                onClick={() => handleDeleteSubscriber(subscriber.id)}
+                                className="text-red-600 hover:text-red-900 dark:text-red-400"
+                              >
                                 <Trash2 className="w-4 h-4" />
                               </button>
                             </div>
@@ -610,7 +739,10 @@ export default function NewsletterManagement() {
                   <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
                     Email Campaigns
                   </h3>
-                  <button className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700">
+                  <button 
+                    onClick={() => setShowAddCampaign(true)}
+                    className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700"
+                  >
                     <Plus className="w-4 h-4 mr-2" />
                     New Campaign
                   </button>
@@ -660,8 +792,17 @@ export default function NewsletterManagement() {
                           <button className="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
                             <Eye className="w-4 h-4" />
                           </button>
-                          <button className="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
+                          <button 
+                            onClick={() => setEditingCampaign(campaign)}
+                            className="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+                          >
                             <Edit2 className="w-4 h-4" />
+                          </button>
+                          <button 
+                            onClick={() => handleDeleteCampaign(campaign.id)}
+                            className="p-2 text-red-400 hover:text-red-600 dark:hover:text-red-300"
+                          >
+                            <Trash2 className="w-4 h-4" />
                           </button>
                           {campaign.status === 'draft' && (
                             <button className="p-2 text-blue-600 hover:text-blue-800 dark:text-blue-400">
@@ -905,6 +1046,213 @@ export default function NewsletterManagement() {
           </motion.div>
         )}
       </div>
+
+      {/* Add/Edit Subscriber Modal */}
+      {(showAddSubscriber || editingSubscriber) && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white dark:bg-gray-800 rounded-lg p-6 w-full max-w-md">
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+              {editingSubscriber ? 'Edit Subscriber' : 'Add New Subscriber'}
+            </h3>
+            <form onSubmit={(e) => {
+              e.preventDefault();
+              const formData = new FormData(e.currentTarget);
+              const subscriberData = {
+                email: formData.get('email') as string,
+                name: formData.get('name') as string,
+                status: formData.get('status') as 'active' | 'unsubscribed' | 'bounced',
+                source: formData.get('source') as string,
+                tags: (formData.get('tags') as string).split(',').map(tag => tag.trim()).filter(Boolean),
+                subscribedAt: editingSubscriber?.subscribedAt || new Date().toISOString()
+              };
+              
+              if (editingSubscriber) {
+                handleEditSubscriber({ ...subscriberData, id: editingSubscriber.id });
+              } else {
+                handleAddSubscriber(subscriberData);
+              }
+            }}>
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                    Email *
+                  </label>
+                  <input
+                    type="email"
+                    name="email"
+                    required
+                    defaultValue={editingSubscriber?.email || ''}
+                    className="mt-1 w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                    Name
+                  </label>
+                  <input
+                    type="text"
+                    name="name"
+                    defaultValue={editingSubscriber?.name || ''}
+                    className="mt-1 w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                    Status
+                  </label>
+                  <select
+                    name="status"
+                    defaultValue={editingSubscriber?.status || 'active'}
+                    className="mt-1 w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white"
+                  >
+                    <option value="active">Active</option>
+                    <option value="unsubscribed">Unsubscribed</option>
+                    <option value="bounced">Bounced</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                    Source
+                  </label>
+                  <input
+                    type="text"
+                    name="source"
+                    defaultValue={editingSubscriber?.source || ''}
+                    placeholder="e.g., Homepage, Event Registration"
+                    className="mt-1 w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                    Tags (comma-separated)
+                  </label>
+                  <input
+                    type="text"
+                    name="tags"
+                    defaultValue={editingSubscriber?.tags.join(', ') || ''}
+                    placeholder="e.g., donor, volunteer"
+                    className="mt-1 w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white"
+                  />
+                </div>
+              </div>
+              <div className="flex space-x-3 mt-6">
+                <button
+                  type="submit"
+                  className="flex-1 bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700"
+                >
+                  {editingSubscriber ? 'Update' : 'Add'} Subscriber
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowAddSubscriber(false);
+                    setEditingSubscriber(null);
+                  }}
+                  className="flex-1 bg-gray-300 dark:bg-gray-600 text-gray-700 dark:text-gray-300 py-2 px-4 rounded-md hover:bg-gray-400 dark:hover:bg-gray-500"
+                >
+                  Cancel
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Add/Edit Campaign Modal */}
+      {(showAddCampaign || editingCampaign) && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white dark:bg-gray-800 rounded-lg p-6 w-full max-w-md">
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+              {editingCampaign ? 'Edit Campaign' : 'Create New Campaign'}
+            </h3>
+            <form onSubmit={(e) => {
+              e.preventDefault();
+              const formData = new FormData(e.currentTarget);
+              const campaignData = {
+                subject: formData.get('subject') as string,
+                status: formData.get('status') as 'draft' | 'scheduled' | 'sent',
+                recipients: parseInt(formData.get('recipients') as string) || 0,
+                scheduledAt: formData.get('scheduledAt') as string || undefined
+              };
+              
+              if (editingCampaign) {
+                handleEditCampaign({ ...editingCampaign, ...campaignData });
+              } else {
+                handleAddCampaign(campaignData);
+              }
+            }}>
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                    Subject *
+                  </label>
+                  <input
+                    type="text"
+                    name="subject"
+                    required
+                    defaultValue={editingCampaign?.subject || ''}
+                    className="mt-1 w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                    Status
+                  </label>
+                  <select
+                    name="status"
+                    defaultValue={editingCampaign?.status || 'draft'}
+                    className="mt-1 w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white"
+                  >
+                    <option value="draft">Draft</option>
+                    <option value="scheduled">Scheduled</option>
+                    <option value="sent">Sent</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                    Recipients
+                  </label>
+                  <input
+                    type="number"
+                    name="recipients"
+                    defaultValue={editingCampaign?.recipients || stats.activeSubscribers}
+                    className="mt-1 w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                    Scheduled Date (optional)
+                  </label>
+                  <input
+                    type="datetime-local"
+                    name="scheduledAt"
+                    defaultValue={editingCampaign?.scheduledAt ? new Date(editingCampaign.scheduledAt).toISOString().slice(0, 16) : ''}
+                    className="mt-1 w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white"
+                  />
+                </div>
+              </div>
+              <div className="flex space-x-3 mt-6">
+                <button
+                  type="submit"
+                  className="flex-1 bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700"
+                >
+                  {editingCampaign ? 'Update' : 'Create'} Campaign
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowAddCampaign(false);
+                    setEditingCampaign(null);
+                  }}
+                  className="flex-1 bg-gray-300 dark:bg-gray-600 text-gray-700 dark:text-gray-300 py-2 px-4 rounded-md hover:bg-gray-400 dark:hover:bg-gray-500"
+                >
+                  Cancel
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       {/* Save Status Toast */}
       {saveStatus === 'saved' && (
