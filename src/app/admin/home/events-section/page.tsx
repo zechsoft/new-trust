@@ -21,6 +21,7 @@ import {
 } from 'lucide-react';
 import AdminCard from '@/components/admin/ui/AdminCard';
 
+
 interface Event {
   id: number;
   title: string;
@@ -38,6 +39,20 @@ interface Event {
 
 export default function EventsSectionManagement() {
   const [mounted, setMounted] = useState(false);
+  const [newEvent, setNewEvent] = useState<Omit<Event, 'id'>>({
+  title: '',
+  date: '',
+  time: '',
+  location: '',
+  image: '',
+  description: '',
+  featured: false,
+  visible: true,
+  registrations: 0,
+  maxCapacity: 100,
+  category: ''
+});
+
   const [events, setEvents] = useState<Event[]>([
     {
       id: 1,
@@ -148,6 +163,28 @@ export default function EventsSectionManagement() {
     console.log('Saving changes...', { events, sectionSettings });
     setHasChanges(false);
   };
+  const handleAddEvent = () => {
+  const eventWithId = {
+    ...newEvent,
+    id: Math.max(...events.map(e => e.id), 0) + 1
+  };
+  setEvents([...events, eventWithId]);
+  setNewEvent({
+    title: '',
+    date: '',
+    time: '',
+    location: '',
+    image: '',
+    description: '',
+    featured: false,
+    visible: true,
+    registrations: 0,
+    maxCapacity: 100,
+    category: ''
+  });
+  setShowAddForm(false);
+  setHasChanges(true);
+};
 
   const handleResetChanges = () => {
     if (confirm('Are you sure you want to reset all changes?')) {
@@ -441,6 +478,402 @@ export default function EventsSectionManagement() {
             </div>
           </div>
         </AdminCard>
+      )}
+      {/* Add Event Modal */}
+{showAddForm && (
+  <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+    <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+      <div className="p-6">
+        <div className="flex items-center justify-between mb-6">
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+            Add New Event
+          </h3>
+          <button
+            onClick={() => setShowAddForm(false)}
+            className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+          >
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+        
+        <div className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Event Title *
+              </label>
+              <input
+                type="text"
+                value={newEvent.title}
+                onChange={(e) => setNewEvent({...newEvent, title: e.target.value})}
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white"
+                placeholder="Enter event title"
+              />
+            </div>
+            
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Category
+              </label>
+              <select
+                value={newEvent.category}
+                onChange={(e) => setNewEvent({...newEvent, category: e.target.value})}
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white"
+              >
+                <option value="">Select category</option>
+                <option value="Fundraising">Fundraising</option>
+                <option value="Sports">Sports</option>
+                <option value="Technology">Technology</option>
+                <option value="Community">Community</option>
+                <option value="Education">Education</option>
+                <option value="Health">Health</option>
+              </select>
+            </div>
+          </div>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Date *
+              </label>
+              <input
+                type="text"
+                value={newEvent.date}
+                onChange={(e) => setNewEvent({...newEvent, date: e.target.value})}
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white"
+                placeholder="e.g., April 15, 2025"
+              />
+            </div>
+            
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Time *
+              </label>
+              <input
+                type="text"
+                value={newEvent.time}
+                onChange={(e) => setNewEvent({...newEvent, time: e.target.value})}
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white"
+                placeholder="e.g., 7:00 PM - 10:00 PM"
+              />
+            </div>
+          </div>
+          
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              Location *
+            </label>
+            <input
+              type="text"
+              value={newEvent.location}
+              onChange={(e) => setNewEvent({...newEvent, location: e.target.value})}
+              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white"
+              placeholder="Enter event location"
+            />
+          </div>
+          
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              Image URL
+            </label>
+            <input
+              type="text"
+              value={newEvent.image}
+              onChange={(e) => setNewEvent({...newEvent, image: e.target.value})}
+              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white"
+              placeholder="/images/events/your-image.jpg"
+            />
+          </div>
+          
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              Description *
+            </label>
+            <textarea
+              value={newEvent.description}
+              onChange={(e) => setNewEvent({...newEvent, description: e.target.value})}
+              rows={3}
+              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white"
+              placeholder="Enter event description"
+            />
+          </div>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Max Capacity
+              </label>
+              <input
+                type="number"
+                value={newEvent.maxCapacity}
+                onChange={(e) => setNewEvent({...newEvent, maxCapacity: parseInt(e.target.value) || 0})}
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white"
+                min="1"
+              />
+            </div>
+            
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Current Registrations
+              </label>
+              <input
+                type="number"
+                value={newEvent.registrations}
+                onChange={(e) => setNewEvent({...newEvent, registrations: parseInt(e.target.value) || 0})}
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white"
+                min="0"
+              />
+            </div>
+          </div>
+          
+          <div className="flex items-center space-x-6">
+            <label className="flex items-center">
+              <input
+                type="checkbox"
+                checked={newEvent.featured}
+                onChange={(e) => setNewEvent({...newEvent, featured: e.target.checked})}
+                className="rounded border-gray-300 text-blue-600 shadow-sm focus:border-blue-300 focus:ring focus:ring-blue-200 focus:ring-opacity-50"
+              />
+              <span className="ml-2 text-sm text-gray-700 dark:text-gray-300">
+                Featured Event
+              </span>
+            </label>
+            
+            <label className="flex items-center">
+              <input
+                type="checkbox"
+                checked={newEvent.visible}
+                onChange={(e) => setNewEvent({...newEvent, visible: e.target.checked})}
+                className="rounded border-gray-300 text-blue-600 shadow-sm focus:border-blue-300 focus:ring focus:ring-blue-200 focus:ring-opacity-50"
+              />
+              <span className="ml-2 text-sm text-gray-700 dark:text-gray-300">
+                Visible
+              </span>
+            </label>
+          </div>
+        </div>
+        
+        <div className="flex justify-end space-x-3 mt-6 pt-6 border-t border-gray-200 dark:border-gray-700">
+          <button
+            onClick={() => setShowAddForm(false)}
+            className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={handleAddEvent}
+            disabled={!newEvent.title || !newEvent.date || !newEvent.time || !newEvent.location || !newEvent.description}
+            className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
+          >
+            Add Event
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+)}
+{/* Edit Event Modal */}
+      {editingEvent && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="p-6">
+              <div className="flex items-center justify-between mb-6">
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                  Edit Event
+                </h3>
+                <button
+                  onClick={() => setEditingEvent(null)}
+                  className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+                >
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+              
+              <div className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                      Event Title *
+                    </label>
+                    <input
+                      type="text"
+                      value={editingEvent.title}
+                      onChange={(e) => setEditingEvent({...editingEvent, title: e.target.value})}
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white"
+                      placeholder="Enter event title"
+                    />
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                      Category
+                    </label>
+                    <select
+                      value={editingEvent.category || ''}
+                      onChange={(e) => setEditingEvent({...editingEvent, category: e.target.value})}
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white"
+                    >
+                      <option value="">Select category</option>
+                      <option value="Fundraising">Fundraising</option>
+                      <option value="Sports">Sports</option>
+                      <option value="Technology">Technology</option>
+                      <option value="Community">Community</option>
+                      <option value="Education">Education</option>
+                      <option value="Health">Health</option>
+                    </select>
+                  </div>
+                </div>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                      Date *
+                    </label>
+                    <input
+                      type="text"
+                      value={editingEvent.date}
+                      onChange={(e) => setEditingEvent({...editingEvent, date: e.target.value})}
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white"
+                      placeholder="e.g., April 15, 2025"
+                    />
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                      Time *
+                    </label>
+                    <input
+                      type="text"
+                      value={editingEvent.time}
+                      onChange={(e) => setEditingEvent({...editingEvent, time: e.target.value})}
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white"
+                      placeholder="e.g., 7:00 PM - 10:00 PM"
+                    />
+                  </div>
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Location *
+                  </label>
+                  <input
+                    type="text"
+                    value={editingEvent.location}
+                    onChange={(e) => setEditingEvent({...editingEvent, location: e.target.value})}
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white"
+                    placeholder="Enter event location"
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Image URL
+                  </label>
+                  <input
+                    type="text"
+                    value={editingEvent.image}
+                    onChange={(e) => setEditingEvent({...editingEvent, image: e.target.value})}
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white"
+                    placeholder="/images/events/your-image.jpg"
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Description *
+                  </label>
+                  <textarea
+                    value={editingEvent.description}
+                    onChange={(e) => setEditingEvent({...editingEvent, description: e.target.value})}
+                    rows={3}
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white"
+                    placeholder="Enter event description"
+                  />
+                </div>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                      Max Capacity
+                    </label>
+                    <input
+                      type="number"
+                      value={editingEvent.maxCapacity}
+                      onChange={(e) => setEditingEvent({...editingEvent, maxCapacity: parseInt(e.target.value) || 0})}
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white"
+                      min="1"
+                    />
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                      Current Registrations
+                    </label>
+                    <input
+                      type="number"
+                      value={editingEvent.registrations}
+                      onChange={(e) => setEditingEvent({...editingEvent, registrations: parseInt(e.target.value) || 0})}
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white"
+                      min="0"
+                    />
+                  </div>
+                </div>
+                
+                <div className="flex items-center space-x-6">
+                  <label className="flex items-center">
+                    <input
+                      type="checkbox"
+                      checked={editingEvent.featured}
+                      onChange={(e) => setEditingEvent({...editingEvent, featured: e.target.checked})}
+                      className="rounded border-gray-300 text-blue-600 shadow-sm focus:border-blue-300 focus:ring focus:ring-blue-200 focus:ring-opacity-50"
+                    />
+                    <span className="ml-2 text-sm text-gray-700 dark:text-gray-300">
+                      Featured Event
+                    </span>
+                  </label>
+                  
+                  <label className="flex items-center">
+                    <input
+                      type="checkbox"
+                      checked={editingEvent.visible}
+                      onChange={(e) => setEditingEvent({...editingEvent, visible: e.target.checked})}
+                      className="rounded border-gray-300 text-blue-600 shadow-sm focus:border-blue-300 focus:ring focus:ring-blue-200 focus:ring-opacity-50"
+                    />
+                    <span className="ml-2 text-sm text-gray-700 dark:text-gray-300">
+                      Visible
+                    </span>
+                  </label>
+                </div>
+              </div>
+              
+              <div className="flex justify-end space-x-3 mt-6 pt-6 border-t border-gray-200 dark:border-gray-700">
+                <button
+                  onClick={() => setEditingEvent(null)}
+                  className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={() => {
+                    setEvents(events.map(event => 
+                      event.id === editingEvent.id ? editingEvent : event
+                    ));
+                    setEditingEvent(null);
+                    setHasChanges(true);
+                  }}
+                  disabled={!editingEvent.title || !editingEvent.date || !editingEvent.time || !editingEvent.location || !editingEvent.description}
+                  className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
+                >
+                  Save Changes
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Events Management */}

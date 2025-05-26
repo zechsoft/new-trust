@@ -16,8 +16,10 @@ export default function RootLayout({
 }) {
   const pathname = usePathname();
   
-  // Check if current path starts with /adminlogin
-  const isAdminLoginPath = pathname?.startsWith('/adminlogin');
+  // Check if current path is under /adminlogin or /admin
+  const shouldHideHeaderFooter = 
+    pathname?.startsWith('/adminlogin') || 
+    pathname?.startsWith('/admin');
 
   return (
     <html lang="en">
@@ -30,13 +32,10 @@ export default function RootLayout({
       </head>
       <body className={inter.className}>
         <ThemeProvider>
-          {/* Conditionally render Header */}
-          {!isAdminLoginPath && <Header />}
-          
+          {/* Hide Header & Footer for /adminlogin and /admin routes */}
+          {!shouldHideHeaderFooter && <Header />}
           {children}
-          
-          {/* Conditionally render Footer */}
-          {!isAdminLoginPath && <Footer />}
+          {!shouldHideHeaderFooter && <Footer />}
         </ThemeProvider>
       </body>
     </html>
