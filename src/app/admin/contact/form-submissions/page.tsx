@@ -1,3 +1,4 @@
+'use client';
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -25,18 +26,19 @@ import {
   Send,
   ChevronDown,
   ChevronRight,
-  ExternalLink
+  ExternalLink,
+  Plus
 } from 'lucide-react';
 
 interface ContactSubmission {
-  id: string;
+  _id: string;
   name: string;
   email: string;
   phone?: string;
   subject: string;
   message: string;
   status: 'new' | 'read' | 'replied' | 'archived';
-  priority: 'low' | 'medium' | 'high' | 'urgent';
+  priority?: 'low' | 'medium' | 'high' | 'urgent';
   submittedAt: string;
   readAt?: string;
   repliedAt?: string;
@@ -54,6 +56,8 @@ interface ContactStats {
   todayCount: number;
   weekCount: number;
 }
+
+const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
 
 export default function ContactAdminPage() {
   const [submissions, setSubmissions] = useState<ContactSubmission[]>([]);
@@ -75,96 +79,45 @@ export default function ContactAdminPage() {
   const [showReplyModal, setShowReplyModal] = useState(false);
   const [replyMessage, setReplyMessage] = useState('');
   const [expandedSubmissions, setExpandedSubmissions] = useState<Set<string>>(new Set());
+  const [error, setError] = useState<string | null>(null);
+  const [showTagModal, setShowTagModal] = useState(false);
+  const [newTags, setNewTags] = useState<string>('');
 
-  // Mock data
+  // Fetch submissions from API
+  const fetchSubmissions = async () => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/contact/submissions`);
+      if (!response.ok) throw new Error('Failed to fetch submissions');
+      const data = await response.json();
+      setSubmissions(data.submissions || []);
+    } catch (err) {
+      setError('Failed to load submissions');
+      console.error('Error fetching submissions:', err);
+    }
+  };
+
+  // Fetch stats from API
+  const fetchStats = async () => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/contact/stats`);
+      if (!response.ok) throw new Error('Failed to fetch stats');
+      const data = await response.json();
+      setStats(data);
+    } catch (err) {
+      setError('Failed to load statistics');
+      console.error('Error fetching stats:', err);
+    }
+  };
+
+  // Load data on component mount
   useEffect(() => {
-    const mockSubmissions: ContactSubmission[] = [
-      {
-        id: '1',
-        name: 'Sarah Johnson',
-        email: 'sarah.johnson@email.com',
-        phone: '+1 (555) 123-4567',
-        subject: 'Partnership Inquiry',
-        message: 'Hi there! I represent a local nonprofit organization and we are interested in exploring potential partnership opportunities with your organization. We share similar values and believe we could create meaningful impact together. Could we schedule a call to discuss this further? I would love to share more details about our current initiatives and learn about yours. Looking forward to hearing from you soon.',
-        status: 'new',
-        priority: 'high',
-        submittedAt: '2024-01-15T14:30:00Z',
-        tags: ['partnership', 'nonprofit'],
-        isStarred: true
-      },
-      {
-        id: '2',
-        name: 'Michael Chen',
-        email: 'mike.chen@company.com',
-        phone: '+1 (555) 987-6543',
-        subject: 'Volunteer Opportunity',
-        message: 'I am interested in volunteering for your upcoming charity event. I have experience in event management and would love to contribute my skills to your cause.',
-        status: 'read',
-        priority: 'medium',
-        submittedAt: '2024-01-14T09:15:00Z',
-        readAt: '2024-01-14T10:20:00Z',
-        tags: ['volunteer', 'event'],
-        isStarred: false
-      },
-      {
-        id: '3',
-        name: 'Emily Rodriguez',
-        email: 'emily@example.com',
-        subject: 'Donation Question',
-        message: 'I would like to make a donation but have some questions about the tax implications and how the funds will be used.',
-        status: 'replied',
-        priority: 'medium',
-        submittedAt: '2024-01-13T16:45:00Z',
-        readAt: '2024-01-13T17:00:00Z',
-        repliedAt: '2024-01-13T18:30:00Z',
-        tags: ['donation', 'tax'],
-        isStarred: false
-      },
-      {
-        id: '4',
-        name: 'David Thompson',
-        email: 'david.t@email.com',
-        phone: '+1 (555) 456-7890',
-        subject: 'Media Interview Request',
-        message: 'I am a journalist with Local News Network and would like to schedule an interview about your recent community impact initiatives.',
-        status: 'new',
-        priority: 'urgent',
-        submittedAt: '2024-01-15T11:20:00Z',
-        tags: ['media', 'interview'],
-        isStarred: true
-      },
-      {
-        id: '5',
-        name: 'Lisa Wang',
-        email: 'lisa.wang@business.com',
-        subject: 'Sponsorship Proposal',
-        message: 'Our company is interested in sponsoring your next event. Please send us more information about sponsorship packages.',
-        status: 'archived',
-        priority: 'low',
-        submittedAt: '2024-01-10T13:00:00Z',
-        readAt: '2024-01-10T14:15:00Z',
-        repliedAt: '2024-01-10T16:30:00Z',
-        tags: ['sponsorship', 'business'],
-        isStarred: false
-      }
-    ];
-
-    const mockStats: ContactStats = {
-      total: 87,
-      new: 12,
-      read: 15,
-      replied: 45,
-      archived: 15,
-      avgResponseTime: '2.4h',
-      todayCount: 8,
-      weekCount: 23
-    };
-
-    setTimeout(() => {
-      setSubmissions(mockSubmissions);
-      setStats(mockStats);
+    const loadData = async () => {
+      setIsLoading(true);
+      await Promise.all([fetchSubmissions(), fetchStats()]);
       setIsLoading(false);
-    }, 1000);
+    };
+    
+    loadData();
   }, []);
 
   // Filter submissions
@@ -212,16 +165,68 @@ export default function ContactAdminPage() {
     return date.toLocaleDateString();
   };
 
-  const handleStatusChange = (id: string, newStatus: string) => {
-    setSubmissions(prev => prev.map(sub => 
-      sub.id === id ? { ...sub, status: newStatus as any } : sub
-    ));
+  const handleStatusChange = async (id: string, newStatus: string) => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/contact/submissions/${id}/status`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ status: newStatus }),
+      });
+
+      if (!response.ok) throw new Error('Failed to update status');
+
+      // Update local state
+      setSubmissions(prev => prev.map(sub => 
+        sub._id === id ? { ...sub, status: newStatus as any } : sub
+      ));
+
+      // Refresh stats
+      fetchStats();
+    } catch (err) {
+      setError('Failed to update status');
+      console.error('Error updating status:', err);
+    }
   };
 
-  const handleStarToggle = (id: string) => {
-    setSubmissions(prev => prev.map(sub => 
-      sub.id === id ? { ...sub, isStarred: !sub.isStarred } : sub
-    ));
+  const handleStarToggle = async (id: string) => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/contact/submissions/${id}/star`, {
+        method: 'PUT',
+      });
+
+      if (!response.ok) throw new Error('Failed to toggle star');
+
+      // Update local state
+      setSubmissions(prev => prev.map(sub => 
+        sub._id === id ? { ...sub, isStarred: !sub.isStarred } : sub
+      ));
+    } catch (err) {
+      setError('Failed to update star status');
+      console.error('Error toggling star:', err);
+    }
+  };
+
+  const handleDelete = async (id: string) => {
+    if (!window.confirm('Are you sure you want to delete this submission?')) return;
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/contact/submissions/${id}`, {
+        method: 'DELETE',
+      });
+
+      if (!response.ok) throw new Error('Failed to delete submission');
+
+      // Remove from local state
+      setSubmissions(prev => prev.filter(sub => sub._id !== id));
+      
+      // Refresh stats
+      fetchStats();
+    } catch (err) {
+      setError('Failed to delete submission');
+      console.error('Error deleting submission:', err);
+    }
   };
 
   const toggleExpanded = (id: string) => {
@@ -236,12 +241,78 @@ export default function ContactAdminPage() {
     });
   };
 
-  const handleReply = () => {
-    if (selectedSubmission && replyMessage.trim()) {
-      handleStatusChange(selectedSubmission.id, 'replied');
+  const handleReply = async () => {
+    if (!selectedSubmission || !replyMessage.trim()) return;
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/contact/submissions/${selectedSubmission._id}/reply`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ message: replyMessage }),
+      });
+
+      if (!response.ok) throw new Error('Failed to send reply');
+
+      // Update status to replied
+      await handleStatusChange(selectedSubmission._id, 'replied');
+      
       setShowReplyModal(false);
       setReplyMessage('');
       setSelectedSubmission(null);
+    } catch (err) {
+      setError('Failed to send reply');
+      console.error('Error sending reply:', err);
+    }
+  };
+
+  const handleAddTags = async () => {
+    if (!selectedSubmission || !newTags.trim()) return;
+
+    try {
+      const tagsArray = newTags.split(',').map(tag => tag.trim()).filter(tag => tag);
+      const response = await fetch(`${API_BASE_URL}/contact/submissions/${selectedSubmission._id}/tags`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ tags: tagsArray }),
+      });
+
+      if (!response.ok) throw new Error('Failed to add tags');
+
+      // Update local state
+      setSubmissions(prev => prev.map(sub => 
+        sub._id === selectedSubmission._id ? { ...sub, tags: [...sub.tags, ...tagsArray] } : sub
+      ));
+      
+      setShowTagModal(false);
+      setNewTags('');
+      setSelectedSubmission(null);
+    } catch (err) {
+      setError('Failed to add tags');
+      console.error('Error adding tags:', err);
+    }
+  };
+
+  const handleExport = async () => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/contact/export`);
+      if (!response.ok) throw new Error('Failed to export data');
+      
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.style.display = 'none';
+      a.href = url;
+      a.download = 'contact-submissions.csv';
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      setError('Failed to export data');
+      console.error('Error exporting data:', err);
     }
   };
 
@@ -261,6 +332,22 @@ export default function ContactAdminPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
+      {/* Error Alert */}
+      {error && (
+        <div className="bg-red-50 border border-red-200 rounded-lg p-4 m-6">
+          <div className="flex items-center">
+            <AlertCircle className="w-5 h-5 text-red-600 mr-2" />
+            <span className="text-red-800">{error}</span>
+            <button
+              onClick={() => setError(null)}
+              className="ml-auto text-red-600 hover:text-red-800"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Header */}
       <div className="bg-white shadow-sm border-b border-gray-200">
         <div className="px-6 py-4">
@@ -270,7 +357,10 @@ export default function ContactAdminPage() {
               <p className="text-gray-600 mt-1">Manage and respond to contact submissions</p>
             </div>
             <div className="flex gap-3">
-              <button className="px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 flex items-center gap-2 transition-colors">
+              <button 
+                onClick={handleExport}
+                className="px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 flex items-center gap-2 transition-colors"
+              >
                 <Download className="w-4 h-4" />
                 Export CSV
               </button>
@@ -444,7 +534,7 @@ export default function ContactAdminPage() {
           <div className="divide-y divide-gray-200">
             {filteredSubmissions.map((submission, index) => (
               <motion.div
-                key={submission.id}
+                key={submission._id}
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: index * 0.05 }}
@@ -456,7 +546,7 @@ export default function ContactAdminPage() {
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-3 mb-2">
                       <button
-                        onClick={() => handleStarToggle(submission.id)}
+                        onClick={() => handleStarToggle(submission._id)}
                         className={`p-1 rounded-full transition-colors ${
                           submission.isStarred 
                             ? 'text-yellow-500 hover:text-yellow-600' 
@@ -471,9 +561,11 @@ export default function ContactAdminPage() {
                         <span className={`px-2 py-1 text-xs font-medium rounded-full border ${getStatusColor(submission.status)}`}>
                           {submission.status}
                         </span>
-                        <span className={`px-2 py-1 text-xs rounded-full ${getPriorityColor(submission.priority)}`}>
-                          {submission.priority}
-                        </span>
+                        {submission.priority && (
+                          <span className={`px-2 py-1 text-xs rounded-full ${getPriorityColor(submission.priority)}`}>
+                            {submission.priority}
+                          </span>
+                        )}
                       </div>
                     </div>
 
@@ -497,16 +589,16 @@ export default function ContactAdminPage() {
                     <div className="mb-3">
                       <h4 className="font-medium text-gray-900 mb-1">{submission.subject}</h4>
                       <p className={`text-gray-600 text-sm ${
-                        expandedSubmissions.has(submission.id) ? '' : 'line-clamp-2'
+                        expandedSubmissions.has(submission._id) ? '' : 'line-clamp-2'
                       }`}>
                         {submission.message}
                       </p>
                       {submission.message.length > 100 && (
                         <button
-                          onClick={() => toggleExpanded(submission.id)}
+                          onClick={() => toggleExpanded(submission._id)}
                           className="text-blue-600 hover:text-blue-800 text-sm mt-1 flex items-center gap-1"
                         >
-                          {expandedSubmissions.has(submission.id) ? (
+                          {expandedSubmissions.has(submission._id) ? (
                             <>Show less <ChevronDown className="w-3 h-3" /></>
                           ) : (
                             <>Show more <ChevronRight className="w-3 h-3" /></>
@@ -515,7 +607,7 @@ export default function ContactAdminPage() {
                       )}
                     </div>
 
-                    {submission.tags.length > 0 && (
+                    {submission.tags && submission.tags.length > 0 && (
                       <div className="flex gap-1 mb-2">
                         {submission.tags.map((tag, tagIndex) => (
                           <span
@@ -532,7 +624,7 @@ export default function ContactAdminPage() {
                   <div className="flex items-center gap-2 ml-4">
                     <select
                       value={submission.status}
-                      onChange={(e) => handleStatusChange(submission.id, e.target.value)}
+                      onChange={(e) => handleStatusChange(submission._id, e.target.value)}
                       className="text-sm border border-gray-300 rounded px-2 py-1"
                     >
                       <option value="new">New</option>
@@ -553,10 +645,22 @@ export default function ContactAdminPage() {
                     </button>
 
                     <button
-                      className="p-2 text-gray-600 hover:bg-gray-50 rounded-lg transition-colors"
-                      title="More actions"
+                      onClick={() => {
+                        setSelectedSubmission(submission);
+                        setShowTagModal(true);
+                      }}
+                      className="p-2 text-green-600 hover:bg-green-50 rounded-lg transition-colors"
+                      title="Add Tags"
                     >
-                      <MoreVertical className="w-4 h-4" />
+                      <Plus className="w-4 h-4" />
+                    </button>
+
+                    <button
+                      onClick={() => handleDelete(submission._id)}
+                      className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                      title="Delete"
+                    >
+                      <Trash2 className="w-4 h-4" />
                     </button>
                   </div>
                 </div>
