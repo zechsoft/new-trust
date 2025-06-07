@@ -1,221 +1,225 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import Link from 'next/link';
-import HeroVideo from '@/components/features/HeroVideo';
-import DonationCounter from '@/components/features/DonationCounter';
 
-// Types based on your backend structure
-interface HeroData {
+// Types based on your backend CTASection schema
+interface Animation {
+  initial: {
+    opacity: number;
+    y: number;
+  };
+  animate: {
+    opacity: number;
+    y: number;
+  };
+  transition: {
+    duration: number;
+    delay: number;
+  };
+}
+
+interface Button {
+  text: string;
+  url: string;
+  className: string;
+}
+
+interface CTAData {
   _id?: string;
+  id: string;
   title: string;
-  subtitle: string;
-  primaryButton: {
-    text: string;
-    link: string;
-  };
-  secondaryButton: {
-    text: string;
-    link: string;
-  };
-  backgroundVideo: {
-    url: string;
-    poster: string;
-  };
-  overlayOpacity: number;
-  textAlignment: 'left' | 'center' | 'right';
-  isActive: boolean;
-  donationCounter: {
-    totalAmount: number;
-    donorsCount: number;
-    showCounter: boolean;
-  };
-  gradient: {
-    from: string;
-    to: string;
-  };
-  animations: {
-    enableParallax: boolean;
-    textDelay: number;
-    buttonDelay: number;
+  description: string;
+  primaryButton: Button;
+  secondaryButton: Button;
+  sectionClassName: string;
+  containerClassName: string;
+  enabled: boolean;
+  animation: {
+    title: Animation;
+    description: Animation;
+    buttons: Animation;
   };
 }
 
-interface HeroSectionProps {
-  heroRef: React.RefObject<HTMLDivElement>;
-  heroTextY: any;
-  heroOpacity: any;
+interface CTASectionProps {
+  className?: string;
 }
 
-// API service functions
-const heroAPI = {
-  getActiveHero: async (): Promise<HeroData | null> => {
+// API service
+const ctaAPI = {
+  getAllCTASections: async (): Promise<CTAData[]> => {
     try {
-      const response = await fetch('/api/hero/active');
+      const response = await fetch('http://localhost:5000/api/hero');
       if (response.ok) {
         const data = await response.json();
-        return data.heroSection || null;
+        return data.filter((cta: CTAData) => cta.enabled);
       }
-      return null;
+      return [];
     } catch (error) {
-      console.error('Failed to fetch active hero:', error);
-      return null;
+      console.error('Failed to fetch CTA sections:', error);
+      return [];
     }
   }
 };
 
-const HeroSection: React.FC<HeroSectionProps> = ({ heroRef, heroTextY, heroOpacity }) => {
-  const [heroData, setHeroData] = useState<HeroData | null>(null);
+const CTASection: React.FC<CTASectionProps> = ({ className = '' }) => {
+  const [ctaData, setCTAData] = useState<CTAData[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  // Default fallback data
-  const defaultHeroData: HeroData = {
-    title: 'Change Lives Together',
-    subtitle: 'Join our mission to create a better world through compassion and action',
+  // Default fallback data matching hero style
+  const defaultCTAData: CTAData = {
+    id: 'default-cta',
+    title: 'Ready to Make a Difference?',
+    description: 'Join thousands of supporters who are already making an impact through compassion and action',
     primaryButton: {
       text: 'Donate Now',
-      link: '/donate'
+      url: '/donate',
+      className: ''
     },
     secondaryButton: {
       text: 'Learn More',
-      link: '/about'
+      url: '/about',
+      className: ''
     },
-    backgroundVideo: {
-      url: '/videos/hero-background.mp4',
-      poster: '/images/hero-poster.jpg'
-    },
-    overlayOpacity: 40,
-    textAlignment: 'center',
-    isActive: true,
-    donationCounter: {
-      totalAmount: 1250000,
-      donorsCount: 8457,
-      showCounter: true
-    },
-    gradient: {
-      from: 'purple-600',
-      to: 'blue-500'
-    },
-    animations: {
-      enableParallax: true,
-      textDelay: 0.2,
-      buttonDelay: 0.6
+    sectionClassName: '',
+    containerClassName: '',
+    enabled: true,
+    animation: {
+      title: {
+        initial: { opacity: 0, y: 20 },
+        animate: { opacity: 1, y: 0 },
+        transition: { duration: 0.8, delay: 0.2 }
+      },
+      description: {
+        initial: { opacity: 0, y: 20 },
+        animate: { opacity: 1, y: 0 },
+        transition: { duration: 0.8, delay: 0.4 }
+      },
+      buttons: {
+        initial: { opacity: 0, y: 20 },
+        animate: { opacity: 1, y: 0 },
+        transition: { duration: 0.8, delay: 0.6 }
+      }
     }
   };
 
   useEffect(() => {
-    const loadHeroData = async () => {
+    const loadCTAData = async () => {
       try {
-        const data = await heroAPI.getActiveHero();
-        setHeroData(data || defaultHeroData);
-      } catch (error) {
-        console.error('Error loading hero data:', error);
-        setHeroData(defaultHeroData);
+        setLoading(true);
+        const data = await ctaAPI.getAllCTASections();
+        setCTAData(data.length > 0 ? data : [defaultCTAData]);
+      } catch (err) {
+        setError('Failed to load CTA sections');
+        setCTAData([defaultCTAData]);
       } finally {
         setLoading(false);
       }
     };
 
-    loadHeroData();
+    loadCTAData();
   }, []);
 
   if (loading) {
     return (
-      <div className="relative h-screen overflow-hidden bg-gray-900 flex items-center justify-center">
+      <div className="relative h-screen overflow-hidden flex items-center justify-center bg-gradient-to-br from-purple-600 via-blue-600 to-indigo-700">
         <div className="text-white text-center">
-          <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-white mx-auto mb-4"></div>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white mx-auto mb-4"></div>
           <p>Loading...</p>
         </div>
       </div>
     );
   }
 
-  if (!heroData) {
-    return null;
+  if (error) {
+    return (
+      <div className="relative h-screen overflow-hidden flex items-center justify-center bg-gradient-to-br from-purple-600 via-blue-600 to-indigo-700 text-center">
+        <div>
+          <p className="text-white mb-4">{error}</p>
+          <button 
+            onClick={() => window.location.reload()} 
+            className="text-white underline hover:no-underline"
+          >
+            Try Again
+          </button>
+        </div>
+      </div>
+    );
   }
 
-  const getAlignmentClasses = (alignment: string) => {
-    switch (alignment) {
-      case 'left':
-        return 'items-start text-left';
-      case 'right':
-        return 'items-end text-right';
-      default:
-        return 'items-center text-center';
-    }
-  };
-
-  const getGradientClasses = (from: string, to: string) => {
-    return `bg-gradient-to-r from-${from} to-${to}`;
-  };
-
   return (
-    <div ref={heroRef} className="relative h-screen overflow-hidden">
-      <HeroVideo 
-        videoUrl={heroData.backgroundVideo.url}
-        posterUrl={heroData.backgroundVideo.poster}
-      />
-      <div 
-        className="absolute inset-0 bg-black z-10" 
-        style={{ opacity: heroData.overlayOpacity / 100 }}
-      />
-      
-      <motion.div 
-        className={`absolute inset-0 flex flex-col justify-center px-4 z-20 ${getAlignmentClasses(heroData.textAlignment)}`}
-        style={{ 
-          y: heroData.animations.enableParallax ? heroTextY : 0, 
-          opacity: heroOpacity 
-        }}
-      >
-        <motion.h1 
-          className="text-4xl md:text-6xl lg:text-7xl font-bold text-white mb-6"
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.8, delay: heroData.animations.textDelay }}
+    <>
+      {ctaData.map((cta, index) => (
+        <section 
+          key={cta.id || index}
+          className={`relative h-screen overflow-hidden flex items-center justify-center px-4 bg-gradient-to-br from-purple-600 via-blue-600 to-indigo-700 text-white ${cta.sectionClassName} ${className}`}
         >
-          {heroData.title}
-        </motion.h1>
-        
-        <motion.p 
-          className="text-xl md:text-2xl text-white/90 max-w-2xl mb-8"
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.8, delay: heroData.animations.textDelay + 0.2 }}
-        >
-          {heroData.subtitle}
-        </motion.p>
-        
-        <motion.div
-          className="flex flex-col sm:flex-row gap-4"
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.8, delay: heroData.animations.buttonDelay }}
-        >
-          <Link 
-            href={heroData.primaryButton.link}
-            className={`px-8 py-4 ${getGradientClasses(heroData.gradient.from, heroData.gradient.to)} text-white font-bold rounded-full text-xl hover:scale-105 transition-all duration-300 shadow-lg inline-block`}
-          >
-            {heroData.primaryButton.text}
-          </Link>
-          
-          <Link 
-            href={heroData.secondaryButton.link}
-            className="px-8 py-4 border-2 border-white text-white font-bold rounded-full text-xl hover:bg-white hover:text-gray-900 transition-all duration-300 inline-block"
-          >
-            {heroData.secondaryButton.text}
-          </Link>
-        </motion.div>
-      </motion.div>
-      
-      {heroData.donationCounter.showCounter && (
-        <div className="absolute bottom-8 left-1/2 transform -translate-x-1/2 z-20">
-          <DonationCounter 
-            totalAmount={heroData.donationCounter.totalAmount} 
-            donorsCount={heroData.donationCounter.donorsCount} 
-          />
-        </div>
-      )}
-    </div>
+          <div className="max-w-6xl mx-auto text-center z-10">
+            
+            {/* Title - matching hero typography */}
+            <motion.h2 
+              className="text-4xl md:text-6xl lg:text-7xl font-bold text-white mb-6"
+              initial={cta.animation.title.initial}
+              whileInView={cta.animation.title.animate}
+              transition={cta.animation.title.transition}
+              viewport={{ once: true, margin: "-100px" }}
+            >
+              {cta.title}
+            </motion.h2>
+            
+            {/* Description - matching hero subtitle style */}
+            <motion.p 
+              className="text-xl md:text-2xl text-white/90 max-w-2xl mx-auto mb-8"
+              initial={cta.animation.description.initial}
+              whileInView={cta.animation.description.animate}
+              transition={cta.animation.description.transition}
+              viewport={{ once: true, margin: "-100px" }}
+            >
+              {cta.description}
+            </motion.p>
+            
+            {/* Buttons - exactly matching hero button styles */}
+            <motion.div
+              className="flex flex-col sm:flex-row gap-4 justify-center items-center"
+              initial={cta.animation.buttons.initial}
+              whileInView={cta.animation.buttons.animate}
+              transition={cta.animation.buttons.transition}
+              viewport={{ once: true, margin: "-100px" }}
+            >
+              {/* Primary Button - Purple gradient matching hero */}
+              <Link 
+                href={cta.primaryButton.url}
+                className={`
+                  px-8 py-4 bg-gradient-to-r from-purple-600 to-blue-500 
+                  text-white font-bold rounded-full text-xl 
+                  hover:scale-105 transition-all duration-300 shadow-lg 
+                  inline-block
+                  ${cta.primaryButton.className}
+                `}
+              >
+                {cta.primaryButton.text}
+              </Link>
+              
+              {/* Secondary Button - Outline style matching hero */}
+              <Link 
+                href={cta.secondaryButton.url}
+                className={`
+                  px-8 py-4 border-2 border-white text-white font-bold 
+                  rounded-full text-xl hover:bg-white hover:text-gray-900 
+                  transition-all duration-300 inline-block
+                  ${cta.secondaryButton.className}
+                `}
+              >
+                {cta.secondaryButton.text}
+              </Link>
+            </motion.div>
+            
+          </div>
+        </section>
+      ))}
+    </>
   );
 };
 
-export default HeroSection;
+export default CTASection;

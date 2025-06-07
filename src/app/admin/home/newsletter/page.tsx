@@ -145,20 +145,84 @@ export default function NewsletterManagement() {
   const [sourceFilter, setSourceFilter] = useState<string>('all');
 
   useEffect(() => {
+  const fetchData = async () => {
+    try {
+      const response = await fetch('http://localhost:5000/api/fetch');
+      if (!response.ok) throw new Error('Fetch failed');
+
+      const data = await response.json();
+      if (data?.content) setNewsletterContent(data.content);
+      if (data?.subscribers) setSubscribers(data.subscribers);
+      if (data?.campaigns) setCampaigns(data.campaigns);
+    } catch (error) {
+      console.error('Error fetching newsletter data:', error);
+    } finally {
+      setMounted(true);
+    }
+  };
+
+  fetchData();
+}, []);
+
+
+  useEffect(() => {
     setMounted(true);
   }, []);
 
   const handleSave = async () => {
-    setSaveStatus('saving');
-    setIsLoading(true);
-    
-    // Simulate API call
-    setTimeout(() => {
-      setSaveStatus('saved');
-      setIsLoading(false);
-      setTimeout(() => setSaveStatus('idle'), 2000);
-    }, 1000);
-  };
+  setSaveStatus('saving');
+  setIsLoading(true);
+
+  try {
+    const response = await fetch('http://localhost:5000/api/save', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        content: newsletterContent,
+        subscribers,
+        campaigns
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error('Save failed');
+    }
+
+    setSaveStatus('saved');
+  } catch (error) {
+    console.error('Error saving:', error);
+    setSaveStatus('error');
+  } finally {
+    setIsLoading(false);
+    setTimeout(() => setSaveStatus('idle'), 2000);
+  }
+};
+
+  const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+  const file = event.target.files?.[0];
+  if (!file) return;
+
+  const formData = new FormData();
+  formData.append('image', file);
+
+  try {
+    const res = await fetch('http://localhost:5000/api/upload-image', {
+      method: 'POST',
+      body: formData
+    });
+
+    if (!res.ok) throw new Error('Image upload failed');
+
+    const data = await res.json();
+    handleContentChange('backgroundImage', data.url); // Save Cloudinary image URL
+  } catch (error) {
+    console.error('Image upload error:', error);
+  }
+};
+
+
 
   const handleContentChange = (field: keyof NewsletterContent, value: string | boolean) => {
     setNewsletterContent(prev => ({
@@ -212,17 +276,7 @@ export default function NewsletterManagement() {
     }
   };
 
-  const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        const result = e.target?.result as string;
-        handleContentChange('backgroundImage', result);
-      };
-      reader.readAsDataURL(file);
-    }
-  };
+  
 
   // Filtered subscribers logic
   const filteredSubscribers = subscribers.filter(subscriber => {

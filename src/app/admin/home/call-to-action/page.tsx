@@ -2,24 +2,10 @@
 
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import {
-  Activity,
-  Save,
-  Eye,
-  RefreshCw,
-  Image,
-  Type,
-  Palette,
-  Target,
-  BarChart3,
-  TrendingUp,
-  MousePointer,
-  Heart,
-  Users,
-  DollarSign
-} from 'lucide-react';
+import { Save, Eye } from 'lucide-react';
 import AdminCard from '@/components/admin/ui/AdminCard';
 
+// Type Interfaces
 interface CTASection {
   id: string;
   title: string;
@@ -52,12 +38,49 @@ interface CTAAnalytics {
   views: number;
   clicks: number;
   conversions: number;
-  ctr: number; // Click-through rate
+  ctr: number;
   conversionRate: number;
 }
 
+// ✅ API Service (Internal)
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
+
+const CTAService = {
+  async getCTASection() {
+    const response = await fetch(`${API_BASE_URL}/cta/cta/main-cta`);
+    const result = await response.json();
+    if (!result.success) throw new Error(result.message || 'Failed to fetch CTA data');
+    return result.data;
+  },
+
+  async saveCTASection(ctaData: CTASection) {
+    const response = await fetch(`${API_BASE_URL}/cta/save`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(ctaData),
+    });
+    const result = await response.json();
+    if (!result.success) throw new Error(result.message || 'Failed to save CTA data');
+    return result;
+  },
+
+  async updateCTASection(updates: Partial<CTASection>) {
+    const response = await fetch(`${API_BASE_URL}/cta`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(updates),
+    });
+    const result = await response.json();
+    if (!result.success) throw new Error(result.message || 'Failed to update CTA data');
+    return result;
+  }
+};
+
+// ✅ Main Component
 export default function CallToActionManagement() {
   const [mounted, setMounted] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
   const [ctaSection, setCtaSection] = useState<CTASection>({
     id: 'main-cta',
     title: 'Join Us in Making a Difference',
@@ -73,8 +96,8 @@ export default function CallToActionManagement() {
       style: 'bg-transparent border-2 border-white text-white hover:bg-white/10'
     },
     backgroundStyle: 'gradient',
-    gradientFrom: '#9333ea', // purple-600
-    gradientTo: '#3b82f6',   // blue-500
+    gradientFrom: '#9333ea',
+    gradientTo: '#3b82f6',
     backgroundColor: '#9333ea',
     backgroundImage: '',
     textColor: '#ffffff',
@@ -87,27 +110,38 @@ export default function CallToActionManagement() {
   });
 
   const [analytics, setAnalytics] = useState<CTAAnalytics>({
-    views: 0,
-    clicks: 0,
-    conversions: 0,
-    ctr: 0,
-    conversionRate: 0
+    views: 15420,
+    clicks: 1205,
+    conversions: 187,
+    ctr: 7.8,
+    conversionRate: 15.5
   });
 
   const [previewMode, setPreviewMode] = useState(false);
+  const [notification, setNotification] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
   useEffect(() => {
     setMounted(true);
-    
-    // Mock analytics data
-    setAnalytics({
-      views: 15420,
-      clicks: 1205,
-      conversions: 187,
-      ctr: 7.8,
-      conversionRate: 15.5
-    });
+    loadCTAData();
   }, []);
+
+  const loadCTAData = async () => {
+    try {
+      setLoading(true);
+      const data = await CTAService.getCTASection();
+      setCtaSection(data);
+    } catch (error) {
+      console.error('Failed to load CTA data:', error);
+      showNotification('error', 'Failed to load CTA data');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const showNotification = (type: 'success' | 'error', message: string) => {
+    setNotification({ type, message });
+    setTimeout(() => setNotification(null), 3000);
+  };
 
   const updateCTASection = (field: string, value: any) => {
     setCtaSection(prev => ({ ...prev, [field]: value }));
@@ -133,25 +167,26 @@ export default function CallToActionManagement() {
     }));
   };
 
-  const saveCTASection = () => {
-    // API call to save changes
-    console.log('Saving CTA section:', ctaSection);
-    // Show success notification
-  };
-
-  const getBackgroundStyle = () => {
-    switch (ctaSection.backgroundStyle) {
-      case 'gradient':
-        return `linear-gradient(135deg, ${ctaSection.gradientFrom}, ${ctaSection.gradientTo})`;
-      case 'image':
-        return ctaSection.backgroundImage ? `url(${ctaSection.backgroundImage})` : ctaSection.backgroundColor;
-      case 'solid':
-      default:
-        return ctaSection.backgroundColor;
+  const saveCTASection = async () => {
+    try {
+      setSaving(true);
+      await CTAService.saveCTASection(ctaSection);
+      showNotification('success', 'CTA section saved successfully!');
+    } catch (error) {
+      console.error('Failed to save CTA section:', error);
+      showNotification('error', 'Failed to save CTA section');
+    } finally {
+      setSaving(false);
     }
   };
 
-  if (!mounted) return null;
+  if (!mounted || loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-lg text-gray-500">Loading...</div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">

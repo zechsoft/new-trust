@@ -21,11 +21,11 @@ import {
 } from 'lucide-react';
 import AdminCard from '@/components/admin/ui/AdminCard';
 
-// API service functions
+// API service functions (only save, get, and upload image)
 const impactAPI = {
   // Fetch impact data
   async getImpactData() {
-    const response = await fetch('/api/impact', {
+    const response = await fetch('http://localhost:5000/api/impact', {
       method: 'GET',
       headers: {
         'Authorization': `Bearer ${localStorage.getItem('token')}`,
@@ -40,9 +40,9 @@ const impactAPI = {
     return response.json();
   },
 
-  // Update impact data
-  async updateImpactData(data) {
-    const response = await fetch('/api/impact', {
+  // Save impact data
+  async saveImpactData(data) {
+    const response = await fetch('http://localhost:5000/api/impact', {
       method: 'PUT',
       headers: {
         'Authorization': `Bearer ${localStorage.getItem('token')}`,
@@ -52,7 +52,7 @@ const impactAPI = {
     });
     
     if (!response.ok) {
-      throw new Error('Failed to update impact data');
+      throw new Error('Failed to save impact data');
     }
     
     return response.json();
@@ -63,7 +63,7 @@ const impactAPI = {
     const formData = new FormData();
     formData.append('image', file);
     
-    const response = await fetch('/api/impact/upload-image', {
+    const response = await fetch('http://localhost:5000/api/upload-image', {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${localStorage.getItem('token')}`,
@@ -73,40 +73,6 @@ const impactAPI = {
     
     if (!response.ok) {
       throw new Error('Failed to upload image');
-    }
-    
-    return response.json();
-  },
-
-  // Delete stat
-  async deleteStat(statId) {
-    const response = await fetch(`/api/impact/stats/${statId}`, {
-      method: 'DELETE',
-      headers: {
-        'Authorization': `Bearer ${localStorage.getItem('token')}`,
-        'Content-Type': 'application/json',
-      },
-    });
-    
-    if (!response.ok) {
-      throw new Error('Failed to delete stat');
-    }
-    
-    return response.json();
-  },
-
-  // Delete achievement
-  async deleteAchievement(achievementId) {
-    const response = await fetch(`/api/impact/achievements/${achievementId}`, {
-      method: 'DELETE',
-      headers: {
-        'Authorization': `Bearer ${localStorage.getItem('token')}`,
-        'Content-Type': 'application/json',
-      },
-    });
-    
-    if (!response.ok) {
-      throw new Error('Failed to delete achievement');
     }
     
     return response.json();
@@ -142,7 +108,7 @@ export default function ImpactSectionManagement() {
       setError(null);
       const data = await impactAPI.getImpactData();
       setImpactData(data);
-      setOriginalData(JSON.parse(JSON.stringify(data))); // Deep copy for reset
+      setOriginalData(JSON.parse(JSON.stringify(data))); 
     } catch (err) {
       setError(err.message);
       console.error('Error loading impact data:', err);
@@ -181,13 +147,12 @@ export default function ImpactSectionManagement() {
 
   const addNewStat = () => {
     const newStat = {
-      id: `temp_${Date.now()}`, // Temporary ID for new items
+      id: `stat_${Date.now()}`, 
       icon: "Target",
       number: "0",
       label: "New Metric",
       description: "Description for new metric",
-      color: "blue",
-      isNew: true
+      color: "blue"
     };
     setImpactData(prev => ({
       ...prev,
@@ -198,13 +163,12 @@ export default function ImpactSectionManagement() {
 
   const addNewAchievement = () => {
     const newAchievement = {
-      id: `temp_${Date.now()}`, // Temporary ID for new items
+      id: `achievement_${Date.now()}`, 
       title: "New Achievement",
       description: "Description of the new achievement",
       image: "/images/impact/placeholder.jpg",
       category: "General",
-      year: "2024",
-      isNew: true
+      year: new Date().getFullYear().toString()
     };
     setImpactData(prev => ({
       ...prev,
@@ -213,51 +177,24 @@ export default function ImpactSectionManagement() {
     setHasChanges(true);
   };
 
-  const deleteStat = async (statId) => {
+  const deleteStat = (statId) => {
     if (window.confirm('Are you sure you want to delete this statistic?')) {
-      try {
-        // If it's a new stat (not saved yet), just remove from state
-        if (String(statId).startsWith('temp_')) {
-          setImpactData(prev => ({
-            ...prev,
-            stats: prev.stats.filter(stat => stat.id !== statId)
-          }));
-        } else {
-          // If it's an existing stat, call API to delete
-          await impactAPI.deleteStat(statId);
-          setImpactData(prev => ({
-            ...prev,
-            stats: prev.stats.filter(stat => stat.id !== statId)
-          }));
-        }
-        setHasChanges(true);
-      } catch (err) {
-        setError(err.message);
-      }
+      setImpactData(prev => ({
+        ...prev,
+        stats: prev.stats.filter(stat => stat.id !== statId)
+      }));
+      setHasChanges(true);
     }
   };
 
-  const deleteAchievement = async (achievementId) => {
+ 
+  const deleteAchievement = (achievementId) => {
     if (window.confirm('Are you sure you want to delete this achievement?')) {
-      try {
-        // If it's a new achievement (not saved yet), just remove from state
-        if (String(achievementId).startsWith('temp_')) {
-          setImpactData(prev => ({
-            ...prev,
-            achievements: prev.achievements.filter(achievement => achievement.id !== achievementId)
-          }));
-        } else {
-          // If it's an existing achievement, call API to delete
-          await impactAPI.deleteAchievement(achievementId);
-          setImpactData(prev => ({
-            ...prev,
-            achievements: prev.achievements.filter(achievement => achievement.id !== achievementId)
-          }));
-        }
-        setHasChanges(true);
-      } catch (err) {
-        setError(err.message);
-      }
+      setImpactData(prev => ({
+        ...prev,
+        achievements: prev.achievements.filter(achievement => achievement.id !== achievementId)
+      }));
+      setHasChanges(true);
     }
   };
 
@@ -266,9 +203,9 @@ export default function ImpactSectionManagement() {
       const result = await impactAPI.uploadImage(file);
       
       if (type === 'background') {
-        handleInputChange('backgroundImage', result.imageUrl);
+        handleInputChange('backgroundImage', result.url);
       } else if (type === 'achievement' && id) {
-        handleAchievementChange(id, 'image', result.imageUrl);
+        handleAchievementChange(id, 'image', result.url);
       }
     } catch (err) {
       setError(err.message);
@@ -280,14 +217,14 @@ export default function ImpactSectionManagement() {
       setSaving(true);
       setError(null);
       
-      const result = await impactAPI.updateImpactData(impactData);
+      const result = await impactAPI.saveImpactData(impactData);
       setImpactData(result);
       setOriginalData(JSON.parse(JSON.stringify(result)));
       setHasChanges(false);
       setIsEditing(false);
       
       // Show success message
-      alert('Impact section updated successfully!');
+      alert('Impact section saved successfully!');
     } catch (err) {
       setError(err.message);
     } finally {

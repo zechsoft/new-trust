@@ -41,8 +41,25 @@ interface VolunteerOpportunity {
   color: string;
 }
 
+interface SectionSettings {
+  sectionVisible: boolean;
+  sectionTitle: string;
+  sectionSubtitle: string;
+  highlightUrgent: boolean;
+  showSkillsRequired: boolean;
+  showBenefits: boolean;
+  showApplicationForm: boolean;
+  requireRegistration: boolean;
+}
+
+interface VolunteerData {
+  sectionSettings: SectionSettings;
+  opportunities: VolunteerOpportunity[];
+}
+
 export default function VolunteerOpportunitiesManagement() {
   const [mounted, setMounted] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [opportunities, setOpportunities] = useState<VolunteerOpportunity[]>([
     {
       id: 1,
@@ -118,15 +135,15 @@ export default function VolunteerOpportunitiesManagement() {
     }
   ]);
 
-  const [sectionSettings, setSectionSettings] = useState({
+  const [sectionSettings, setSectionSettings] = useState<SectionSettings>({
     sectionVisible: true,
     sectionTitle: 'Volunteer Opportunities',
     sectionSubtitle: 'Join our mission to make a difference',
-    showApplicationForm: true,
-    requireRegistration: true,
     highlightUrgent: true,
     showSkillsRequired: true,
-    showBenefits: true
+    showBenefits: true,
+    showApplicationForm: false,
+    requireRegistration: false
   });
 
   const [editingOpportunity, setEditingOpportunity] = useState<VolunteerOpportunity | null>(null);
@@ -138,6 +155,29 @@ export default function VolunteerOpportunitiesManagement() {
   useEffect(() => {
     setMounted(true);
   }, []);
+
+  useEffect(() => {
+    if (!mounted) return;
+    
+    const fetchData = async () => {
+      try {
+        const response = await fetch('http://localhost:5000/api/volunteer-management');
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        const data: VolunteerData = await response.json();
+        setSectionSettings(data.sectionSettings);
+        setOpportunities(data.opportunities);
+      } catch (err) {
+        console.error('Failed to fetch:', err);
+        // Keep default data if API fails
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchData();
+  }, [mounted]);
 
   const handleToggleOpportunityVisibility = (opportunityId: number) => {
     setOpportunities(opportunities.map(opp => 
@@ -164,14 +204,120 @@ export default function VolunteerOpportunitiesManagement() {
     }
   };
 
-  const handleSaveChanges = () => {
-    console.log('Saving changes...', { opportunities, sectionSettings });
-    setHasChanges(false);
+  const handleSaveChanges = async () => {
+    try {
+      const response = await fetch('http://localhost:5000/api/volunteer-management', {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ sectionSettings, opportunities }),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(errorText || `HTTP error! status: ${response.status}`);
+      }
+
+      const result = await response.json();
+      console.log('Save successful:', result);
+      alert('Saved successfully!');
+      setHasChanges(false);
+    } catch (err) {
+      console.error('Save failed:', err);
+      alert(`Save failed: ${err instanceof Error ? err.message : 'Unknown error'}`);
+    }
   };
 
   const handleResetChanges = () => {
     if (confirm('Are you sure you want to reset all changes?')) {
+      setSectionSettings({
+        sectionVisible: true,
+        sectionTitle: 'Volunteer Opportunities',
+        sectionSubtitle: 'Join our mission to make a difference',
+        highlightUrgent: true,
+        showSkillsRequired: true,
+        showBenefits: true,
+        showApplicationForm: false,
+        requireRegistration: false
+      });
+      setOpportunities([
+        {
+          id: 1,
+          title: 'Community Outreach Coordinator',
+          category: 'Leadership',
+          description: 'Help coordinate community events and outreach programs to expand our impact.',
+          requirements: ['Strong communication skills', 'Event planning experience', 'Available weekends'],
+          timeCommitment: '10-15 hours/week',
+          location: 'Main Office + Field Work',
+          spotsAvailable: 3,
+          currentVolunteers: 1,
+          skillsRequired: ['Communication', 'Organization', 'Leadership'],
+          benefits: ['Leadership experience', 'Networking opportunities', 'Certificate of service'],
+          visible: true,
+          urgent: true,
+          remote: false,
+          icon: '👥',
+          color: 'bg-blue-500'
+        },
+        {
+          id: 2,
+          title: 'Social Media Manager',
+          category: 'Marketing',
+          description: 'Manage our social media presence and create engaging content to raise awareness.',
+          requirements: ['Social media experience', 'Creative skills', 'Basic design knowledge'],
+          timeCommitment: '5-8 hours/week',
+          location: 'Remote',
+          spotsAvailable: 2,
+          currentVolunteers: 0,
+          skillsRequired: ['Social Media', 'Content Creation', 'Design'],
+          benefits: ['Portfolio building', 'Marketing experience', 'Flexible schedule'],
+          visible: true,
+          urgent: false,
+          remote: true,
+          icon: '📱',
+          color: 'bg-purple-500'
+        },
+        {
+          id: 3,
+          title: 'Youth Mentor',
+          category: 'Education',
+          description: 'Provide guidance and support to underprivileged youth in our after-school programs.',
+          requirements: ['Background check', 'Good with children', 'Reliable schedule'],
+          timeCommitment: '4-6 hours/week',
+          location: 'Community Centers',
+          spotsAvailable: 8,
+          currentVolunteers: 5,
+          skillsRequired: ['Mentoring', 'Patience', 'Communication'],
+          benefits: ['Personal fulfillment', 'Skill development', 'Community impact'],
+          visible: true,
+          urgent: false,
+          remote: false,
+          icon: '🎓',
+          color: 'bg-green-500'
+        },
+        {
+          id: 4,
+          title: 'Healthcare Support Volunteer',
+          category: 'Healthcare',
+          description: 'Assist with basic health screenings and provide support at mobile clinics.',
+          requirements: ['Medical background preferred', 'First aid certification', 'Physical fitness'],
+          timeCommitment: '6-8 hours/week',
+          location: 'Mobile Clinics',
+          spotsAvailable: 5,
+          currentVolunteers: 3,
+          skillsRequired: ['Healthcare', 'First Aid', 'Compassion'],
+          benefits: ['Medical experience', 'Skill enhancement', 'Direct impact'],
+          visible: true,
+          urgent: true,
+          remote: false,
+          icon: '🏥',
+          color: 'bg-red-500'
+        }
+      ]);
       setHasChanges(false);
+      setEditingOpportunity(null);
+      setShowAddForm(false);
     }
   };
 
@@ -183,6 +329,17 @@ export default function VolunteerOpportunitiesManagement() {
   };
 
   if (!mounted) return null;
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-64">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
+          <p className="mt-2 text-gray-600">Loading volunteer opportunities...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -291,29 +448,15 @@ export default function VolunteerOpportunitiesManagement() {
               <label className="flex items-center">
                 <input
                   type="checkbox"
-                  checked={sectionSettings.showApplicationForm}
+                  checked={sectionSettings.showSkillsRequired}
                   onChange={(e) => {
-                    setSectionSettings({...sectionSettings, showApplicationForm: e.target.checked});
+                    setSectionSettings({...sectionSettings, showSkillsRequired: e.target.checked});
                     setHasChanges(true);
                   }}
                   className="rounded border-gray-300 text-blue-600 shadow-sm focus:border-blue-300 focus:ring focus:ring-blue-200 focus:ring-opacity-50"
                 />
                 <span className="ml-2 text-sm text-gray-700 dark:text-gray-300">
-                  Show application form
-                </span>
-              </label>
-              <label className="flex items-center">
-                <input
-                  type="checkbox"
-                  checked={sectionSettings.requireRegistration}
-                  onChange={(e) => {
-                    setSectionSettings({...sectionSettings, requireRegistration: e.target.checked});
-                    setHasChanges(true);
-                  }}
-                  className="rounded border-gray-300 text-blue-600 shadow-sm focus:border-blue-300 focus:ring focus:ring-blue-200 focus:ring-opacity-50"
-                />
-                <span className="ml-2 text-sm text-gray-700 dark:text-gray-300">
-                  Require user registration
+                  Show required skills
                 </span>
               </label>
             </div>
@@ -332,20 +475,7 @@ export default function VolunteerOpportunitiesManagement() {
                   Highlight urgent positions
                 </span>
               </label>
-              <label className="flex items-center">
-                <input
-                  type="checkbox"
-                  checked={sectionSettings.showSkillsRequired}
-                  onChange={(e) => {
-                    setSectionSettings({...sectionSettings, showSkillsRequired: e.target.checked});
-                    setHasChanges(true);
-                  }}
-                  className="rounded border-gray-300 text-blue-600 shadow-sm focus:border-blue-300 focus:ring focus:ring-blue-200 focus:ring-opacity-50"
-                />
-                <span className="ml-2 text-sm text-gray-700 dark:text-gray-300">
-                  Show required skills
-                </span>
-              </label>
+              
               <label className="flex items-center">
                 <input
                   type="checkbox"

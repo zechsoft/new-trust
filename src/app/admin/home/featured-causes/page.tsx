@@ -20,6 +20,8 @@ import {
 } from 'lucide-react';
 import AdminCard from '@/components/admin/ui/AdminCard';
 
+const API_BASE = 'http://localhost:5000/api/causes';
+
 export default function FeaturedCausesManagement() {
   const [mounted, setMounted] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
@@ -98,6 +100,29 @@ export default function FeaturedCausesManagement() {
     setMounted(true);
   }, []);
 
+  useEffect(() => {
+  const fetchData = async () => {
+    try {
+      const res = await fetch(API_BASE);
+      const data = await res.json();
+
+      if (data && Array.isArray(data.causes)) {
+        setSectionData(data);
+      } else {
+        console.error('Invalid data format from API');
+      }
+    } catch (error) {
+      console.error('Failed to fetch featured causes:', error);
+    } finally {
+      setMounted(true);
+    }
+  };
+
+  fetchData();
+}, []);
+
+
+
   const handleSectionChange = (field: string, value: any) => {
     setSectionData(prev => ({
       ...prev,
@@ -105,17 +130,33 @@ export default function FeaturedCausesManagement() {
     }));
     setHasChanges(true);
   };
-  const handleImageUpload = (causeId: number, event: React.ChangeEvent<HTMLInputElement>) => {
+  
+ const handleImageUpload = async (causeId: number, event: React.ChangeEvent<HTMLInputElement>) => {
   const file = event.target.files?.[0];
-  if (file) {
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      const imageUrl = e.target?.result as string;
-      handleCauseChange(causeId, 'image', imageUrl);
-    };
-    reader.readAsDataURL(file);
+  if (!file) return;
+
+  const formData = new FormData();
+  formData.append('image', file);
+
+  try {
+    const res = await fetch(`http://localhost:5000/api/upload-image`, {
+      method: 'POST',
+      body: formData,
+    });
+
+    const data = await res.json();
+    if (res.ok && data.url) {
+  handleCauseChange(causeId, 'image', data.url);
+}
+ else {
+      console.error('Image upload failed:', data);
+    }
+  } catch (error) {
+    console.error('Image upload error:', error);
   }
 };
+
+
 
   const handleCauseChange = (causeId: number, field: string, value: any) => {
     setSectionData(prev => ({
@@ -178,11 +219,31 @@ export default function FeaturedCausesManagement() {
     }
   };
 
-  const handleSave = () => {
-    console.log('Saving current causes data:', sectionData);
-    setHasChanges(false);
-    setIsEditing(false);
-  };
+  const handleSave = async () => {
+  console.log('Saving section data:', sectionData);
+
+  try {
+    const res = await fetch(`http://localhost:5000/api/causes`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(sectionData),
+    });
+
+    if (res.ok) {
+      console.log('Save successful');
+      setHasChanges(false);
+      setIsEditing(false);
+    } else {
+      console.error('Failed to save featured causes');
+    }
+  } catch (error) {
+    console.error('Save error:', error);
+  }
+};
+
+
 
   const handleReset = () => {
     setHasChanges(false);

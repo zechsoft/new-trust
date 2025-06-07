@@ -127,10 +127,24 @@ export default function DailyActivitiesManagement() {
   const [formData, setFormData] = useState<Omit<DailyActivity, 'id'>>(defaultActivity);
 
   const daysOfWeek = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+useEffect(() => {
+  const fetchData = async () => {
+    try {
+      const res = await fetch('http://localhost:5000/api/activities');
+      const data = await res.json();
+      if (data) {
+        setActivities(data.activities || []);
+        setSectionSettings(data.settings || sectionSettings);
+      }
+    } catch (err) {
+      console.error('Failed to load data:', err);
+    }
+  };
 
-  useEffect(() => {
-    setMounted(true);
-  }, []);
+  fetchData();
+  setMounted(true);
+}, []);
+
 
   const handleToggleActivityVisibility = (activityId: number) => {
     setActivities(activities.map(activity => 
@@ -212,18 +226,41 @@ export default function DailyActivitiesManagement() {
     });
   };
 
-  const handleSaveChanges = () => {
-    console.log('Saving changes...', { activities, sectionSettings });
-    setHasChanges(false);
-    alert('Changes saved successfully!');
-  };
+  const handleSaveChanges = async () => {
+  try {
+    const res = await fetch('http://localhost:5000/api/activities', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ activities, sectionSettings })
+    });
 
-  const handleResetChanges = () => {
-    if (confirm('Are you sure you want to reset all changes?')) {
+    if (!res.ok) throw new Error('Save failed');
+    alert('Changes saved successfully!');
+    setHasChanges(false);
+  } catch (err) {
+    console.error(err);
+    alert('Failed to save changes');
+  }
+};
+
+
+  const handleResetChanges = async () => {
+  if (confirm('Are you sure you want to reset all changes?')) {
+    try {
+      const res = await fetch('http://localhost:5000/api/activities');
+      if (!res.ok) throw new Error('Failed to fetch original data');
+      
+      const data = await res.json();
+      setActivities(data.activities || []);
+      setSectionSettings(data.settings || sectionSettings);
       setHasChanges(false);
-      // Reset to original state or reload from server
+    } catch (err) {
+      console.error('Reset failed:', err);
+      alert('Failed to reset changes');
     }
-  };
+  }
+};
+
 
   const getDayAbbreviation = (day: string) => {
     return day.substring(0, 3).toUpperCase();

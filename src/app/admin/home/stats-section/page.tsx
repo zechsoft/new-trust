@@ -90,8 +90,29 @@ export default function StatsSectionManagement() {
   const [hasChanges, setHasChanges] = useState(false);
 
   useEffect(() => {
-    setMounted(true);
-  }, []);
+  setMounted(true);
+  fetchStatsData();
+}, []);
+
+const fetchStatsData = async () => {
+  try {
+    const response = await fetch('http://localhost:5000/api/stat/stats');
+    const data = await response.json();
+    if (data) {
+      setSectionSettings({
+        title: data.title,
+        subtitle: data.subtitle,
+        isActive: data.isActive,
+        backgroundColor: data.backgroundColor,
+        animationType: data.animationType
+      });
+      setStats(data.stats || []);
+    }
+  } catch (error) {
+    console.error('Error fetching stats:', error);
+  }
+};
+
 
   const iconOptions = [
     { value: 'Users', label: 'Users', icon: Users },
@@ -148,13 +169,26 @@ export default function StatsSectionManagement() {
   };
 
   const handleSave = async () => {
-    try {
-      console.log('Saving stats data:', { sectionSettings, stats });
-      setHasChanges(false);
-    } catch (error) {
-      console.error('Error saving stats data:', error);
-    }
-  };
+  try {
+    const response = await fetch('http://localhost:5000/api/stat', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        ...sectionSettings,
+        stats
+      })
+    });
+
+    const data = await response.json();
+    console.log('Saved:', data);
+    setHasChanges(false);
+  } catch (error) {
+    console.error('Error saving stats:', error);
+  }
+};
+
 
   const getIconComponent = (iconName: string) => {
     const iconMap: { [key: string]: React.ComponentType<any> } = {

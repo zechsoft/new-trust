@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import Link from 'next/link';
 import Image from 'next/image';
@@ -6,8 +6,147 @@ import { Globe } from 'lucide-react';
 import ImpactCard from '@/components/ui/ImpactCard';
 
 const ImpactSection = () => {
+  const [impactData, setImpactData] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    const fetchImpactData = async () => {
+      try {
+        setLoading(true);
+        const response = await fetch('http://localhost:5000/api/impact');
+        if (!response.ok) {
+          throw new Error('Failed to fetch impact data');
+        }
+        const data = await response.json();
+        setImpactData(data);
+      } catch (err) {
+        setError(err.message);
+        console.error('Error fetching impact data:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchImpactData();
+  }, []);
+
+  // Fallback data structure
+  const fallbackData = {
+    title: 'Our Impact',
+    subtitle: 'MAKING A DIFFERENCE',
+    description: 'Through dedication and your generous support, we\'re making a real difference in communities worldwide. Our impact spans across multiple areas with measurable results.',
+    stats: [
+      { id: '1', icon: '👥', number: '50K+', label: 'People', description: 'With Clean Water Access', color: 'blue' },
+      { id: '2', icon: '🏫', number: '35', label: 'Schools', description: 'Built for Communities', color: 'green' },
+      { id: '3', icon: '🏥', number: '75K+', label: 'Patients', description: 'Received Medical Care', color: 'red' },
+      { id: '4', icon: '🌍', number: '120', label: 'Communities', description: 'Sustainably Empowered', color: 'amber' }
+    ],
+    achievements: [
+      {
+        id: '1',
+        title: 'Sarah\'s Story',
+        description: 'From being unable to attend school to becoming the first college graduate in her village, Sarah\'s journey exemplifies the transformative power of education.',
+        image: '/images/impact/story1.jpg',
+        category: 'Education',
+        year: '2023'
+      },
+      {
+        id: '2',
+        title: 'Akachi Village',
+        description: 'A village transformed by access to clean water. Disease rates have plummeted, while school attendance and economic activity have dramatically increased.',
+        image: '/images/impact/story2.jpg',
+        category: 'Clean Water',
+        year: '2023'
+      },
+      {
+        id: '3',
+        title: 'Coastal Health Initiative',
+        description: 'Our mobile clinics have brought essential healthcare to 12 coastal communities, reducing treatable illness rates by 60% in just two years.',
+        image: '/images/impact/story3.jpg',
+        category: 'Healthcare',
+        year: '2023'
+      }
+    ]
+  };
+
+  const data = impactData || fallbackData;
+
+  const getColorClasses = (color) => {
+    const colorMap = {
+      blue: {
+        bg: 'bg-blue-100',
+        text: 'text-blue-600',
+        tagBg: 'bg-blue-100',
+        tagText: 'text-blue-800'
+      },
+      green: {
+        bg: 'bg-green-100',
+        text: 'text-green-600',
+        tagBg: 'bg-green-100',
+        tagText: 'text-green-800'
+      },
+      red: {
+        bg: 'bg-red-100',
+        text: 'text-red-600',
+        tagBg: 'bg-red-100',
+        tagText: 'text-red-800'
+      },
+      amber: {
+        bg: 'bg-amber-100',
+        text: 'text-amber-600',
+        tagBg: 'bg-amber-100',
+        tagText: 'text-amber-800'
+      },
+      purple: {
+        bg: 'bg-purple-100',
+        text: 'text-purple-600',
+        tagBg: 'bg-purple-100',
+        tagText: 'text-purple-800'
+      }
+    };
+    return colorMap[color] || colorMap.blue;
+  };
+
+  if (loading) {
+    return (
+      <section className="py-20 md:py-32 bg-gradient-to-b from-gray-50 to-white relative overflow-hidden">
+        <div className="container mx-auto px-4">
+          <div className="flex items-center justify-center h-64">
+            <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-blue-600"></div>
+          </div>
+        </div>
+      </section>
+    );
+  }
+
+  if (error) {
+    return (
+      <section className="py-20 md:py-32 bg-gradient-to-b from-gray-50 to-white relative overflow-hidden">
+        <div className="container mx-auto px-4">
+          <div className="text-center">
+            <p className="text-red-600 mb-4">Error loading impact data: {error}</p>
+            <button 
+              onClick={() => window.location.reload()} 
+              className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+            >
+              Retry
+            </button>
+          </div>
+        </div>
+      </section>
+    );
+  }
+
   return (
-    <section className="py-20 md:py-32 bg-gradient-to-b from-gray-50 to-white relative overflow-hidden">
+    <section 
+      className="py-20 md:py-32 bg-gradient-to-b from-gray-50 to-white relative overflow-hidden"
+      style={data.backgroundImage ? { 
+        backgroundImage: `linear-gradient(rgba(0,0,0,0.3), rgba(0,0,0,0.3)), url(${data.backgroundImage})`,
+        backgroundSize: 'cover',
+        backgroundPosition: 'center'
+      } : {}}
+    >
       <div className="absolute top-0 left-0 w-full h-64 bg-blue-500 opacity-5 rounded-full -translate-y-1/2 scale-150"></div>
       <div className="absolute bottom-0 right-0 w-96 h-96 bg-purple-500 opacity-5 rounded-full translate-y-1/2"></div>
       
@@ -19,76 +158,64 @@ const ImpactSection = () => {
           viewport={{ once: true }}
           transition={{ duration: 0.6 }}
         >
-          <span className="inline-block py-1 px-3 bg-blue-100 text-blue-800 font-medium rounded-full text-sm mb-4">
-            MAKING A DIFFERENCE
-          </span>
+          {data.subtitle && (
+            <span className="inline-block py-1 px-3 bg-blue-100 text-blue-800 font-medium rounded-full text-sm mb-4">
+              {data.subtitle}
+            </span>
+          )}
           <h2 className="text-4xl md:text-6xl font-bold text-gray-800 mb-6 leading-tight">
-            Our <span className="text-transparent bg-clip-text bg-gradient-to-r from-purple-600 to-blue-500">Impact</span>
+            {data.title ? (
+              <>
+                {data.title.split(' ').slice(0, -1).join(' ')}{' '}
+                <span className="text-transparent bg-clip-text bg-gradient-to-r from-purple-600 to-blue-500">
+                  {data.title.split(' ').slice(-1)}
+                </span>
+              </>
+            ) : (
+              <>
+                Our <span className="text-transparent bg-clip-text bg-gradient-to-r from-purple-600 to-blue-500">Impact</span>
+              </>
+            )}
           </h2>
-          <p className="text-xl text-gray-600 max-w-3xl mx-auto">
-            Through dedication and your generous support, we're making a real difference in communities worldwide.
-            Our impact spans across multiple areas with measurable results.
-          </p>
+          {data.description && (
+            <p className="text-xl text-gray-600 max-w-3xl mx-auto">
+              {data.description}
+            </p>
+          )}
         </motion.div>
         
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-8 mb-20">
-          <motion.div
-            className="flex flex-col items-center text-center"
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.6, delay: 0.1 }}
-          >
-            <div className="w-24 h-24 rounded-full bg-blue-100 flex items-center justify-center mb-4">
-              <span className="text-3xl md:text-4xl font-bold text-blue-600">50K+</span>
-            </div>
-            <h3 className="text-gray-800 font-bold mb-1">People</h3>
-            <p className="text-gray-600 text-sm">With Clean Water Access</p>
-          </motion.div>
-          
-          <motion.div
-            className="flex flex-col items-center text-center"
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.6, delay: 0.2 }}
-          >
-            <div className="w-24 h-24 rounded-full bg-green-100 flex items-center justify-center mb-4">
-              <span className="text-3xl md:text-4xl font-bold text-green-600">35</span>
-            </div>
-            <h3 className="text-gray-800 font-bold mb-1">Schools</h3>
-            <p className="text-gray-600 text-sm">Built for Communities</p>
-          </motion.div>
-          
-          <motion.div
-            className="flex flex-col items-center text-center"
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.6, delay: 0.3 }}
-          >
-            <div className="w-24 h-24 rounded-full bg-red-100 flex items-center justify-center mb-4">
-              <span className="text-3xl md:text-4xl font-bold text-red-600">75K+</span>
-            </div>
-            <h3 className="text-gray-800 font-bold mb-1">Patients</h3>
-            <p className="text-gray-600 text-sm">Received Medical Care</p>
-          </motion.div>
-          
-          <motion.div
-            className="flex flex-col items-center text-center"
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.6, delay: 0.4 }}
-          >
-            <div className="w-24 h-24 rounded-full bg-amber-100 flex items-center justify-center mb-4">
-              <span className="text-3xl md:text-4xl font-bold text-amber-600">120</span>
-            </div>
-            <h3 className="text-gray-800 font-bold mb-1">Communities</h3>
-            <p className="text-gray-600 text-sm">Sustainably Empowered</p>
-          </motion.div>
-        </div>
+        {/* Stats Section */}
+        {data.stats && data.stats.length > 0 && (
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-8 mb-20">
+            {data.stats.map((stat, index) => {
+              const colors = getColorClasses(stat.color || 'blue');
+              return (
+                <motion.div
+                  key={stat.id || index}
+                  className="flex flex-col items-center text-center"
+                  initial={{ opacity: 0, y: 20 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true }}
+                  transition={{ duration: 0.6, delay: index * 0.1 }}
+                >
+                  <div className={`w-24 h-24 rounded-full ${colors.bg} flex items-center justify-center mb-4`}>
+                    {stat.icon ? (
+                      <span className="text-2xl">{stat.icon}</span>
+                    ) : (
+                      <span className={`text-3xl md:text-4xl font-bold ${colors.text}`}>
+                        {stat.number}
+                      </span>
+                    )}
+                  </div>
+                  <h3 className="text-gray-800 font-bold mb-1">{stat.label}</h3>
+                  <p className="text-gray-600 text-sm">{stat.description}</p>
+                </motion.div>
+              );
+            })}
+          </div>
+        )}
         
+        {/* Impact Cards Section - keeping original structure for now */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-16">
           <ImpactCard 
             title="Clean Water Initiative"
@@ -184,109 +311,55 @@ const ImpactSection = () => {
           </div>
         </motion.div>
         
-        <motion.div
-          className="mb-16"
-          initial={{ opacity: 0, y: 20 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-          transition={{ duration: 0.6 }}
-        >
-          <h3 className="text-2xl md:text-3xl font-bold text-gray-800 mb-8 text-center">Transformation Stories</h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-            <div className="bg-white rounded-xl shadow-lg overflow-hidden group hover:shadow-xl transition-all duration-300">
-              <div className="h-48 relative">
-                <Image 
-                  src="/images/impact/story1.jpg" 
-                  alt="Success Story"
-                  fill
-                  style={{objectFit: "cover"}}
-                  className="transition-transform duration-500 group-hover:scale-105"
-                />
-              </div>
-              <div className="p-6">
-                <span className="inline-block py-1 px-2 bg-green-100 text-green-800 text-xs font-medium rounded mb-2">
-                  Education
-                </span>
-                <h4 className="text-lg font-bold text-gray-800 mb-2">Sarah's Story</h4>
-                <p className="text-gray-600 mb-4">
-                  From being unable to attend school to becoming the first college graduate in her village, 
-                  Sarah's journey exemplifies the transformative power of education.
-                </p>
-                <Link 
-                  href="/stories/sarah"
-                  className="text-blue-600 font-medium hover:text-blue-800 transition-colors flex items-center"
-                >
-                  Read Sarah's full story
-                  <svg className="w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7"></path>
-                  </svg>
-                </Link>
-              </div>
+        {/* Achievements/Stories Section */}
+        {data.achievements && data.achievements.length > 0 && (
+          <motion.div
+            className="mb-16"
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.6 }}
+          >
+            <h3 className="text-2xl md:text-3xl font-bold text-gray-800 mb-8 text-center">Transformation Stories</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+              {data.achievements.map((achievement, index) => {
+                const colors = getColorClasses(achievement.category?.toLowerCase() === 'education' ? 'green' : 
+                                                achievement.category?.toLowerCase().includes('water') ? 'blue' : 'red');
+                return (
+                  <div key={achievement.id || index} className="bg-white rounded-xl shadow-lg overflow-hidden group hover:shadow-xl transition-all duration-300">
+                    <div className="h-48 relative">
+                      <Image 
+                        src={achievement.image || '/images/impact/default.jpg'} 
+                        alt={achievement.title}
+                        fill
+                        style={{objectFit: "cover"}}
+                        className="transition-transform duration-500 group-hover:scale-105"
+                      />
+                    </div>
+                    <div className="p-6">
+                      {achievement.category && (
+                        <span className={`inline-block py-1 px-2 ${colors.tagBg} ${colors.tagText} text-xs font-medium rounded mb-2`}>
+                          {achievement.category}
+                        </span>
+                      )}
+                      <h4 className="text-lg font-bold text-gray-800 mb-2">{achievement.title}</h4>
+                      <p className="text-gray-600 mb-4">{achievement.description}</p>
+                      <Link 
+                        href={`/stories/${achievement.id || achievement.title.toLowerCase().replace(/\s+/g, '-')}`}
+                        className="text-blue-600 font-medium hover:text-blue-800 transition-colors flex items-center"
+                      >
+                        Read full story
+                        <svg className="w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7"></path>
+                        </svg>
+                      </Link>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
-            
-            <div className="bg-white rounded-xl shadow-lg overflow-hidden group hover:shadow-xl transition-all duration-300">
-              <div className="h-48 relative">
-                <Image 
-                  src="/images/impact/story2.jpg" 
-                  alt="Success Story"
-                  fill
-                  style={{objectFit: "cover"}}
-                  className="transition-transform duration-500 group-hover:scale-105"
-                />
-              </div>
-              <div className="p-6">
-                <span className="inline-block py-1 px-2 bg-blue-100 text-blue-800 text-xs font-medium rounded mb-2">
-                  Clean Water
-                </span>
-                <h4 className="text-lg font-bold text-gray-800 mb-2">Akachi Village</h4>
-                <p className="text-gray-600 mb-4">
-                  A village transformed by access to clean water. Disease rates have plummeted, while school 
-                  attendance and economic activity have dramatically increased.
-                </p>
-                <Link 
-                  href="/stories/akachi"
-                  className="text-blue-600 font-medium hover:text-blue-800 transition-colors flex items-center"
-                >
-                  Read Akachi's full story
-                  <svg className="w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7"></path>
-                  </svg>
-                </Link>
-              </div>
-            </div>
-            
-            <div className="bg-white rounded-xl shadow-lg overflow-hidden group hover:shadow-xl transition-all duration-300">
-              <div className="h-48 relative">
-                <Image 
-                  src="/images/impact/story3.jpg" 
-                  alt="Success Story"
-                  fill
-                  style={{objectFit: "cover"}}
-                  className="transition-transform duration-500 group-hover:scale-105"
-                />
-              </div>
-              <div className="p-6">
-                <span className="inline-block py-1 px-2 bg-red-100 text-red-800 text-xs font-medium rounded mb-2">
-                  Healthcare
-                </span>
-                <h4 className="text-lg font-bold text-gray-800 mb-2">Coastal Health Initiative</h4>
-                <p className="text-gray-600 mb-4">
-                  Our mobile clinics have brought essential healthcare to 12 coastal communities, reducing 
-                  treatable illness rates by 60% in just two years.
-                </p>
-                <Link 
-                  href="/stories/coastal-health"
-                  className="text-blue-600 font-medium hover:text-blue-800 transition-colors flex items-center"
-                >
-                  Read the full story
-                  <svg className="w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7"></path>
-                  </svg>
-                </Link>
-              </div>
-            </div>
-          </div>
-        </motion.div>
+          </motion.div>
+        )}
         
         <motion.div
           className="bg-gradient-to-r from-purple-600 to-blue-500 rounded-2xl p-8 md:p-12 text-white flex flex-col md:flex-row items-center justify-between"

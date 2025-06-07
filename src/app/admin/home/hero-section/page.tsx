@@ -1,4 +1,4 @@
-'use client';
+  'use client';
 import { useState, useEffect } from 'react';
 import {
   Activity,
@@ -121,41 +121,6 @@ export default function CallToActionManagement() {
           }
         }
       },
-      {
-        id: 'volunteer-cta',
-        title: 'Become a Volunteer Today',
-        description: 'Join our community of dedicated volunteers and make a hands-on difference in the lives of those who need it most.',
-        primaryButton: {
-          text: 'Volunteer Now',
-          url: '/volunteer',
-          className: 'px-8 py-4 bg-white text-blue-600 font-bold rounded-full text-xl hover:bg-gray-100 transition-all duration-300 hover:scale-105 shadow-lg'
-        },
-        secondaryButton: {
-          text: 'Learn More',
-          url: '/volunteer/about',
-          className: 'px-8 py-4 bg-transparent border-2 border-white text-white font-bold rounded-full text-xl hover:bg-white/10 transition-all duration-300 hover:scale-105'
-        },
-        sectionClassName: 'py-20 bg-gradient-to-r from-blue-600 to-teal-500 text-white',
-        containerClassName: 'container mx-auto px-4 text-center',
-        enabled: false,
-        animation: {
-          title: {
-            initial: { opacity: 0, y: 20 },
-            animate: { opacity: 1, y: 0 },
-            transition: { duration: 0.6 }
-          },
-          description: {
-            initial: { opacity: 0, y: 20 },
-            animate: { opacity: 1, y: 0 },
-            transition: { duration: 0.6, delay: 0.2 }
-          },
-          buttons: {
-            initial: { opacity: 0, y: 20 },
-            animate: { opacity: 1, y: 0 },
-            transition: { duration: 0.6, delay: 0.4 }
-          }
-        }
-      }
     ]);
 
     // Mock analytics data
@@ -167,6 +132,34 @@ export default function CallToActionManagement() {
       conversionRate: 15.5
     });
   }, []);
+
+  useEffect(() => {
+  const fetchData = async () => {
+    try {
+      const res = await fetch('http://localhost:5000/api/hero');
+      if (!res.ok) throw new Error('Failed to fetch CTA sections');
+
+      const data = await res.json();
+      setCtaSections(data); // Set the fetched CTA sections
+    } catch (err) {
+      console.error('Fetch error:', err);
+    }
+
+    // Set mock analytics (you can replace this with real analytics fetch if needed)
+    setAnalytics({
+      views: 15420,
+      clicks: 1205,
+      conversions: 187,
+      ctr: 7.8,
+      conversionRate: 15.5
+    });
+
+    setMounted(true);
+  };
+
+  fetchData();
+}, []);
+
 
   const activeCTA = ctaSections.find(cta => cta.id === activeTab) || ctaSections[0];
 
@@ -209,61 +202,24 @@ export default function CallToActionManagement() {
     ));
   };
 
-  const saveCTASection = () => {
-    console.log('Saving CTA section:', activeCTA);
-    // Show success notification
-  };
+  const saveCTASection = async () => {
+  try {
+    const res = await fetch('http://localhost:5000/api/hero', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(activeCTA),
+    });
 
-  const addNewCTA = () => {
-    const newId = `cta-${Date.now()}`;
-    const newCTA: CTASection = {
-      id: newId,
-      title: 'New Call to Action',
-      description: 'Add your compelling description here.',
-      primaryButton: {
-        text: 'Primary Action',
-        url: '/',
-        className: 'px-8 py-4 bg-white text-purple-600 font-bold rounded-full text-xl hover:bg-gray-100 transition-all duration-300 hover:scale-105 shadow-lg'
-      },
-      secondaryButton: {
-        text: 'Secondary Action',
-        url: '/',
-        className: 'px-8 py-4 bg-transparent border-2 border-white text-white font-bold rounded-full text-xl hover:bg-white/10 transition-all duration-300 hover:scale-105'
-      },
-      sectionClassName: 'py-20 bg-gradient-to-r from-purple-600 to-blue-500 text-white',
-      containerClassName: 'container mx-auto px-4 text-center',
-      enabled: false,
-      animation: {
-        title: {
-          initial: { opacity: 0, y: 20 },
-          animate: { opacity: 1, y: 0 },
-          transition: { duration: 0.6 }
-        },
-        description: {
-          initial: { opacity: 0, y: 20 },
-          animate: { opacity: 1, y: 0 },
-          transition: { duration: 0.6, delay: 0.2 }
-        },
-        buttons: {
-          initial: { opacity: 0, y: 20 },
-          animate: { opacity: 1, y: 0 },
-          transition: { duration: 0.6, delay: 0.4 }
-        }
-      }
-    };
+    const data = await res.json();
+    console.log(data.message || 'Saved:', data);
     
-    setCtaSections(prev => [...prev, newCTA]);
-    setActiveTab(newId);
-  };
+  } catch (err) {
+    console.error('Save error:', err);
+  }
+};
 
-  const deleteCTA = (id: string) => {
-    if (ctaSections.length <= 1) return; // Don't delete if it's the last one
-    
-    setCtaSections(prev => prev.filter(cta => cta.id !== id));
-    if (activeTab === id) {
-      setActiveTab(ctaSections[0].id);
-    }
-  };
+
+  
 
   if (!mounted) return null;
 
@@ -350,60 +306,49 @@ export default function CallToActionManagement() {
         {/* CTA Section Tabs */}
         <div className="lg:col-span-1">
           <AdminCard>
-            <div className="flex items-center justify-between mb-4">
+            <div className="mb-4">
               <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
                 CTA Sections
               </h3>
-              <button
-                onClick={addNewCTA}
-                className="p-2 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900 rounded-lg transition-colors"
-                title="Add New CTA"
-              >
-                <Plus className="w-4 h-4" />
-              </button>
             </div>
             <div className="space-y-2">
               {ctaSections.map((cta) => (
                 <div
-                  key={cta.id}
-                  className={`p-3 rounded-lg border-2 transition-all ${
-                    activeTab === cta.id
-                      ? 'bg-blue-50 dark:bg-blue-900/20 border-blue-500'
-                      : 'bg-gray-50 dark:bg-gray-700 border-transparent hover:bg-gray-100 dark:hover:bg-gray-600'
-                  }`}
-                >
-                  <button
-                    onClick={() => setActiveTab(cta.id)}
-                    className="w-full text-left"
-                  >
-                    <div className="flex items-center justify-between">
-                      <div className="flex-1">
-                        <div className="font-medium text-gray-900 dark:text-white truncate">
-                          {cta.title}
-                        </div>
-                        <div className="text-sm text-gray-500 dark:text-gray-400">
-                          {cta.enabled ? 'Active' : 'Disabled'}
-                        </div>
-                      </div>
-                      <div className="flex items-center space-x-2 ml-2">
-                        <div className={`w-2 h-2 rounded-full ${
-                          cta.enabled ? 'bg-green-500' : 'bg-gray-400'
-                        }`} />
-                        {ctaSections.length > 1 && (
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              deleteCTA(cta.id);
-                            }}
-                            className="p-1 text-red-600 hover:bg-red-50 dark:hover:bg-red-900 rounded transition-colors"
-                          >
-                            <Trash2 className="w-3 h-3" />
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                  </button>
-                </div>
+  key={cta.id}
+  onClick={() => setActiveTab(cta.id)}
+  className={`p-3 rounded-lg border-2 transition-all cursor-pointer ${
+    activeTab === cta.id
+      ? 'bg-blue-50 dark:bg-blue-900/20 border-blue-500'
+      : 'bg-gray-50 dark:bg-gray-700 border-transparent hover:bg-gray-100 dark:hover:bg-gray-600'
+  }`}
+>
+  <div className="flex items-center justify-between">
+    <div className="flex-1">
+      <div className="font-medium text-gray-900 dark:text-white truncate">
+        {cta.title}
+      </div>
+      <div className="text-sm text-gray-500 dark:text-gray-400">
+        {cta.enabled ? 'Active' : 'Disabled'}
+      </div>
+    </div>
+    <div className="flex items-center space-x-2 ml-2">
+      <div className={`w-2 h-2 rounded-full ${
+        cta.enabled ? 'bg-green-500' : 'bg-gray-400'
+      }`} />
+      {ctaSections.length > 1 && (
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            deleteCTA(cta.id);
+          }}
+          className="p-1 text-red-600 hover:bg-red-50 dark:hover:bg-red-900 rounded transition-colors"
+        >
+          <Trash2 className="w-3 h-3" />
+        </button>
+      )}
+    </div>
+  </div>
+</div>
               ))}
             </div>
           </AdminCard>

@@ -34,7 +34,14 @@ export default function CauseCard({ cause, delay = 0 }: CauseCardProps) {
       {/* Image */}
       <div className="relative h-48 overflow-hidden">
         <div className="absolute inset-0 bg-gradient-to-b from-transparent to-black/60 z-10" />
-        <div className="w-full h-full bg-gray-300"></div>
+        {/* FIXED: Actually use the image URL */}
+        <Image
+          src={cause.image}
+          alt={cause.title}
+          fill
+          className="object-cover"
+          sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+        />
         <div className="absolute bottom-4 left-4 z-20">
           <h3 className="text-xl font-bold text-white">{cause.title}</h3>
         </div>

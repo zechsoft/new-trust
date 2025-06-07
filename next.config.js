@@ -5,7 +5,11 @@ const nextConfig = {
       fontLoaders: [
         { loader: '@next/font/google' }
       ]
-    }
+    },
+
+    images: {
+    domains: ['res.cloudinary.com'], // Add this line
+  },
   }
   
   module.exports = nextConfig
