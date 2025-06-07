@@ -23,9 +23,12 @@ import {
   Download
 } from 'lucide-react';
 
+// API base URL - adjust this to match your backend
+const API_BASE_URL = 'http://localhost:5000/api/contact';
+
 // Types
 interface ContactInfo {
-  id: string;
+  _id: string;
   type: 'phone' | 'email' | 'address' | 'hours' | 'social';
   label: string;
   value: string;
@@ -35,7 +38,7 @@ interface ContactInfo {
 }
 
 interface OfficeLocation {
-  id: string;
+  _id: string;
   name: string;
   address: string;
   phone: string;
@@ -52,9 +55,34 @@ interface ContactStats {
   lastUpdated: string;
 }
 
+interface ContactSettings {
+  displaySettings: {
+    showQrCode: boolean;
+    showBusinessHours: boolean;
+    showMapIntegration: boolean;
+  };
+  notificationSettings: {
+    emailNotifications: boolean;
+    smsNotifications: boolean;
+    autoReplyMessages: boolean;
+  };
+}
+
 export default function AdminContactInfoPage() {
   const [contactInfo, setContactInfo] = useState<ContactInfo[]>([]);
   const [officeLocations, setOfficeLocations] = useState<OfficeLocation[]>([]);
+  const [settings, setSettings] = useState<ContactSettings>({
+    displaySettings: {
+      showQrCode: true,
+      showBusinessHours: true,
+      showMapIntegration: false
+    },
+    notificationSettings: {
+      emailNotifications: true,
+      smsNotifications: false,
+      autoReplyMessages: true
+    }
+  });
   const [stats, setStats] = useState<ContactStats>({
     totalContacts: 0,
     activeLocations: 0,
@@ -66,114 +94,210 @@ export default function AdminContactInfoPage() {
   const [showAddForm, setShowAddForm] = useState(false);
   const [activeTab, setActiveTab] = useState('general');
   const [savedMessage, setSavedMessage] = useState('');
+  const [error, setError] = useState('');
 
-  // Mock data - Replace with actual API calls
+  // Fetch all data
+  const fetchData = async () => {
+    try {
+      setIsLoading(true);
+      const response = await fetch(`${API_BASE_URL}/admin/all`);
+      if (!response.ok) throw new Error('Failed to fetch data');
+      
+      const data = await response.json();
+      setContactInfo(data.contactInfo || []);
+      setOfficeLocations(data.officeLocations || []);
+      setSettings(data.settings || settings);
+      setStats(data.stats || stats);
+    } catch (err) {
+      setError('Failed to load contact information');
+      console.error('Error fetching data:', err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   useEffect(() => {
-    const fetchData = async () => {
-      setTimeout(() => {
-        const mockContactInfo: ContactInfo[] = [
-          {
-            id: '1',
-            type: 'phone',
-            label: 'Main Phone',
-            value: '+91 123 456 7890',
-            isActive: true,
-            isPrimary: true,
-            order: 1
-          },
-          {
-            id: '2',
-            type: 'phone',
-            label: 'Support Phone',
-            value: '+91 987 654 3210',
-            isActive: true,
-            isPrimary: false,
-            order: 2
-          },
-          {
-            id: '3',
-            type: 'email',
-            label: 'General Inquiries',
-            value: 'contact@charitytrust.org',
-            isActive: true,
-            isPrimary: true,
-            order: 1
-          },
-          {
-            id: '4',
-            type: 'email',
-            label: 'Support Email',
-            value: 'support@charitytrust.org',
-            isActive: true,
-            isPrimary: false,
-            order: 2
-          },
-          {
-            id: '5',
-            type: 'address',
-            label: 'Main Office',
-            value: '123 Charity Lane, Mumbai, India 400001',
-            isActive: true,
-            isPrimary: true,
-            order: 1
-          }
-        ];
-
-        const mockOfficeLocations: OfficeLocation[] = [
-          {
-            id: '1',
-            name: 'Main Office - Mumbai',
-            address: '123 Charity Lane, Mumbai, India 400001',
-            phone: '+91 123 456 7890',
-            email: 'mumbai@charitytrust.org',
-            hours: 'Mon-Fri: 9am - 5pm, Sat: 10am - 2pm',
-            isMain: true,
-            isActive: true
-          },
-          {
-            id: '2',
-            name: 'Branch Office - Delhi',
-            address: '456 Service Street, Delhi, India 110001',
-            phone: '+91 987 654 3210',
-            email: 'delhi@charitytrust.org',
-            hours: 'Mon-Fri: 9am - 6pm',
-            isMain: false,
-            isActive: true
-          }
-        ];
-
-        const mockStats: ContactStats = {
-          totalContacts: 8,
-          activeLocations: 2,
-          socialPlatforms: 5,
-          lastUpdated: new Date().toISOString()
-        };
-
-        setContactInfo(mockContactInfo);
-        setOfficeLocations(mockOfficeLocations);
-        setStats(mockStats);
-        setIsLoading(false);
-      }, 1000);
-    };
-
     fetchData();
   }, []);
 
-  const handleSave = async (item: ContactInfo) => {
-    // Simulate API call
-    setContactInfo(prev => prev.map(info => 
-      info.id === item.id ? item : info
-    ));
-    setEditingItem(null);
-    setSavedMessage('Changes saved successfully!');
+  // Show success message
+  const showSuccessMessage = (message: string) => {
+    setSavedMessage(message);
     setTimeout(() => setSavedMessage(''), 3000);
   };
 
-  const handleDelete = async (id: string) => {
-    if (window.confirm('Are you sure you want to delete this contact information?')) {
-      setContactInfo(prev => prev.filter(info => info.id !== id));
-      setSavedMessage('Contact information deleted.');
-      setTimeout(() => setSavedMessage(''), 3000);
+  // Show error message
+  const showErrorMessage = (message: string) => {
+    setError(message);
+    setTimeout(() => setError(''), 5000);
+  };
+
+  // Contact Info operations
+  const handleSaveContactInfo = async (item: ContactInfo) => {
+    try {
+      const method = item._id.startsWith('new-') ? 'POST' : 'PUT';
+      const url = item._id.startsWith('new-') 
+        ? `${API_BASE_URL}/admin/contact-info`
+        : `${API_BASE_URL}/admin/contact-info/${item._id}`;
+
+      const response = await fetch(url, {
+        method,
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          type: item.type,
+          label: item.label,
+          value: item.value,
+          isActive: item.isActive,
+          isPrimary: item.isPrimary,
+          order: item.order
+        }),
+      });
+
+      if (!response.ok) throw new Error('Failed to save contact information');
+
+      const result = await response.json();
+      
+      if (item._id.startsWith('new-')) {
+        setContactInfo(prev => prev.map(info => 
+          info._id === item._id ? { ...result.contact } : info
+        ));
+      } else {
+        setContactInfo(prev => prev.map(info => 
+          info._id === item._id ? { ...result.contact } : info
+        ));
+      }
+
+      setEditingItem(null);
+      showSuccessMessage('Contact information saved successfully!');
+    } catch (err) {
+      showErrorMessage('Failed to save contact information');
+      console.error('Error saving contact info:', err);
+    }
+  };
+
+  const handleDeleteContactInfo = async (id: string) => {
+    if (!window.confirm('Are you sure you want to delete this contact information?')) return;
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/admin/contact-info/${id}`, {
+        method: 'DELETE',
+      });
+
+      if (!response.ok) throw new Error('Failed to delete contact information');
+
+      setContactInfo(prev => prev.filter(info => info._id !== id));
+      showSuccessMessage('Contact information deleted successfully!');
+    } catch (err) {
+      showErrorMessage('Failed to delete contact information');
+      console.error('Error deleting contact info:', err);
+    }
+  };
+
+  const handleAddContactInfo = () => {
+    const newId = `new-${Date.now()}`;
+    const newContact: ContactInfo = {
+      _id: newId,
+      type: 'phone',
+      label: '',
+      value: '',
+      isActive: true,
+      isPrimary: false,
+      order: contactInfo.length
+    };
+    setContactInfo(prev => [...prev, newContact]);
+    setEditingItem(newId);
+  };
+
+  // Office Location operations
+  const handleSaveOfficeLocation = async (location: OfficeLocation) => {
+    try {
+      const method = location._id.startsWith('new-') ? 'POST' : 'PUT';
+      const url = location._id.startsWith('new-') 
+        ? `${API_BASE_URL}/admin/office-locations`
+        : `${API_BASE_URL}/admin/office-locations/${location._id}`;
+
+      const response = await fetch(url, {
+        method,
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(location),
+      });
+
+      if (!response.ok) throw new Error('Failed to save office location');
+
+      const result = await response.json();
+      
+      if (location._id.startsWith('new-')) {
+        setOfficeLocations(prev => prev.map(loc => 
+          loc._id === location._id ? { ...result.location } : loc
+        ));
+      } else {
+        setOfficeLocations(prev => prev.map(loc => 
+          loc._id === location._id ? { ...result.location } : loc
+        ));
+      }
+
+      showSuccessMessage('Office location saved successfully!');
+    } catch (err) {
+      showErrorMessage('Failed to save office location');
+      console.error('Error saving office location:', err);
+    }
+  };
+
+  const handleDeleteOfficeLocation = async (id: string) => {
+    if (!window.confirm('Are you sure you want to delete this office location?')) return;
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/admin/office-locations/${id}`, {
+        method: 'DELETE',
+      });
+
+      if (!response.ok) throw new Error('Failed to delete office location');
+
+      setOfficeLocations(prev => prev.filter(loc => loc._id !== id));
+      showSuccessMessage('Office location deleted successfully!');
+    } catch (err) {
+      showErrorMessage('Failed to delete office location');
+      console.error('Error deleting office location:', err);
+    }
+  };
+
+  const handleAddOfficeLocation = () => {
+    const newId = `new-${Date.now()}`;
+    const newLocation: OfficeLocation = {
+      _id: newId,
+      name: '',
+      address: '',
+      phone: '',
+      email: '',
+      hours: '',
+      isMain: false,
+      isActive: true
+    };
+    setOfficeLocations(prev => [...prev, newLocation]);
+    setEditingItem(newId);
+  };
+
+  // Settings operations
+  const handleSaveSettings = async () => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/admin/settings`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(settings),
+      });
+
+      if (!response.ok) throw new Error('Failed to save settings');
+
+      showSuccessMessage('Settings saved successfully!');
+    } catch (err) {
+      showErrorMessage('Failed to save settings');
+      console.error('Error saving settings:', err);
     }
   };
 
@@ -229,7 +353,7 @@ export default function AdminContactInfoPage() {
             Export vCard
           </button>
           <button 
-            onClick={() => setShowAddForm(true)}
+            onClick={handleAddContactInfo}
             className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2"
           >
             <Plus className="w-4 h-4" />
@@ -247,6 +371,18 @@ export default function AdminContactInfoPage() {
         >
           <CheckCircle className="w-5 h-5 text-green-600" />
           <span className="text-green-800">{savedMessage}</span>
+        </motion.div>
+      )}
+
+      {/* Error Message */}
+      {error && (
+        <motion.div
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="bg-red-50 border border-red-200 rounded-lg p-4 flex items-center gap-3"
+        >
+          <AlertCircle className="w-5 h-5 text-red-600" />
+          <span className="text-red-800">{error}</span>
         </motion.div>
       )}
 
@@ -353,11 +489,11 @@ export default function AdminContactInfoPage() {
                 {contactInfo.map((info, index) => {
                   const Icon = getContactIcon(info.type);
                   const color = getContactColor(info.type);
-                  const isEditing = editingItem === info.id;
+                  const isEditing = editingItem === info._id;
 
                   return (
                     <motion.div
-                      key={info.id}
+                      key={info._id}
                       initial={{ opacity: 0, y: 20 }}
                       animate={{ opacity: 1, y: 0 }}
                       transition={{ delay: index * 0.1 }}
@@ -375,7 +511,7 @@ export default function AdminContactInfoPage() {
                                   type="text"
                                   value={info.label}
                                   onChange={(e) => setContactInfo(prev => prev.map(item => 
-                                    item.id === info.id ? { ...item, label: e.target.value } : item
+                                    item._id === info._id ? { ...item, label: e.target.value } : item
                                   ))}
                                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                                   placeholder="Label"
@@ -384,7 +520,7 @@ export default function AdminContactInfoPage() {
                                   type="text"
                                   value={info.value}
                                   onChange={(e) => setContactInfo(prev => prev.map(item => 
-                                    item.id === info.id ? { ...item, value: e.target.value } : item
+                                    item._id === info._id ? { ...item, value: e.target.value } : item
                                   ))}
                                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                                   placeholder="Value"
@@ -395,7 +531,7 @@ export default function AdminContactInfoPage() {
                                       type="checkbox"
                                       checked={info.isActive}
                                       onChange={(e) => setContactInfo(prev => prev.map(item => 
-                                        item.id === info.id ? { ...item, isActive: e.target.checked } : item
+                                        item._id === info._id ? { ...item, isActive: e.target.checked } : item
                                       ))}
                                       className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                                     />
@@ -406,7 +542,7 @@ export default function AdminContactInfoPage() {
                                       type="checkbox"
                                       checked={info.isPrimary}
                                       onChange={(e) => setContactInfo(prev => prev.map(item => 
-                                        item.id === info.id ? { ...item, isPrimary: e.target.checked } : item
+                                        item._id === info._id ? { ...item, isPrimary: e.target.checked } : item
                                       ))}
                                       className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                                     />
@@ -415,7 +551,7 @@ export default function AdminContactInfoPage() {
                                 </div>
                                 <div className="flex gap-2">
                                   <button
-                                    onClick={() => handleSave(info)}
+                                    onClick={() => handleSaveContactInfo(info)}
                                     className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 flex items-center gap-2"
                                   >
                                     <Save className="w-4 h-4" />
@@ -460,13 +596,13 @@ export default function AdminContactInfoPage() {
                               <Copy className="w-4 h-4" />
                             </button>
                             <button
-                              onClick={() => setEditingItem(info.id)}
+                              onClick={() => setEditingItem(info._id)}
                               className="p-2 text-blue-600 hover:text-blue-800 rounded-md hover:bg-blue-100"
                             >
                               <Edit className="w-4 h-4" />
                             </button>
                             <button
-                              onClick={() => handleDelete(info.id)}
+                              onClick={() => handleDeleteContactInfo(info._id)}
                               className="p-2 text-red-600 hover:text-red-800 rounded-md hover:bg-red-100"
                             >
                               <Trash2 className="w-4 h-4" />
@@ -491,7 +627,7 @@ export default function AdminContactInfoPage() {
                       const Icon = getContactIcon(info.type);
                       const color = getContactColor(info.type);
                       return (
-                        <div key={info.id} className="flex items-center gap-3">
+                        <div key={info._id} className="flex items-center gap-3">
                           <div className={`p-2 rounded-full bg-${color}-100`}>
                             <Icon className={`w-5 h-5 text-${color}-600`} />
                           </div>
@@ -511,33 +647,80 @@ export default function AdminContactInfoPage() {
       )}
 
       {/* Office Locations Tab */}
-      {activeTab === 'locations' && (
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200">
-          <div className="p-6 border-b border-gray-200">
-            <div className="flex justify-between items-center">
-              <div>
-                <h2 className="text-xl font-semibold text-gray-900">Office Locations</h2>
-                <p className="text-gray-600 mt-1">Manage your organization's office locations and branches</p>
-              </div>
-              <button className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2">
-                <Plus className="w-4 h-4" />
-                Add Location
-              </button>
-            </div>
-          </div>
+      {/* Office Locations Tab */}
+{activeTab === 'locations' && (
+  <div className="bg-white rounded-lg shadow-sm border border-gray-200">
+    <div className="p-6 border-b border-gray-200">
+      <div className="flex justify-between items-center">
+        <div>
+          <h2 className="text-xl font-semibold text-gray-900">Office Locations</h2>
+          <p className="text-gray-600 mt-1">Manage your organization's office locations and branches</p>
+        </div>
+        <button 
+          onClick={handleAddOfficeLocation}
+          className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2"
+        >
+          <Plus className="w-4 h-4" />
+          Add Location
+        </button>
+      </div>
+    </div>
 
-          <div className="p-6">
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              {officeLocations.map((location, index) => (
-                <motion.div
-                  key={location.id}
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: index * 0.1 }}
-                  className="border border-gray-200 rounded-lg p-6 hover:shadow-md transition-shadow"
-                >
-                  <div className="flex justify-between items-start mb-4">
-                    <div>
+    <div className="p-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {officeLocations.map((location, index) => {
+          const isEditing = editingItem === location._id;
+          
+          return (
+            <motion.div
+              key={location._id}
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: index * 0.1 }}
+              className={`border rounded-lg p-6 transition-shadow ${
+                isEditing ? 'border-blue-300 bg-blue-50' : 'border-gray-200 hover:shadow-md'
+              }`}
+            >
+              <div className="flex justify-between items-start mb-4">
+                <div>
+                  {isEditing ? (
+                    <div className="space-y-3">
+                      <input
+                        type="text"
+                        value={location.name}
+                        onChange={(e) => setOfficeLocations(prev => prev.map(loc => 
+                          loc._id === location._id ? { ...loc, name: e.target.value } : loc
+                        ))}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        placeholder="Location Name"
+                      />
+                      <div className="flex items-center gap-4">
+                        <label className="flex items-center gap-2">
+                          <input
+                            type="checkbox"
+                            checked={location.isActive}
+                            onChange={(e) => setOfficeLocations(prev => prev.map(loc => 
+                              loc._id === location._id ? { ...loc, isActive: e.target.checked } : loc
+                            ))}
+                            className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                          />
+                          <span className="text-sm text-gray-700">Active</span>
+                        </label>
+                        <label className="flex items-center gap-2">
+                          <input
+                            type="checkbox"
+                            checked={location.isMain}
+                            onChange={(e) => setOfficeLocations(prev => prev.map(loc => 
+                              loc._id === location._id ? { ...loc, isMain: e.target.checked } : loc
+                            ))}
+                            className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                          />
+                          <span className="text-sm text-gray-700">Main Office</span>
+                        </label>
+                      </div>
+                    </div>
+                  ) : (
+                    <>
                       <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
                         {location.name}
                         {location.isMain && (
@@ -552,41 +735,121 @@ export default function AdminContactInfoPage() {
                           {location.isActive ? 'Active' : 'Inactive'}
                         </span>
                       </div>
-                    </div>
-                    <div className="flex gap-2">
-                      <button className="p-2 text-blue-600 hover:text-blue-800 rounded-md hover:bg-blue-100">
-                        <Edit className="w-4 h-4" />
-                      </button>
-                      <button className="p-2 text-red-600 hover:text-red-800 rounded-md hover:bg-red-100">
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    </div>
+                    </>
+                  )}
+                </div>
+                
+                {!isEditing && (
+                  <div className="flex gap-2">
+                    <button 
+                      onClick={() => setEditingItem(location._id)}
+                      className="p-2 text-blue-600 hover:text-blue-800 rounded-md hover:bg-blue-100"
+                    >
+                      <Edit className="w-4 h-4" />
+                    </button>
+                    <button 
+                      onClick={() => handleDeleteOfficeLocation(location._id)}
+                      className="p-2 text-red-600 hover:text-red-800 rounded-md hover:bg-red-100"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
                   </div>
+                )}
+              </div>
 
-                  <div className="space-y-3">
-                    <div className="flex items-start gap-3">
-                      <MapPin className="w-4 h-4 text-gray-500 mt-0.5" />
-                      <p className="text-gray-700">{location.address}</p>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <Phone className="w-4 h-4 text-gray-500" />
-                      <p className="text-gray-700">{location.phone}</p>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <Mail className="w-4 h-4 text-gray-500" />
-                      <p className="text-gray-700">{location.email}</p>
-                    </div>
-                    <div className="flex items-start gap-3">
-                      <Clock className="w-4 h-4 text-gray-500 mt-0.5" />
-                      <p className="text-gray-700">{location.hours}</p>
-                    </div>
+              {isEditing ? (
+                <div className="space-y-3">
+                  <div className="flex items-start gap-3">
+                    <MapPin className="w-4 h-4 text-gray-500 mt-2.5" />
+                    <textarea
+                      value={location.address}
+                      onChange={(e) => setOfficeLocations(prev => prev.map(loc => 
+                        loc._id === location._id ? { ...loc, address: e.target.value } : loc
+                      ))}
+                      className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      placeholder="Full Address"
+                      rows={2}
+                    />
                   </div>
-                </motion.div>
-              ))}
-            </div>
-          </div>
-        </div>
-      )}
+                  <div className="flex items-center gap-3">
+                    <Phone className="w-4 h-4 text-gray-500" />
+                    <input
+                      type="text"
+                      value={location.phone}
+                      onChange={(e) => setOfficeLocations(prev => prev.map(loc => 
+                        loc._id === location._id ? { ...loc, phone: e.target.value } : loc
+                      ))}
+                      className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      placeholder="Phone Number"
+                    />
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <Mail className="w-4 h-4 text-gray-500" />
+                    <input
+                      type="email"
+                      value={location.email}
+                      onChange={(e) => setOfficeLocations(prev => prev.map(loc => 
+                        loc._id === location._id ? { ...loc, email: e.target.value } : loc
+                      ))}
+                      className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      placeholder="Email Address"
+                    />
+                  </div>
+                  <div className="flex items-start gap-3">
+                    <Clock className="w-4 h-4 text-gray-500 mt-2.5" />
+                    <textarea
+                      value={location.hours}
+                      onChange={(e) => setOfficeLocations(prev => prev.map(loc => 
+                        loc._id === location._id ? { ...loc, hours: e.target.value } : loc
+                      ))}
+                      className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      placeholder="Business Hours (e.g., Mon-Fri: 9AM-5PM)"
+                      rows={2}
+                    />
+                  </div>
+                  <div className="flex gap-2 pt-3 border-t border-gray-200">
+                    <button
+                      onClick={() => handleSaveOfficeLocation(location)}
+                      className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 flex items-center gap-2"
+                    >
+                      <Save className="w-4 h-4" />
+                      Save
+                    </button>
+                    <button
+                      onClick={() => setEditingItem(null)}
+                      className="px-4 py-2 bg-gray-300 text-gray-700 rounded-md hover:bg-gray-400"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  <div className="flex items-start gap-3">
+                    <MapPin className="w-4 h-4 text-gray-500 mt-0.5" />
+                    <p className="text-gray-700">{location.address}</p>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <Phone className="w-4 h-4 text-gray-500" />
+                    <p className="text-gray-700">{location.phone}</p>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <Mail className="w-4 h-4 text-gray-500" />
+                    <p className="text-gray-700">{location.email}</p>
+                  </div>
+                  <div className="flex items-start gap-3">
+                    <Clock className="w-4 h-4 text-gray-500 mt-0.5" />
+                    <p className="text-gray-700">{location.hours}</p>
+                  </div>
+                </div>
+              )}
+            </motion.div>
+          );
+        })}
+      </div>
+    </div>
+  </div>
+)}
 
       {/* Settings Tab */}
       {activeTab === 'settings' && (
@@ -639,7 +902,10 @@ export default function AdminContactInfoPage() {
               </div>
 
               <div className="pt-6 border-t border-gray-200">
-                <button className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2">
+                <button 
+                  onClick={handleSaveSettings}
+                  className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2"
+                >
                   <Save className="w-4 h-4" />
                   Save Settings
                 </button>

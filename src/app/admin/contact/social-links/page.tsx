@@ -1,7 +1,5 @@
 'use client';
-
 import { useState, useEffect } from 'react';
-import { motion } from 'framer-motion';
 import { 
   Share2,
   Plus,
@@ -25,12 +23,14 @@ import {
   Users,
   MousePointer,
   AlertCircle,
-  CheckCircle
+  CheckCircle,
+  Wifi,
+  WifiOff
 } from 'lucide-react';
 
 // Types
 interface SocialLink {
-  id: string;
+  _id: string;
   platform: string;
   name: string;
   url: string;
@@ -39,7 +39,7 @@ interface SocialLink {
   color: string;
   followers?: number;
   clicks?: number;
-  lastUpdated: string;
+  updatedAt: string;
   description?: string;
 }
 
@@ -52,6 +52,87 @@ interface SocialStats {
   engagementRate: string;
 }
 
+// Mock data for demonstration
+const mockSocialLinks: SocialLink[] = [
+  {
+    _id: '1',
+    platform: 'Facebook',
+    name: '@OurOrganization',
+    url: 'https://facebook.com/ourorganization',
+    isActive: true,
+    icon: 'Facebook',
+    color: 'bg-blue-500',
+    followers: 12500,
+    clicks: 342,
+    updatedAt: '2024-05-25T10:30:00Z',
+    description: 'Official Facebook page'
+  },
+  {
+    _id: '2',
+    platform: 'Twitter',
+    name: '@ourorg',
+    url: 'https://twitter.com/ourorg',
+    isActive: true,
+    icon: 'Twitter',
+    color: 'bg-sky-400',
+    followers: 8900,
+    clicks: 156,
+    updatedAt: '2024-05-24T15:45:00Z',
+    description: 'Latest updates and news'
+  },
+  {
+    _id: '3',
+    platform: 'Instagram',
+    name: '@our.organization',
+    url: 'https://instagram.com/our.organization',
+    isActive: true,
+    icon: 'Instagram',
+    color: 'bg-pink-500',
+    followers: 15200,
+    clicks: 287,
+    updatedAt: '2024-05-23T09:20:00Z',
+    description: 'Behind the scenes content'
+  },
+  {
+    _id: '4',
+    platform: 'LinkedIn',
+    name: 'Our Organization Inc.',
+    url: 'https://linkedin.com/company/ourorganization',
+    isActive: true,
+    icon: 'LinkedIn',
+    color: 'bg-blue-600',
+    followers: 3400,
+    clicks: 98,
+    updatedAt: '2024-05-22T14:10:00Z',
+    description: 'Professional network'
+  },
+  {
+    _id: '5',
+    platform: 'YouTube',
+    name: 'Our Organization Channel',
+    url: 'https://youtube.com/@ourorganization',
+    isActive: false,
+    icon: 'YouTube',
+    color: 'bg-red-500',
+    followers: 2100,
+    clicks: 45,
+    updatedAt: '2024-05-21T11:30:00Z',
+    description: 'Educational videos and tutorials'
+  }
+];
+
+const mockStats: SocialStats = {
+  totalLinks: 5,
+  activeLinks: 4,
+  totalFollowers: 42100,
+  totalClicks: 928,
+  topPerformer: 'Instagram',
+  engagementRate: '4.2%'
+};
+
+// API Base URL - adjust this to match your backend
+const API_BASE_URL = 'http://localhost:5000/api'; // Change this to your backend URL
+
 export default function AdminSocialLinksPage() {
   const [socialLinks, setSocialLinks] = useState<SocialLink[]>([]);
   const [stats, setStats] = useState<SocialStats>({
@@ -63,6 +144,7 @@ export default function AdminSocialLinksPage() {
     engagementRate: '0%'
   });
   const [isLoading, setIsLoading] = useState(true);
+  const [isOnline, setIsOnline] = useState(true);
   const [showAddModal, setShowAddModal] = useState(false);
   const [editingLink, setEditingLink] = useState<SocialLink | null>(null);
   const [formData, setFormData] = useState({
@@ -72,6 +154,8 @@ export default function AdminSocialLinksPage() {
     description: '',
     isActive: true
   });
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
 
   // Available social platforms
   const socialPlatforms = [
@@ -84,82 +168,214 @@ export default function AdminSocialLinksPage() {
     { name: 'Website', icon: Globe, color: 'bg-gray-600' }
   ];
 
-  // Mock data - Replace with actual API calls
+  // Mock API Functions (fallback when real API is unavailable)
+  const useMockData = () => {
+    setSocialLinks([...mockSocialLinks]);
+    setStats({...mockStats});
+    setIsOnline(false);
+    setSuccess('Using demo data - API connection unavailable');
+  };
+
+  // API Functions
+  const fetchSocialLinks = async () => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/social-links`);
+      if (!response.ok) throw new Error('Failed to fetch social links');
+      const data = await response.json();
+      setSocialLinks(data);
+      setIsOnline(true);
+    } catch (err) {
+      console.warn('API unavailable, using mock data');
+      useMockData();
+    }
+  };
+
+  const fetchStats = async () => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/social-links/stats`);
+      if (!response.ok) throw new Error('Failed to fetch stats');
+      const data = await response.json();
+      setStats(data);
+      setIsOnline(true);
+    } catch (err) {
+      console.warn('Stats API unavailable');
+      // Stats are already set in useMockData if called from fetchSocialLinks
+    }
+  };
+
+  const createSocialLink = async (linkData: any) => {
+    if (!isOnline) {
+      // Mock creation for demo
+      const newLink: SocialLink = {
+        _id: Date.now().toString(),
+        ...linkData,
+        icon: linkData.platform,
+        color: socialPlatforms.find(p => p.name === linkData.platform)?.color || 'bg-gray-600',
+        followers: 0,
+        clicks: 0,
+        updatedAt: new Date().toISOString()
+      };
+      setSocialLinks(prev => [...prev, newLink]);
+      setStats(prev => ({
+        ...prev,
+        totalLinks: prev.totalLinks + 1,
+        activeLinks: linkData.isActive ? prev.activeLinks + 1 : prev.activeLinks
+      }));
+      setSuccess('Social link created successfully (demo mode)');
+      return;
+    }
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/social-links`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(linkData),
+      });
+      
+      const data = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to create social link');
+      }
+      
+      setSuccess('Social link created successfully');
+      await fetchSocialLinks();
+      await fetchStats();
+    } catch (err: any) {
+      setError(err.message);
+      throw err;
+    }
+  };
+
+  const updateSocialLink = async (id: string, linkData: any) => {
+    if (!isOnline) {
+      // Mock update for demo
+      setSocialLinks(prev => prev.map(link => 
+        link._id === id 
+          ? {
+              ...link,
+              ...linkData,
+              icon: linkData.platform,
+              color: socialPlatforms.find(p => p.name === linkData.platform)?.color || link.color,
+              updatedAt: new Date().toISOString()
+            }
+          : link
+      ));
+      setSuccess('Social link updated successfully (demo mode)');
+      return;
+    }
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/social-links/${id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(linkData),
+      });
+      
+      const data = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to update social link');
+      }
+      
+      setSuccess('Social link updated successfully');
+      await fetchSocialLinks();
+      await fetchStats();
+    } catch (err: any) {
+      setError(err.message);
+      throw err;
+    }
+  };
+
+  const deleteSocialLink = async (id: string) => {
+    if (!isOnline) {
+      // Mock deletion for demo
+      const linkToDelete = socialLinks.find(link => link._id === id);
+      setSocialLinks(prev => prev.filter(link => link._id !== id));
+      setStats(prev => ({
+        ...prev,
+        totalLinks: prev.totalLinks - 1,
+        activeLinks: linkToDelete?.isActive ? prev.activeLinks - 1 : prev.activeLinks
+      }));
+      setSuccess('Social link deleted successfully (demo mode)');
+      return;
+    }
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/social-links/${id}`, {
+        method: 'DELETE',
+      });
+      
+      const data = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to delete social link');
+      }
+      
+      setSuccess('Social link deleted successfully');
+      await fetchSocialLinks();
+      await fetchStats();
+    } catch (err: any) {
+      setError(err.message);
+    }
+  };
+
+  const toggleLinkStatus = async (id: string) => {
+    if (!isOnline) {
+      // Mock toggle for demo
+      setSocialLinks(prev => prev.map(link => 
+        link._id === id 
+          ? { ...link, isActive: !link.isActive, updatedAt: new Date().toISOString() }
+          : link
+      ));
+      setSuccess('Link status updated successfully (demo mode)');
+      return;
+    }
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/social-links/${id}/toggle`, {
+        method: 'PATCH',
+      });
+      
+      const data = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to toggle link status');
+      }
+      
+      setSuccess('Link status updated successfully');
+      await fetchSocialLinks();
+      await fetchStats();
+    } catch (err: any) {
+      setError(err.message);
+    }
+  };
+
+  // Load data on component mount
   useEffect(() => {
-    const fetchSocialData = async () => {
-      setTimeout(() => {
-        const mockLinks: SocialLink[] = [
-          {
-            id: '1',
-            platform: 'Facebook',
-            name: 'Our Organization',
-            url: 'https://facebook.com/ourorg',
-            isActive: true,
-            icon: 'Facebook',
-            color: 'bg-blue-500',
-            followers: 12500,
-            clicks: 342,
-            lastUpdated: '2024-01-15T10:30:00Z',
-            description: 'Main Facebook page for updates and community engagement'
-          },
-          {
-            id: '2',
-            platform: 'Instagram',
-            name: '@ourorganization',
-            url: 'https://instagram.com/ourorganization',
-            isActive: true,
-            icon: 'Instagram',
-            color: 'bg-pink-500',
-            followers: 8900,
-            clicks: 198,
-            lastUpdated: '2024-01-14T14:20:00Z',
-            description: 'Visual content and behind-the-scenes updates'
-          },
-          {
-            id: '3',
-            platform: 'Twitter',
-            name: '@OurOrg',
-            url: 'https://twitter.com/ourorg',
-            isActive: false,
-            icon: 'Twitter',
-            color: 'bg-sky-400',
-            followers: 5600,
-            clicks: 89,
-            lastUpdated: '2024-01-10T09:15:00Z',
-            description: 'News updates and quick announcements'
-          },
-          {
-            id: '4',
-            platform: 'LinkedIn',
-            name: 'Our Organization',
-            url: 'https://linkedin.com/company/ourorg',
-            isActive: true,
-            icon: 'LinkedIn',
-            color: 'bg-blue-600',
-            followers: 3200,
-            clicks: 156,
-            lastUpdated: '2024-01-12T16:45:00Z',
-            description: 'Professional updates and career opportunities'
-          }
-        ];
-
-        const mockStats: SocialStats = {
-          totalLinks: 6,
-          activeLinks: 4,
-          totalFollowers: 30200,
-          totalClicks: 785,
-          topPerformer: 'Facebook',
-          engagementRate: '4.2%'
-        };
-
-        setSocialLinks(mockLinks);
-        setStats(mockStats);
-        setIsLoading(false);
-      }, 1000);
+    const loadData = async () => {
+      setIsLoading(true);
+      await Promise.all([fetchSocialLinks(), fetchStats()]);
+      setIsLoading(false);
     };
-
-    fetchSocialData();
+    
+    loadData();
   }, []);
+
+  // Clear messages after 5 seconds
+  useEffect(() => {
+    if (error || success) {
+      const timer = setTimeout(() => {
+        setError(null);
+        setSuccess(null);
+      }, 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [error, success]);
 
   const handleAddLink = () => {
     setEditingLink(null);
@@ -185,41 +401,23 @@ export default function AdminSocialLinksPage() {
     setShowAddModal(true);
   };
 
-  const handleSaveLink = () => {
-    if (editingLink) {
-      // Update existing link
-      setSocialLinks(prev => prev.map(link => 
-        link.id === editingLink.id 
-          ? { ...link, ...formData, lastUpdated: new Date().toISOString() }
-          : link
-      ));
-    } else {
-      // Add new link
-      const platform = socialPlatforms.find(p => p.name === formData.platform);
-      const newLink: SocialLink = {
-        id: Date.now().toString(),
-        ...formData,
-        icon: formData.platform,
-        color: platform?.color || 'bg-gray-500',
-        followers: 0,
-        clicks: 0,
-        lastUpdated: new Date().toISOString()
-      };
-      setSocialLinks(prev => [...prev, newLink]);
+  const handleSaveLink = async () => {
+    try {
+      if (editingLink) {
+        await updateSocialLink(editingLink._id, formData);
+      } else {
+        await createSocialLink(formData);
+      }
+      setShowAddModal(false);
+    } catch (err) {
+      // Error is already handled in the API functions
     }
-    setShowAddModal(false);
   };
 
-  const handleDeleteLink = (id: string) => {
-    setSocialLinks(prev => prev.filter(link => link.id !== id));
-  };
-
-  const toggleLinkStatus = (id: string) => {
-    setSocialLinks(prev => prev.map(link => 
-      link.id === id 
-        ? { ...link, isActive: !link.isActive, lastUpdated: new Date().toISOString() }
-        : link
-    ));
+  const handleDeleteLink = async (id: string) => {
+    if (window.confirm('Are you sure you want to delete this social link?')) {
+      await deleteSocialLink(id);
+    }
   };
 
   const formatDate = (dateString: string) => {
@@ -268,6 +466,40 @@ export default function AdminSocialLinksPage() {
 
   return (
     <div className="p-6 space-y-6">
+      {/* Connection Status */}
+      <div className={`rounded-lg p-3 flex items-center gap-3 ${
+        isOnline 
+          ? 'bg-green-50 border border-green-200' 
+          : 'bg-orange-50 border border-orange-200'
+      }`}>
+        {isOnline ? (
+          <>
+            <Wifi className="w-5 h-5 text-green-600" />
+            <p className="text-green-800 text-sm">Connected to API</p>
+          </>
+        ) : (
+          <>
+            <WifiOff className="w-5 h-5 text-orange-600" />
+            <p className="text-orange-800 text-sm">Demo Mode - API unavailable. Changes won't persist.</p>
+          </>
+        )}
+      </div>
+
+      {/* Notifications */}
+      {error && (
+        <div className="bg-red-50 border border-red-200 rounded-lg p-4 flex items-center gap-3">
+          <AlertCircle className="w-5 h-5 text-red-600" />
+          <p className="text-red-800">{error}</p>
+        </div>
+      )}
+      
+      {success && (
+        <div className="bg-green-50 border border-green-200 rounded-lg p-4 flex items-center gap-3">
+          <CheckCircle className="w-5 h-5 text-green-600" />
+          <p className="text-green-800">{success}</p>
+        </div>
+      )}
+
       {/* Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
@@ -291,11 +523,7 @@ export default function AdminSocialLinksPage() {
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-6">
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="bg-white p-6 rounded-lg shadow-sm border border-gray-200"
-        >
+        <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-gray-600">Total Links</p>
@@ -303,14 +531,9 @@ export default function AdminSocialLinksPage() {
             </div>
             <Share2 className="w-8 h-8 text-blue-600" />
           </div>
-        </motion.div>
+        </div>
 
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.1 }}
-          className="bg-white p-6 rounded-lg shadow-sm border border-gray-200"
-        >
+        <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-gray-600">Active Links</p>
@@ -318,14 +541,9 @@ export default function AdminSocialLinksPage() {
             </div>
             <CheckCircle className="w-8 h-8 text-green-600" />
           </div>
-        </motion.div>
+        </div>
 
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.2 }}
-          className="bg-white p-6 rounded-lg shadow-sm border border-gray-200"
-        >
+        <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-gray-600">Total Followers</p>
@@ -333,14 +551,9 @@ export default function AdminSocialLinksPage() {
             </div>
             <Users className="w-8 h-8 text-purple-600" />
           </div>
-        </motion.div>
+        </div>
 
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.3 }}
-          className="bg-white p-6 rounded-lg shadow-sm border border-gray-200"
-        >
+        <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-gray-600">Total Clicks</p>
@@ -348,14 +561,9 @@ export default function AdminSocialLinksPage() {
             </div>
             <MousePointer className="w-8 h-8 text-orange-600" />
           </div>
-        </motion.div>
+        </div>
 
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.4 }}
-          className="bg-white p-6 rounded-lg shadow-sm border border-gray-200"
-        >
+        <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-gray-600">Top Performer</p>
@@ -363,14 +571,9 @@ export default function AdminSocialLinksPage() {
             </div>
             <TrendingUp className="w-8 h-8 text-indigo-600" />
           </div>
-        </motion.div>
+        </div>
 
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.5 }}
-          className="bg-white p-6 rounded-lg shadow-sm border border-gray-200"
-        >
+        <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-gray-600">Engagement</p>
@@ -378,7 +581,7 @@ export default function AdminSocialLinksPage() {
             </div>
             <BarChart3 className="w-8 h-8 text-pink-600" />
           </div>
-        </motion.div>
+        </div>
       </div>
 
       {/* Social Links Table */}
@@ -418,11 +621,8 @@ export default function AdminSocialLinksPage() {
               {socialLinks.map((link, index) => {
                 const IconComponent = getIcon(link.icon);
                 return (
-                  <motion.tr
-                    key={link.id}
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: index * 0.05 }}
+                  <tr
+                    key={link._id}
                     className="hover:bg-gray-50"
                   >
                     <td className="px-6 py-4 whitespace-nowrap">
@@ -447,14 +647,14 @@ export default function AdminSocialLinksPage() {
                           rel="noopener noreferrer"
                           className="text-sm text-blue-600 hover:text-blue-800 flex items-center gap-1"
                         >
-                          {link.url}
+                          {link.url.length > 40 ? link.url.substring(0, 40) + '...' : link.url}
                           <ExternalLink className="w-3 h-3" />
                         </a>
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <button
-                        onClick={() => toggleLinkStatus(link.id)}
+                        onClick={() => toggleLinkStatus(link._id)}
                         className={`inline-flex items-center gap-2 px-3 py-1 text-xs font-semibold rounded-full ${
                           link.isActive 
                             ? 'bg-green-100 text-green-800' 
@@ -481,7 +681,7 @@ export default function AdminSocialLinksPage() {
                       {link.clicks || 0}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {formatDate(link.lastUpdated)}
+                      {formatDate(link.updatedAt)}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                       <div className="flex items-center gap-2">
@@ -492,14 +692,14 @@ export default function AdminSocialLinksPage() {
                           <Edit className="w-4 h-4" />
                         </button>
                         <button 
-                          onClick={() => handleDeleteLink(link.id)}
+                          onClick={() => handleDeleteLink(link._id)}
                           className="text-red-600 hover:text-red-800"
                         >
                           <Trash2 className="w-4 h-4" />
                         </button>
                       </div>
                     </td>
-                  </motion.tr>
+                  </tr>
                 );
               })}
             </tbody>
@@ -524,11 +724,7 @@ export default function AdminSocialLinksPage() {
       {/* Add/Edit Modal */}
       {showAddModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <motion.div
-            initial={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
-            className="bg-white rounded-lg p-6 w-full max-w-md mx-4"
-          >
+          <div className="bg-white rounded-lg p-6 w-full max-w-md mx-4">
             <div className="flex justify-between items-center mb-6">
               <h3 className="text-lg font-semibold text-gray-900">
                 {editingLink ? 'Edit Social Link' : 'Add New Social Link'}
@@ -629,7 +825,7 @@ export default function AdminSocialLinksPage() {
                 {editingLink ? 'Update' : 'Add'} Link
               </button>
             </div>
-          </motion.div>
+          </div>
         </div>
       )}
     </div>
