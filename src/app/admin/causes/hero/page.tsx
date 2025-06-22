@@ -1,6 +1,7 @@
-'use client';
+  'use client';
 
 import { useState, useEffect } from 'react';
+import axios from 'axios';
 import { motion } from 'framer-motion';
 import { 
   Save, 
@@ -18,7 +19,8 @@ import {
   Sparkles,
   Clock,
   Target,
-  ArrowLeft
+  ArrowLeft,
+  Image
 } from 'lucide-react';
 import Link from 'next/link';
 
@@ -26,6 +28,8 @@ interface HeroBannerData {
   mainTitle: string;
   tagline: string;
   videoUrl: string;
+  imageUrl: string;
+  mediaType: 'video' | 'image';
   videoPlaybackRate: number;
   gradientOverlay: {
     from: string;
@@ -57,6 +61,8 @@ export default function HeroBannerAdmin() {
     mainTitle: "Our Causes",
     tagline: "Be the Change. Support a Cause Today.",
     videoUrl: "/videos/causes-hero.mp4",
+    imageUrl: "",
+    mediaType: 'video',
     videoPlaybackRate: 0.7,
     gradientOverlay: {
       from: "from-black/60",
@@ -104,12 +110,84 @@ export default function HeroBannerAdmin() {
   };
 
   const handleSave = async () => {
-    setIsSaving(true);
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 1500));
-    setIsSaving(false);
+  setIsSaving(true);
+  try {
+    await axios.post('http://localhost:5000/api/causeHero/save', heroData);
     alert('Hero banner settings saved successfully!');
-  };
+  } catch (err) {
+    console.error('Failed to save settings:', err);
+    alert('Failed to save settings.');
+  } finally {
+    setIsSaving(false);
+  }
+};
+
+useEffect(() => {
+  axios.get('http://localhost:5000/api/causeHero').then(res => {
+    if (res.data) setHeroData(res.data);
+  });
+}, []);
+
+
+  const handleVideoUpload = async (event) => {
+  const file = event.target.files?.[0];
+  if (!file) return;
+
+  const formData = new FormData();
+  
+  // Check file type first
+  const isImage = file.type.startsWith('image/');
+  const isVideo = file.type.startsWith('video/');
+  
+  if (!isImage && !isVideo) {
+    alert('Unsupported file type. Please upload an image or video.');
+    return;
+  }
+
+  // Use the correct field name based on file type
+  // Backend expects 'image' for images and 'video' for videos
+  if (isImage) {
+    formData.append('image', file);  // Changed from 'file' to 'image'
+  } else if (isVideo) {
+    formData.append('video', file);  // Changed from 'file' to 'video'
+  }
+
+  // Preview before upload
+  const url = URL.createObjectURL(file);
+
+  try {
+    const endpoint = isImage 
+      ? 'http://localhost:5000/api/causeHero/upload-image' 
+      : 'http://localhost:5000/api/causeHero/upload-video';
+
+    const res = await fetch(endpoint, {
+      method: 'POST',
+      body: formData
+    });
+
+    if (!res.ok) {
+      throw new Error(`HTTP error! status: ${res.status}`);
+    }
+
+    const data = await res.json();
+
+    if (data?.url) {
+      setHeroData(prev => ({
+        ...prev,
+        imageUrl: isImage ? data.url : prev.imageUrl,
+        videoUrl: isVideo ? data.url : prev.videoUrl,
+        mediaType: isImage ? 'image' : 'video'
+      }));
+      alert(`${isImage ? 'Image' : 'Video'} uploaded successfully!`);
+    } else {
+      alert('Upload failed. No URL returned.');
+    }
+  } catch (err) {
+    console.error('Upload error:', err);
+    alert(`Upload failed: ${err.message}`);
+  }
+};
+
 
   const handleEmojiToggle = (emoji: string) => {
     const currentIcons = heroData.floatingEmojis.icons;
@@ -128,7 +206,17 @@ export default function HeroBannerAdmin() {
 
   const PreviewSection = () => (
     <div className="relative h-64 rounded-lg overflow-hidden mb-6">
-      <div className="absolute inset-0 bg-gradient-to-r bg-gray-800"></div>
+      {/* Background Media */}
+      {heroData.mediaType === 'image' && heroData.imageUrl ? (
+        <img 
+          src={heroData.imageUrl} 
+          alt="Hero background" 
+          className="absolute inset-0 w-full h-full object-cover"
+        />
+      ) : (
+        <div className="absolute inset-0 bg-gradient-to-r bg-gray-800"></div>
+      )}
+      
       <div className={`absolute inset-0 bg-gradient-to-r ${heroData.gradientOverlay.from} ${heroData.gradientOverlay.to} z-10`} />
       
       <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-20 text-center">
@@ -183,7 +271,7 @@ export default function HeroBannerAdmin() {
 
   const tabs = [
     { id: 'content', label: 'Content', icon: Type },
-    { id: 'video', label: 'Video', icon: Film },
+    { id: 'video', label: 'Media', icon: Film },
     { id: 'design', label: 'Design', icon: Palette },
     { id: 'animations', label: 'Animations', icon: Sparkles },
     { id: 'emojis', label: 'Floating Icons', icon: Target }
@@ -283,56 +371,134 @@ export default function HeroBannerAdmin() {
               </div>
             )}
 
-            {/* Video Tab */}
+            {/* Media Tab (Previously Video Tab) */}
             {activeTab === 'video' && (
               <div className="space-y-6">
+                {/* Media Type Selection */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Video URL
+                  <label className="block text-sm font-medium text-gray-700 mb-3">
+                    Background Media Type
                   </label>
-                  <div className="flex gap-2">
-                    <input
-                      type="text"
-                      value={heroData.videoUrl}
-                      onChange={(e) => setHeroData(prev => ({ ...prev, videoUrl: e.target.value }))}
-                      className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      placeholder="/videos/causes-hero.mp4"
-                    />
-                    <button className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors">
-                      <Upload className="w-4 h-4" />
+                  <div className="flex gap-4">
+                    <button
+                      onClick={() => setHeroData(prev => ({ ...prev, mediaType: 'video' }))}
+                      className={`flex items-center gap-2 px-4 py-2 rounded-lg border-2 transition-colors ${
+                        heroData.mediaType === 'video'
+                          ? 'border-blue-500 bg-blue-50 text-blue-700'
+                          : 'border-gray-200 hover:border-gray-300'
+                      }`}
+                    >
+                      <Film className="w-4 h-4" />
+                      Video
+                    </button>
+                    <button
+                      onClick={() => setHeroData(prev => ({ ...prev, mediaType: 'image' }))}
+                      className={`flex items-center gap-2 px-4 py-2 rounded-lg border-2 transition-colors ${
+                        heroData.mediaType === 'image'
+                          ? 'border-blue-500 bg-blue-50 text-blue-700'
+                          : 'border-gray-200 hover:border-gray-300'
+                      }`}
+                    >
+                      <Image className="w-4 h-4" />
+                      Image
                     </button>
                   </div>
                 </div>
 
+                {/* File Upload */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Playback Speed: {heroData.videoPlaybackRate}x
+                    Upload {heroData.mediaType === 'video' ? 'Video' : 'Image'}
                   </label>
-                  <input
-                    type="range"
-                    min="0.5"
-                    max="2"
-                    step="0.1"
-                    value={heroData.videoPlaybackRate}
-                    onChange={(e) => setHeroData(prev => ({ ...prev, videoPlaybackRate: parseFloat(e.target.value) }))}
-                    className="w-full"
-                  />
-                  <div className="flex justify-between text-xs text-gray-500 mt-1">
-                    <span>0.5x (Slow)</span>
-                    <span>1x (Normal)</span>
-                    <span>2x (Fast)</span>
+                  <div className="flex items-center gap-4">
+                    <input
+                      type="file"
+                      accept={heroData.mediaType === 'video' ? 'video/*' : 'image/*'}
+                      onChange={handleVideoUpload}
+                      className="hidden"
+                      id="media-upload"
+                    />
+                    <label
+                      htmlFor="media-upload"
+                      className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors cursor-pointer"
+                    >
+                      <Upload className="w-4 h-4" />
+                      Choose {heroData.mediaType === 'video' ? 'Video' : 'Image'}
+                    </label>
+                    {(heroData.videoUrl || heroData.imageUrl) && (
+                      <span className="text-sm text-gray-600">
+                        {heroData.mediaType === 'video' ? 'Video' : 'Image'} uploaded successfully
+                      </span>
+                    )}
                   </div>
                 </div>
 
-                <div className="flex items-center gap-4">
-                  <button
-                    onClick={() => setVideoPreview(!videoPreview)}
-                    className="flex items-center gap-2 px-4 py-2 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition-colors"
-                  >
-                    {videoPreview ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4" />}
-                    {videoPreview ? 'Stop Preview' : 'Preview Video'}
-                  </button>
-                </div>
+                {/* Video URL (Manual Input) */}
+                {heroData.mediaType === 'video' && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Or enter Video URL
+                    </label>
+                    <input
+                      type="text"
+                      value={heroData.videoUrl}
+                      onChange={(e) => setHeroData(prev => ({ ...prev, videoUrl: e.target.value }))}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      placeholder="/videos/causes-hero.mp4"
+                    />
+                  </div>
+                )}
+
+                {/* Image URL (Manual Input) */}
+                {heroData.mediaType === 'image' && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Or enter Image URL
+                    </label>
+                    <input
+                      type="text"
+                      value={heroData.imageUrl}
+                      onChange={(e) => setHeroData(prev => ({ ...prev, imageUrl: e.target.value }))}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      placeholder="/images/causes-hero.jpg"
+                    />
+                  </div>
+                )}
+
+                {/* Video-specific controls */}
+                {heroData.mediaType === 'video' && (
+                  <>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Playback Speed: {heroData.videoPlaybackRate}x
+                      </label>
+                      <input
+                        type="range"
+                        min="0.5"
+                        max="2"
+                        step="0.1"
+                        value={heroData.videoPlaybackRate}
+                        onChange={(e) => setHeroData(prev => ({ ...prev, videoPlaybackRate: parseFloat(e.target.value) }))}
+                        className="w-full"
+                      />
+                      <div className="flex justify-between text-xs text-gray-500 mt-1">
+                        <span>0.5x (Slow)</span>
+                        <span>1x (Normal)</span>
+                        <span>2x (Fast)</span>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-4">
+                      <button
+                        onClick={() => setVideoPreview(!videoPreview)}
+                        className="flex items-center gap-2 px-4 py-2 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition-colors"
+                      >
+                        {videoPreview ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4" />}
+                        {videoPreview ? 'Stop Preview' : 'Preview Video'}
+                      </button>
+                    </div>
+                  </>
+                )}
               </div>
             )}
 

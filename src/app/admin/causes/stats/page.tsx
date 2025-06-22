@@ -1,5 +1,6 @@
 'use client';   
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import axios from 'axios'
 import { 
   Save, 
   Plus, 
@@ -165,9 +166,49 @@ const ImpactStatsAdmin = () => {
     'bg-orange-500', 'bg-cyan-500', 'bg-pink-500', 'bg-teal-500'
   ];
 
+  useEffect(() => {
+    axios.get('http://localhost:5000/api/causeImpact')
+      .then(res => {
+        if (res.data) {
+          const {
+            headerData = { title: '', subtitle: '' },
+            stats = [],
+            storyContent = { title: '', paragraphs: [] },
+            goalsContent = { title: '', goals: [] },
+            footerQuote = ''
+          } = res.data;
+
+          // Ensure all stats have valid IDs
+          const validStats = stats.map((stat, index) => ({
+            ...stat,
+            id: stat.id || index + 1
+          }));
+
+          // Ensure all goals have valid IDs
+          const validGoals = goalsContent.goals.map((goal, index) => ({
+            ...goal,
+            id: goal.id || index + 1
+          }));
+
+          setHeaderData(headerData);
+          setStats(validStats);
+          setStoryContent(storyContent);
+          setGoalsContent({
+            ...goalsContent,
+            goals: validGoals
+          });
+          setFooterQuote(footerQuote);
+        }
+      })
+      .catch(err => {
+        console.error('Failed to fetch impact data:', err);
+      });
+  }, []);
+
   const addNewStat = () => {
+    const newId = stats.length > 0 ? Math.max(...stats.map(s => s.id)) + 1 : 1;
     const newStat = {
-      id: Math.max(...stats.map(s => s.id)) + 1,
+      id: newId,
       icon: "Heart",
       value: 0,
       label: "new metric",
@@ -175,64 +216,102 @@ const ImpactStatsAdmin = () => {
       description: "Add description for this statistic...",
       delay: stats.length * 0.1 + 0.1
     };
-    setStats([...stats, newStat]);
+    setStats(prevStats => [...prevStats, newStat]);
     setHasChanges(true);
   };
 
   const updateStat = (id, field, value) => {
-    setStats(stats.map(stat => 
-      stat.id === id ? { ...stat, [field]: value } : stat
-    ));
+    setStats(prevStats => 
+      prevStats.map(stat => 
+        stat.id === id 
+          ? { ...stat, [field]: field === 'value' ? (isNaN(parseInt(value)) ? 0 : parseInt(value)) : value }
+          : stat
+      )
+    );
     setHasChanges(true);
   };
 
   const deleteStat = (id) => {
-    setStats(stats.filter(stat => stat.id !== id));
+    setStats(prevStats => prevStats.filter(stat => stat.id !== id));
     setHasChanges(true);
   };
 
   const addNewGoal = () => {
+    const newId = goalsContent.goals.length > 0 ? Math.max(...goalsContent.goals.map(g => g.id)) + 1 : 1;
     const newGoal = {
-      id: Math.max(...goalsContent.goals.map(g => g.id)) + 1,
+      id: newId,
       text: "New goal description...",
       color: "bg-blue-500"
     };
-    setGoalsContent({
-      ...goalsContent,
-      goals: [...goalsContent.goals, newGoal]
-    });
+    setGoalsContent(prevGoalsContent => ({
+      ...prevGoalsContent,
+      goals: [...prevGoalsContent.goals, newGoal]
+    }));
     setHasChanges(true);
   };
 
   const updateGoal = (id, field, value) => {
-    setGoalsContent({
-      ...goalsContent,
-      goals: goalsContent.goals.map(goal => 
+    setGoalsContent(prevGoalsContent => ({
+      ...prevGoalsContent,
+      goals: prevGoalsContent.goals.map(goal => 
         goal.id === id ? { ...goal, [field]: value } : goal
       )
-    });
+    }));
     setHasChanges(true);
   };
 
   const deleteGoal = (id) => {
-    setGoalsContent({
-      ...goalsContent,
-      goals: goalsContent.goals.filter(goal => goal.id !== id)
-    });
+    setGoalsContent(prevGoalsContent => ({
+      ...prevGoalsContent,
+      goals: prevGoalsContent.goals.filter(goal => goal.id !== id)
+    }));
     setHasChanges(true);
   };
 
-  const handleSave = () => {
-    // Here you would typically send the data to your backend
-    console.log('Saving data:', {
-      headerData,
-      stats,
-      storyContent,
-      goalsContent,
-      footerQuote
-    });
-    setHasChanges(false);
-    alert('Changes saved successfully!');
+  // Story paragraph management functions
+  const updateStoryParagraph = (index, value) => {
+    setStoryContent(prevStoryContent => ({
+      ...prevStoryContent,
+      paragraphs: prevStoryContent.paragraphs.map((paragraph, i) => 
+        i === index ? value : paragraph
+      )
+    }));
+    setHasChanges(true);
+  };
+
+  const addNewParagraph = () => {
+    setStoryContent(prevStoryContent => ({
+      ...prevStoryContent,
+      paragraphs: [...prevStoryContent.paragraphs, "New paragraph content..."]
+    }));
+    setHasChanges(true);
+  };
+
+  const deleteParagraph = (index) => {
+    if (storyContent.paragraphs.length > 1) {
+      setStoryContent(prevStoryContent => ({
+        ...prevStoryContent,
+        paragraphs: prevStoryContent.paragraphs.filter((_, i) => i !== index)
+      }));
+      setHasChanges(true);
+    }
+  };
+
+  const handleSave = async () => {
+    try {
+       await axios.post('http://localhost:5000/api/causeImpact/save', {
+         headerData,
+         stats,
+         storyContent,
+         goalsContent,
+         footerQuote
+       });
+      setHasChanges(false);
+      alert('Changes saved successfully!');
+    } catch (err) {
+      console.error(err);
+      alert('Error saving changes');
+    }
   };
 
   const renderIcon = (iconName) => {
@@ -308,7 +387,7 @@ const ImpactStatsAdmin = () => {
                 type="text"
                 value={headerData.title}
                 onChange={(e) => {
-                  setHeaderData({ ...headerData, title: e.target.value });
+                  setHeaderData(prev => ({ ...prev, title: e.target.value }));
                   setHasChanges(true);
                 }}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
@@ -321,7 +400,7 @@ const ImpactStatsAdmin = () => {
               <textarea
                 value={headerData.subtitle}
                 onChange={(e) => {
-                  setHeaderData({ ...headerData, subtitle: e.target.value });
+                  setHeaderData(prev => ({ ...prev, subtitle: e.target.value }));
                   setHasChanges(true);
                 }}
                 rows={3}
@@ -387,7 +466,7 @@ const ImpactStatsAdmin = () => {
                     <input
                       type="number"
                       value={stat.value}
-                      onChange={(e) => updateStat(stat.id, 'value', parseInt(e.target.value))}
+                      onChange={(e) => updateStat(stat.id, 'value', e.target.value)}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
                     />
                   </div>
@@ -433,10 +512,19 @@ const ImpactStatsAdmin = () => {
         </div>
       )}
 
-      {/* Story Section */}
+      {/* Story Section - FIXED */}
       {activeSection === 'story' && (
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-          <h2 className="text-xl font-semibold text-gray-900 mb-6">Story Content</h2>
+          <div className="flex justify-between items-center mb-6">
+            <h2 className="text-xl font-semibold text-gray-900">Story Content</h2>
+            <button
+              onClick={addNewParagraph}
+              className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2"
+            >
+              <Plus className="w-4 h-4" />
+              Add Paragraph
+            </button>
+          </div>
           
           <div className="space-y-6">
             <div>
@@ -445,31 +533,42 @@ const ImpactStatsAdmin = () => {
                 type="text"
                 value={storyContent.title}
                 onChange={(e) => {
-                  setStoryContent({ ...storyContent, title: e.target.value });
+                  setStoryContent(prev => ({ ...prev, title: e.target.value }));
                   setHasChanges(true);
                 }}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                placeholder="Enter story title..."
               />
             </div>
 
-            {storyContent.paragraphs.map((paragraph, index) => (
-              <div key={index}>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Paragraph {index + 1}
-                </label>
-                <textarea
-                  value={paragraph}
-                  onChange={(e) => {
-                    const newParagraphs = [...storyContent.paragraphs];
-                    newParagraphs[index] = e.target.value;
-                    setStoryContent({ ...storyContent, paragraphs: newParagraphs });
-                    setHasChanges(true);
-                  }}
-                  rows={4}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                />
-              </div>
-            ))}
+            <div className="space-y-4">
+              <h3 className="text-lg font-medium text-gray-900">Story Paragraphs</h3>
+              {storyContent.paragraphs.map((paragraph, index) => (
+                <div key={index} className="border border-gray-200 rounded-lg p-4">
+                  <div className="flex justify-between items-center mb-3">
+                    <label className="block text-sm font-medium text-gray-700">
+                      Paragraph {index + 1}
+                    </label>
+                    {storyContent.paragraphs.length > 1 && (
+                      <button
+                        onClick={() => deleteParagraph(index)}
+                        className="text-red-600 hover:text-red-800 p-1"
+                        title="Delete paragraph"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    )}
+                  </div>
+                  <textarea
+                    value={paragraph}
+                    onChange={(e) => updateStoryParagraph(index, e.target.value)}
+                    rows={4}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    placeholder={`Enter content for paragraph ${index + 1}...`}
+                  />
+                </div>
+              ))}
+            </div>
           </div>
         </div>
       )}
@@ -494,7 +593,7 @@ const ImpactStatsAdmin = () => {
               type="text"
               value={goalsContent.title}
               onChange={(e) => {
-                setGoalsContent({ ...goalsContent, title: e.target.value });
+                setGoalsContent(prev => ({ ...prev, title: e.target.value }));
                 setHasChanges(true);
               }}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
@@ -591,6 +690,16 @@ const ImpactStatsAdmin = () => {
                   {renderIcon(stat.icon)}
                 </div>
               </div>
+            ))}
+          </div>
+
+          {/* Story Preview */}
+          <div className="mb-6">
+            <h3 className="text-xl font-semibold text-gray-900 mb-3">{storyContent.title}</h3>
+            {storyContent.paragraphs.map((paragraph, index) => (
+              <p key={index} className="text-gray-600 mb-3">
+                {paragraph.slice(0, 150)}{paragraph.length > 150 ? '...' : ''}
+              </p>
             ))}
           </div>
           

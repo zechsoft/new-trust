@@ -1,24 +1,25 @@
 'use client';
 
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { 
-  Plus, 
-  Edit, 
-  Trash2, 
-  Save, 
-  X, 
-  Upload, 
-  Eye, 
+import axios from 'axios';
+import {
+  Plus,
+  Edit,
+  Trash2,
+  Save,
+  X,
+  Upload,
+  Eye,
   EyeOff,
   ArrowLeft,
-  FileText,
   Settings,
-  Image as ImageIcon
+  Image as ImageIcon,
 } from 'lucide-react';
 
 interface TransformProject {
-  id: number;
+  id: number | string;
+  _id?: string; // MongoDB ID
   beforeImage: string;
   afterImage: string;
   title: string;
@@ -36,20 +37,59 @@ interface SectionSettings {
   isVisible: boolean;
 }
 
-const BeforeAfterSlide = ({ 
-  beforeImage, 
-  afterImage, 
-  title, 
-  description 
-}: {
+interface ProjectFormData {
+  title: string;
+  description: string;
+  beforeImage: string;
+  afterImage: string;
+}
+
+interface ApiResponse<T> {
+  data: T;
+  message?: string;
+}
+
+// Constants
+const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
+
+const api = axios.create({ baseURL: API_BASE_URL });
+
+// Helper function to normalize project data (handle both id and _id)
+const normalizeProject = (project: any): TransformProject => ({
+  ...project,
+  id: project.id || project._id,
+});
+
+const projectsApi = {
+  list: (): Promise<ApiResponse<TransformProject[]>> => api.get('/transform-projects'),
+  create: (data: ProjectFormData): Promise<ApiResponse<TransformProject>> => 
+    api.post('/transform-projects', data),
+  update: (id: number | string, data: ProjectFormData): Promise<ApiResponse<TransformProject>> => 
+    api.put(`/transform-projects/${id}`, data),
+  toggle: (id: number | string): Promise<ApiResponse<TransformProject>> => 
+    api.patch(`/transform-projects/toggle/${id}`),
+  delete: (id: number | string): Promise<ApiResponse<void>> => 
+    api.delete(`/transform-projects/${id}`),
+};
+
+const settingsApi = {
+  get: (): Promise<ApiResponse<SectionSettings>> => api.get('/transform-section-settings'),
+  update: (data: SectionSettings): Promise<ApiResponse<SectionSettings>> => 
+    api.put('/transform-section-settings', data),
+};
+
+interface BeforeAfterSlideProps {
   beforeImage: string;
   afterImage: string;
   title: string;
   description: string;
-}) => {
+}
+
+const BeforeAfterSlide = ({ beforeImage, afterImage, title, description }: BeforeAfterSlideProps) => {
   const [sliderPosition, setSliderPosition] = useState(50);
   const containerRef = useRef<HTMLDivElement>(null);
-  
+
   const handleMouseMove = (e: React.MouseEvent) => {
     if (containerRef.current) {
       const rect = containerRef.current.getBoundingClientRect();
@@ -57,42 +97,29 @@ const BeforeAfterSlide = ({
       setSliderPosition(Math.min(Math.max(x, 0), 100));
     }
   };
-  
+
   return (
     <div className="mb-4">
-      <div 
+      <div
         ref={containerRef}
         className="relative h-48 overflow-hidden rounded-lg cursor-ew-resize"
         onMouseMove={handleMouseMove}
       >
         <div className="absolute inset-0">
-          <img 
-            src={afterImage}
-            alt="After transformation"
-            className="w-full h-full object-cover"
-          />
+          <img src={afterImage} alt={`${title} - After`} className="w-full h-full object-cover" />
         </div>
-        
-        <div 
-          className="absolute inset-0 overflow-hidden"
-          style={{ width: `${sliderPosition}%` }}
-        >
-          <img 
-            src={beforeImage}
-            alt="Before transformation"
-            className="w-full h-full object-cover"
-          />
+        <div className="absolute inset-0 overflow-hidden" style={{ width: `${sliderPosition}%` }}>
+          <img src={beforeImage} alt={`${title} - Before`} className="w-full h-full object-cover" />
           <div className="absolute top-0 bottom-0 right-0 w-0.5 bg-white" />
         </div>
-        
-        <div 
+        <div
           className="absolute top-0 bottom-0 w-0.5 bg-white"
           style={{ left: `${sliderPosition}%`, transform: 'translateX(-50%)' }}
         >
           <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-6 h-6 bg-white rounded-full flex items-center justify-center shadow-lg">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
-              <path d="M18 8L22 12L18 16" stroke="black" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-              <path d="M6 8L2 12L6 16" stroke="black" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <path d="M18 8L22 12L18 16" stroke="black" strokeWidth="2" />
+              <path d="M6 8L2 12L6 16" stroke="black" strokeWidth="2" />
             </svg>
           </div>
         </div>
@@ -104,447 +131,449 @@ const BeforeAfterSlide = ({
 };
 
 export default function BeforeAfterAdmin() {
-  const [projects, setProjects] = useState<TransformProject[]>([
-    {
-      id: 1,
-      beforeImage: "https://images.unsplash.com/photo-1581833971358-2c8b550f87b3?w=400&h=300&fit=crop",
-      afterImage: "https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=400&h=300&fit=crop",
-      title: "Sustainable Water Project",
-      description: "Transforming a water-scarce village with clean water access for all residents",
-      isActive: true,
-      createdAt: "2024-12-01",
-      updatedAt: "2024-12-15"
-    },
-    {
-      id: 2,
-      beforeImage: "https://images.unsplash.com/photo-1580582932707-520aed937b7b?w=400&h=300&fit=crop",
-      afterImage: "https://images.unsplash.com/photo-1497486751825-1233686d5d80?w=400&h=300&fit=crop",
-      title: "School Renovation",
-      description: "Rebuilding and equipping a dilapidated school with modern facilities",
-      isActive: true,
-      createdAt: "2024-11-15",
-      updatedAt: "2024-12-10"
-    },
-    {
-      id: 3,
-      beforeImage: "https://images.unsplash.com/photo-1551601651-2a8bf16bafc1?w=400&h=300&fit=crop",
-      afterImage: "https://images.unsplash.com/photo-1551601651-2a8bf16bafc1?w=400&h=300&fit=crop&sat=-100",
-      title: "Healthcare Center",
-      description: "Converting an unused building into a fully-functional medical clinic",
-      isActive: true,
-      createdAt: "2024-11-01",
-      updatedAt: "2024-12-05"
-    }
-  ]);
-
+  const [projects, setProjects] = useState<TransformProject[]>([]);
   const [sectionSettings, setSectionSettings] = useState<SectionSettings>({
-    title: "See Our Impact",
-    subtitle: "Witness the transformative power of our projects through these before and after comparisons.",
-    backgroundColor: "bg-blue-900",
-    textColor: "text-white",
-    isVisible: true
+    title: '',
+    subtitle: '',
+    backgroundColor: '',
+    textColor: '',
+    isVisible: true,
   });
-
+  const [activeTab, setActiveTab] = useState<'projects' | 'settings'>('projects');
   const [isEditing, setIsEditing] = useState(false);
   const [editingProject, setEditingProject] = useState<TransformProject | null>(null);
-  const [showSettings, setShowSettings] = useState(false);
-  const [activeTab, setActiveTab] = useState<'projects' | 'settings'>('projects');
-
-  const [formData, setFormData] = useState({
-    title: '',
-    description: '',
-    beforeImage: '',
-    afterImage: ''
+  const [formData, setFormData] = useState<ProjectFormData>({ 
+    title: '', 
+    description: '', 
+    beforeImage: '', 
+    afterImage: '' 
   });
-
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  
   const beforeImageInputRef = useRef<HTMLInputElement>(null);
   const afterImageInputRef = useRef<HTMLInputElement>(null);
 
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        const [projResponse, settingsResponse] = await Promise.all([
+          projectsApi.list(), 
+          settingsApi.get()
+        ]);
+        
+        // Normalize project data to ensure consistent ID field
+        const normalizedProjects = projResponse.data.map(normalizeProject);
+        console.log('Fetched projects:', normalizedProjects);
+        
+        setProjects(normalizedProjects);
+        setSectionSettings(settingsResponse.data);
+      } catch (err) {
+        console.error('Error fetching data:', err);
+        setError('Failed to load data. Please refresh the page.');
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchData();
+  }, []);
+
   const handleEdit = (project: TransformProject) => {
+    console.log('Editing project:', project);
     setEditingProject(project);
     setFormData({
       title: project.title,
       description: project.description,
       beforeImage: project.beforeImage,
-      afterImage: project.afterImage
+      afterImage: project.afterImage,
     });
     setIsEditing(true);
   };
 
   const handleAdd = () => {
     setEditingProject(null);
-    setFormData({
-      title: '',
-      description: '',
-      beforeImage: '',
-      afterImage: ''
-    });
+    setFormData({ title: '', description: '', beforeImage: '', afterImage: '' });
     setIsEditing(true);
   };
 
-  const handleSave = () => {
-    if (editingProject) {
-      // Update existing project
-      setProjects(prev => prev.map(p => 
-        p.id === editingProject.id 
-          ? { ...p, ...formData, updatedAt: new Date().toISOString().split('T')[0] }
-          : p
-      ));
-    } else {
-      // Add new project
-      const newProject: TransformProject = {
-        id: Math.max(...projects.map(p => p.id)) + 1,
-        ...formData,
-        isActive: true,
-        createdAt: new Date().toISOString().split('T')[0],
-        updatedAt: new Date().toISOString().split('T')[0]
-      };
-      setProjects(prev => [...prev, newProject]);
+  const handleSave = async () => {
+    if (!isFormValid) {
+      setError('Please fill in all required fields.');
+      return;
     }
-    setIsEditing(false);
-    setEditingProject(null);
-  };
 
-  const handleDelete = (id: number) => {
-    if (confirm('Are you sure you want to delete this project?')) {
-      setProjects(prev => prev.filter(p => p.id !== id));
+    try {
+      setLoading(true);
+      setError(null);
+      
+      if (editingProject) {
+        console.log('Updating project with ID:', editingProject.id);
+        if (!editingProject.id) {
+          throw new Error('Project ID is missing');
+        }
+        const response = await projectsApi.update(editingProject.id, formData);
+        const normalizedProject = normalizeProject(response.data);
+        setProjects(prev => prev.map(p => (p.id === normalizedProject.id ? normalizedProject : p)));
+      } else {
+        const response = await projectsApi.create(formData);
+        const normalizedProject = normalizeProject(response.data);
+        setProjects(prev => [...prev, normalizedProject]);
+      }
+      setIsEditing(false);
+      setEditingProject(null);
+    } catch (err) {
+      console.error('Error saving project:', err);
+      setError('Failed to save project. Please try again.');
+    } finally {
+      setLoading(false);
     }
   };
 
-  const toggleActive = (id: number) => {
-    setProjects(prev => prev.map(p => 
-      p.id === id ? { ...p, isActive: !p.isActive } : p
-    ));
+  const handleDelete = async (id: number | string) => {
+    console.log('Attempting to delete project with ID:', id);
+    
+    if (!id) {
+      setError('Cannot delete project: ID is missing');
+      return;
+    }
+
+    if (window.confirm('Are you sure you want to delete this project?')) {
+      try {
+        setLoading(true);
+        setError(null);
+        await projectsApi.delete(id);
+        setProjects(prev => prev.filter(p => p.id !== id));
+      } catch (err) {
+        console.error('Error deleting project:', err);
+        setError('Failed to delete project. Please try again.');
+      } finally {
+        setLoading(false);
+      }
+    }
   };
 
-  const handleFileUpload = (field: 'beforeImage' | 'afterImage', event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (file) {
-      // Check if file is an image
-      if (!file.type.startsWith('image/')) {
-        alert('Please select an image file');
+  const toggleActive = async (id: number | string) => {
+    console.log('Attempting to toggle project with ID:', id);
+    
+    if (!id) {
+      setError('Cannot toggle project: ID is missing');
+      return;
+    }
+
+    try {
+      setError(null);
+      const response = await projectsApi.toggle(id);
+      const normalizedProject = normalizeProject(response.data);
+      setProjects(prev => prev.map(p => (p.id === id ? normalizedProject : p)));
+    } catch (err) {
+      console.error('Error toggling project:', err);
+      setError('Failed to update project status. Please try again.');
+    }
+  };
+
+  const handleFileUpload = async (
+    field: 'beforeImage' | 'afterImage',
+    e: React.ChangeEvent<HTMLInputElement>
+  ) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      setError('Please select a valid image file.');
+      return;
+    }
+
+    if (file.size > MAX_FILE_SIZE) {
+      setError('File size must be less than 5MB.');
+      return;
+    }
+
+    const formData = new FormData();
+    formData.append('image', file);
+
+    try {
+      setError(null);
+      const response = await axios.post('http://localhost:5000/api/transform-projects/upload-image', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+
+      const imageUrl = response.data?.url;
+      if (!imageUrl) {
+        setError('Upload failed. No URL returned.');
         return;
       }
 
-      // Check file size (limit to 5MB)
-      if (file.size > 5 * 1024 * 1024) {
-        alert('File size must be less than 5MB');
-        return;
-      }
-
-      // Create a data URL for preview
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        const dataUrl = e.target?.result as string;
-        setFormData(prev => ({ ...prev, [field]: dataUrl }));
-      };
-      reader.readAsDataURL(file);
+      setFormData(prev => ({
+        ...prev,
+        [field]: imageUrl,
+      }));
+    } catch (error) {
+      console.error('Upload error:', error);
+      setError('Failed to upload image. Please try again.');
     }
   };
 
   const triggerFileUpload = (field: 'beforeImage' | 'afterImage') => {
-    if (field === 'beforeImage') {
-      beforeImageInputRef.current?.click();
-    } else {
-      afterImageInputRef.current?.click();
-    }
+    const inputRef = field === 'beforeImage' ? beforeImageInputRef : afterImageInputRef;
+    inputRef.current?.click();
   };
 
   const removeImage = (field: 'beforeImage' | 'afterImage') => {
     setFormData(prev => ({ ...prev, [field]: '' }));
-    // Reset the file input
-    if (field === 'beforeImage' && beforeImageInputRef.current) {
-      beforeImageInputRef.current.value = '';
-    } else if (field === 'afterImage' && afterImageInputRef.current) {
-      afterImageInputRef.current.value = '';
+  };
+
+  const saveSettings = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const response = await settingsApi.update(sectionSettings);
+      setSectionSettings(response.data);
+      alert('Section settings saved successfully!');
+    } catch (err) {
+      console.error('Error saving settings:', err);
+      setError('Failed to save settings. Please try again.');
+    } finally {
+      setLoading(false);
     }
   };
 
+  const isFormValid = formData.title.trim() && 
+                     formData.description.trim() && 
+                     formData.beforeImage && 
+                     formData.afterImage;
+
+  if (loading && projects.length === 0) {
+    return (
+      <div className="p-6 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="p-6 space-y-6">
-      {/* Header */}
-      <div className="flex justify-between items-center">
-        <div className="flex items-center gap-4">
-          <button className="p-2 hover:bg-gray-100 rounded-lg">
-            <ArrowLeft className="w-5 h-5" />
-          </button>
-          <div>
-            <h1 className="text-3xl font-bold text-gray-900">Before & After Management</h1>
-            <p className="text-gray-600 mt-1">Manage transformation project slider content</p>
-          </div>
+    <div className="min-h-screen bg-gray-50">
+      <div className="max-w-7xl mx-auto p-6">
+        {/* Header */}
+        <div className="mb-8">
+          <h1 className="text-3xl font-bold text-gray-900 mb-2">Before/After Admin</h1>
+          <p className="text-gray-600">Manage your transformation projects and section settings</p>
         </div>
-        <div className="flex gap-3">
-          <button
-            onClick={() => setActiveTab('settings')}
-            className={`px-4 py-2 rounded-lg flex items-center gap-2 transition-colors ${
-              activeTab === 'settings' 
-                ? 'bg-blue-600 text-white' 
-                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-            }`}
-          >
-            <Settings className="w-4 h-4" />
-            Settings
-          </button>
-          <button
-            onClick={handleAdd}
-            className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2"
-          >
-            <Plus className="w-4 h-4" />
-            Add Project
-          </button>
-        </div>
-      </div>
 
-      {/* Tab Navigation */}
-      <div className="border-b border-gray-200">
-        <nav className="flex space-x-8">
-          <button
-            onClick={() => setActiveTab('projects')}
-            className={`py-2 px-1 border-b-2 font-medium text-sm ${
-              activeTab === 'projects'
-                ? 'border-blue-500 text-blue-600'
-                : 'border-transparent text-gray-500 hover:text-gray-700'
-            }`}
-          >
-            Projects ({projects.length})
-          </button>
-          <button
-            onClick={() => setActiveTab('settings')}
-            className={`py-2 px-1 border-b-2 font-medium text-sm ${
-              activeTab === 'settings'
-                ? 'border-blue-500 text-blue-600'
-                : 'border-transparent text-gray-500 hover:text-gray-700'
-            }`}
-          >
-            Section Settings
-          </button>
-        </nav>
-      </div>
-
-      {/* Projects Tab */}
-      {activeTab === 'projects' && (
-        <div className="space-y-6">
-          {/* Projects Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {projects.map((project, index) => (
-              <motion.div
-                key={project.id}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: index * 0.1 }}
-                className="bg-white border border-gray-200 rounded-lg shadow-sm overflow-hidden"
-              >
-                <div className="p-4">
-                  <BeforeAfterSlide
-                    beforeImage={project.beforeImage}
-                    afterImage={project.afterImage}
-                    title={project.title}
-                    description={project.description}
-                  />
-                  
-                  <div className="flex items-center justify-between mt-4">
-                    <div className="flex items-center gap-2">
-                      <span className={`w-2 h-2 rounded-full ${project.isActive ? 'bg-green-500' : 'bg-gray-400'}`} />
-                      <span className="text-sm text-gray-600">
-                        {project.isActive ? 'Active' : 'Inactive'}
-                      </span>
-                    </div>
-                    <div className="flex gap-2">
-                      <button
-                        onClick={() => toggleActive(project.id)}
-                        className="p-1 hover:bg-gray-100 rounded"
-                        title={project.isActive ? 'Hide' : 'Show'}
-                      >
-                        {project.isActive ? (
-                          <Eye className="w-4 h-4 text-green-600" />
-                        ) : (
-                          <EyeOff className="w-4 h-4 text-gray-400" />
-                        )}
-                      </button>
-                      <button
-                        onClick={() => handleEdit(project)}
-                        className="p-1 hover:bg-gray-100 rounded"
-                        title="Edit"
-                      >
-                        <Edit className="w-4 h-4 text-blue-600" />
-                      </button>
-                      <button
-                        onClick={() => handleDelete(project.id)}
-                        className="p-1 hover:bg-gray-100 rounded"
-                        title="Delete"
-                      >
-                        <Trash2 className="w-4 h-4 text-red-600" />
-                      </button>
-                    </div>
-                  </div>
-                  
-                  <div className="text-xs text-gray-500 mt-2">
-                    Updated: {project.updatedAt}
-                  </div>
-                </div>
-              </motion.div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Settings Tab */}
-      {activeTab === 'settings' && (
-        <div className="max-w-2xl space-y-6">
-          <div className="bg-white p-6 rounded-lg border border-gray-200">
-            <h3 className="text-lg font-semibold mb-4">Section Settings</h3>
-            
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Section Title
-                </label>
-                <input
-                  type="text"
-                  value={sectionSettings.title}
-                  onChange={(e) => setSectionSettings(prev => ({ ...prev, title: e.target.value }))}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                />
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Section Subtitle
-                </label>
-                <textarea
-                  value={sectionSettings.subtitle}
-                  onChange={(e) => setSectionSettings(prev => ({ ...prev, subtitle: e.target.value }))}
-                  rows={3}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                />
-              </div>
-              
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Background Color
-                  </label>
-                  <select
-                    value={sectionSettings.backgroundColor}
-                    onChange={(e) => setSectionSettings(prev => ({ ...prev, backgroundColor: e.target.value }))}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  >
-                    <option value="bg-blue-900">Blue Dark</option>
-                    <option value="bg-gray-900">Gray Dark</option>
-                    <option value="bg-green-900">Green Dark</option>
-                    <option value="bg-purple-900">Purple Dark</option>
-                  </select>
-                </div>
-                
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Text Color
-                  </label>
-                  <select
-                    value={sectionSettings.textColor}
-                    onChange={(e) => setSectionSettings(prev => ({ ...prev, textColor: e.target.value }))}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  >
-                    <option value="text-white">White</option>
-                    <option value="text-gray-100">Light Gray</option>
-                    <option value="text-gray-900">Dark Gray</option>
-                  </select>
-                </div>
-              </div>
-              
-              <div className="flex items-center">
-                <input
-                  type="checkbox"
-                  id="sectionVisible"
-                  checked={sectionSettings.isVisible}
-                  onChange={(e) => setSectionSettings(prev => ({ ...prev, isVisible: e.target.checked }))}
-                  className="h-4 w-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500"
-                />
-                <label htmlFor="sectionVisible" className="ml-2 text-sm text-gray-700">
-                  Show section on website
-                </label>
-              </div>
-            </div>
-            
-            <button className="mt-6 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors">
-              Save Settings
+        {/* Error Display */}
+        {error && (
+          <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
+            <p className="text-red-700">{error}</p>
+            <button 
+              onClick={() => setError(null)}
+              className="mt-2 text-red-600 hover:text-red-800 font-medium"
+            >
+              Dismiss
             </button>
           </div>
-        </div>
-      )}
+        )}
 
-      {/* Edit/Add Modal */}
-      {isEditing && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-y-auto">
-            <div className="p-6">
-              <div className="flex justify-between items-center mb-6">
-                <h2 className="text-xl font-semibold">
-                  {editingProject ? 'Edit Project' : 'Add New Project'}
-                </h2>
-                <button
-                  onClick={() => setIsEditing(false)}
-                  className="p-2 hover:bg-gray-100 rounded-lg"
-                >
-                  <X className="w-5 h-5" />
-                </button>
-              </div>
-              
-              <div className="space-y-6">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Project Title
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.title}
-                    onChange={(e) => setFormData(prev => ({ ...prev, title: e.target.value }))}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    placeholder="Enter project title"
-                  />
+        {/* Tabs */}
+        <div className="mb-6 border-b border-gray-200">
+          <nav className="-mb-px flex space-x-8">
+            <button
+              onClick={() => setActiveTab('projects')}
+              className={`py-2 px-1 border-b-2 font-medium text-sm ${
+                activeTab === 'projects'
+                  ? 'border-blue-500 text-blue-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              }`}
+            >
+              Projects ({projects.length})
+            </button>
+            <button
+              onClick={() => setActiveTab('settings')}
+              className={`py-2 px-1 border-b-2 font-medium text-sm ${
+                activeTab === 'settings'
+                  ? 'border-blue-500 text-blue-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              }`}
+            >
+              Section Settings
+            </button>
+          </nav>
+        </div>
+
+        {/* Projects Tab */}
+        {activeTab === 'projects' && (
+          <div>
+            {!isEditing ? (
+              <>
+                {/* Add New Project Button */}
+                <div className="mb-6">
+                  <button
+                    onClick={handleAdd}
+                    className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                  >
+                    <Plus className="h-5 w-5 mr-2" />
+                    Add New Project
+                  </button>
                 </div>
-                
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Description
-                  </label>
-                  <textarea
-                    value={formData.description}
-                    onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
-                    rows={3}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    placeholder="Enter project description"
-                  />
+
+                {/* Projects Grid */}
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {projects.map((project) => (
+                    <motion.div
+                      key={project.id}
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      className="bg-white rounded-lg shadow-md overflow-hidden"
+                    >
+                      <BeforeAfterSlide
+                        beforeImage={project.beforeImage}
+                        afterImage={project.afterImage}
+                        title={project.title}
+                        description={project.description}
+                      />
+                      
+                      <div className="p-4">
+                        <div className="flex items-center justify-between mb-3">
+                          <span
+                            className={`px-2 py-1 rounded-full text-xs font-medium ${
+                              project.isActive
+                                ? 'bg-green-100 text-green-800'
+                                : 'bg-gray-100 text-gray-800'
+                            }`}
+                          >
+                            {project.isActive ? 'Active' : 'Inactive'}
+                          </span>
+                          <div className="text-xs text-gray-500">
+                            ID: {project.id}
+                          </div>
+                        </div>
+                        
+                        <div className="flex space-x-2">
+                          <button
+                            onClick={() => toggleActive(project.id)}
+                            className="flex-1 inline-flex items-center justify-center px-3 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
+                            disabled={loading}
+                          >
+                            {project.isActive ? (
+                              <EyeOff className="h-4 w-4 mr-1" />
+                            ) : (
+                              <Eye className="h-4 w-4 mr-1" />
+                            )}
+                            {project.isActive ? 'Hide' : 'Show'}
+                          </button>
+                          
+                          <button
+                            onClick={() => handleEdit(project)}
+                            className="inline-flex items-center px-3 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
+                            disabled={loading}
+                          >
+                            <Edit className="h-4 w-4" />
+                          </button>
+                          
+                          <button
+                            onClick={() => handleDelete(project.id)}
+                            className="inline-flex items-center px-3 py-2 border border-red-300 rounded-md text-sm font-medium text-red-700 bg-white hover:bg-red-50"
+                            disabled={loading}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        </div>
+                      </div>
+                    </motion.div>
+                  ))}
                 </div>
-                
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+
+                {projects.length === 0 && !loading && (
+                  <div className="text-center py-12">
+                    <ImageIcon className="mx-auto h-12 w-12 text-gray-400" />
+                    <h3 className="mt-2 text-sm font-medium text-gray-900">No projects</h3>
+                    <p className="mt-1 text-sm text-gray-500">Get started by creating a new project.</p>
+                  </div>
+                )}
+              </>
+            ) : (
+              /* Edit/Add Form */
+              <div className="bg-white rounded-lg shadow-md p-6">
+                <div className="flex items-center justify-between mb-6">
+                  <h2 className="text-xl font-semibold">
+                    {editingProject ? 'Edit Project' : 'Add New Project'}
+                  </h2>
+                  <button
+                    onClick={() => {
+                      setIsEditing(false);
+                      setEditingProject(null);
+                      setError(null);
+                    }}
+                    className="text-gray-400 hover:text-gray-600"
+                  >
+                    <X className="h-6 w-6" />
+                  </button>
+                </div>
+
+                <div className="space-y-6">
+                  {/* Title */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Title *
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.title}
+                      onChange={(e) => setFormData(prev => ({ ...prev, title: e.target.value }))}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      placeholder="Enter project title"
+                    />
+                  </div>
+
+                  {/* Description */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Description *
+                    </label>
+                    <textarea
+                      value={formData.description}
+                      onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
+                      rows={3}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      placeholder="Enter project description"
+                    />
+                  </div>
+
                   {/* Before Image */}
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Before Image
+                      Before Image *
                     </label>
-                    <div className="space-y-3">
+                    <div className="space-y-2">
                       {formData.beforeImage ? (
                         <div className="relative">
-                          <img 
-                            src={formData.beforeImage} 
-                            alt="Before preview" 
-                            className="w-full h-32 object-cover rounded-lg border border-gray-200"
+                          <img
+                            src={formData.beforeImage}
+                            alt="Before"
+                            className="w-full h-32 object-cover rounded-md"
                           />
                           <button
                             onClick={() => removeImage('beforeImage')}
-                            className="absolute top-2 right-2 p-1 bg-red-500 text-white rounded-full hover:bg-red-600 transition-colors"
+                            className="absolute top-2 right-2 p-1 bg-red-500 text-white rounded-full hover:bg-red-600"
                           >
-                            <X className="w-4 h-4" />
+                            <X className="h-4 w-4" />
                           </button>
                         </div>
                       ) : (
-                        <div className="w-full h-32 border-2 border-dashed border-gray-300 rounded-lg flex items-center justify-center bg-gray-50">
+                        <button
+                          onClick={() => triggerFileUpload('beforeImage')}
+                          className="w-full h-32 border-2 border-dashed border-gray-300 rounded-md flex items-center justify-center hover:border-gray-400"
+                        >
                           <div className="text-center">
-                            <ImageIcon className="w-8 h-8 text-gray-400 mx-auto mb-2" />
-                            <p className="text-sm text-gray-500">No image selected</p>
+                            <Upload className="mx-auto h-8 w-8 text-gray-400" />
+                            <p className="mt-2 text-sm text-gray-600">Upload Before Image</p>
                           </div>
-                        </div>
+                        </button>
                       )}
                       <input
                         ref={beforeImageInputRef}
@@ -553,43 +582,39 @@ export default function BeforeAfterAdmin() {
                         onChange={(e) => handleFileUpload('beforeImage', e)}
                         className="hidden"
                       />
-                      <button
-                        onClick={() => triggerFileUpload('beforeImage')}
-                        className="w-full flex items-center justify-center gap-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
-                      >
-                        <Upload className="w-4 h-4" />
-                        {formData.beforeImage ? 'Change Image' : 'Upload Before Image'}
-                      </button>
                     </div>
                   </div>
-                  
+
                   {/* After Image */}
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
-                      After Image
+                      After Image *
                     </label>
-                    <div className="space-y-3">
+                    <div className="space-y-2">
                       {formData.afterImage ? (
                         <div className="relative">
-                          <img 
-                            src={formData.afterImage} 
-                            alt="After preview" 
-                            className="w-full h-32 object-cover rounded-lg border border-gray-200"
+                          <img
+                            src={formData.afterImage}
+                            alt="After"
+                            className="w-full h-32 object-cover rounded-md"
                           />
                           <button
                             onClick={() => removeImage('afterImage')}
-                            className="absolute top-2 right-2 p-1 bg-red-500 text-white rounded-full hover:bg-red-600 transition-colors"
+                            className="absolute top-2 right-2 p-1 bg-red-500 text-white rounded-full hover:bg-red-600"
                           >
-                            <X className="w-4 h-4" />
+                            <X className="h-4 w-4" />
                           </button>
                         </div>
                       ) : (
-                        <div className="w-full h-32 border-2 border-dashed border-gray-300 rounded-lg flex items-center justify-center bg-gray-50">
+                        <button
+                          onClick={() => triggerFileUpload('afterImage')}
+                          className="w-full h-32 border-2 border-dashed border-gray-300 rounded-md flex items-center justify-center hover:border-gray-400"
+                        >
                           <div className="text-center">
-                            <ImageIcon className="w-8 h-8 text-gray-400 mx-auto mb-2" />
-                            <p className="text-sm text-gray-500">No image selected</p>
+                            <Upload className="mx-auto h-8 w-8 text-gray-400" />
+                            <p className="mt-2 text-sm text-gray-600">Upload After Image</p>
                           </div>
-                        </div>
+                        </button>
                       )}
                       <input
                         ref={afterImageInputRef}
@@ -598,55 +623,124 @@ export default function BeforeAfterAdmin() {
                         onChange={(e) => handleFileUpload('afterImage', e)}
                         className="hidden"
                       />
-                      <button
-                        onClick={() => triggerFileUpload('afterImage')}
-                        className="w-full flex items-center justify-center gap-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
-                      >
-                        <Upload className="w-4 h-4" />
-                        {formData.afterImage ? 'Change Image' : 'Upload After Image'}
-                      </button>
                     </div>
+                  </div>
+
+                  {/* Actions */}
+                  <div className="flex justify-end space-x-3 pt-6">
+                    <button
+                      onClick={() => {
+                        setIsEditing(false);
+                        setEditingProject(null);
+                        setError(null);
+                      }}
+                      className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50"
+                      disabled={loading}
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={handleSave}
+                      disabled={!isFormValid || loading}
+                      className="px-4 py-2 bg-blue-600 text-white rounded-md text-sm font-medium hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center"
+                    >
+                      {loading && (
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                      )}
+                      <Save className="h-4 w-4 mr-2" />
+                      {editingProject ? 'Update Project' : 'Create Project'}
+                    </button>
                   </div>
                 </div>
-                
-                {/* Preview */}
-                {formData.beforeImage && formData.afterImage && (
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Preview
-                    </label>
-                    <div className="border border-gray-200 rounded-lg p-4 bg-gray-50">
-                      <BeforeAfterSlide
-                        beforeImage={formData.beforeImage}
-                        afterImage={formData.afterImage}
-                        title={formData.title || 'Project Title'}
-                        description={formData.description || 'Project description'}
-                      />
-                    </div>
-                  </div>
-                )}
               </div>
-              
-              <div className="flex justify-end gap-3 mt-6 pt-6 border-t border-gray-200">
+            )}
+          </div>
+        )}
+
+        {/* Settings Tab */}
+        {activeTab === 'settings' && (
+          <div className="bg-white rounded-lg shadow-md p-6">
+            <h2 className="text-xl font-semibold mb-6">Section Settings</h2>
+            
+            <div className="space-y-6">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Section Title
+                </label>
+                <input
+                  type="text"
+                  value={sectionSettings.title}
+                  onChange={(e) => setSectionSettings(prev => ({ ...prev, title: e.target.value }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Section Subtitle
+                </label>
+                <input
+                  type="text"
+                  value={sectionSettings.subtitle}
+                  onChange={(e) => setSectionSettings(prev => ({ ...prev, subtitle: e.target.value }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Background Color
+                </label>
+                <input
+                  type="color"
+                  value={sectionSettings.backgroundColor}
+                  onChange={(e) => setSectionSettings(prev => ({ ...prev, backgroundColor: e.target.value }))}
+                  className="w-full h-10 border border-gray-300 rounded-md"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Text Color
+                </label>
+                <input
+                  type="color"
+                  value={sectionSettings.textColor}
+                  onChange={(e) => setSectionSettings(prev => ({ ...prev, textColor: e.target.value }))}
+                  className="w-full h-10 border border-gray-300 rounded-md"
+                />
+              </div>
+
+              <div className="flex items-center">
+                <input
+                  type="checkbox"
+                  id="isVisible"
+                  checked={sectionSettings.isVisible}
+                  onChange={(e) => setSectionSettings(prev => ({ ...prev, isVisible: e.target.checked }))}
+                  className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                />
+                <label htmlFor="isVisible" className="ml-2 block text-sm text-gray-900">
+                  Section is visible on website
+                </label>
+              </div>
+
+              <div className="flex justify-end pt-6">
                 <button
-                  onClick={() => setIsEditing(false)}
-                  className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+                  onClick={saveSettings}
+                  disabled={loading}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-md text-sm font-medium hover:bg-blue-700 disabled:opacity-50 inline-flex items-center"
                 >
-                  Cancel
-                </button>
-                <button
-                  onClick={handleSave}
-                  disabled={!formData.title || !formData.description || !formData.beforeImage || !formData.afterImage}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
-                >
-                  <Save className="w-4 h-4" />
-                  {editingProject ? 'Update Project' : 'Add Project'}
+                  {loading && (
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                  )}
+                  <Settings className="h-4 w-4 mr-2" />
+                  Save Settings
                 </button>
               </div>
             </div>
           </div>
-        </div>
-      )}
+        )}
+      </div>
     </div>
   );
 }

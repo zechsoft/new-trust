@@ -39,44 +39,152 @@ export default function AboutHeroManagement() {
   const [isLoading, setIsLoading] = useState(false);
   const [imagePreview, setImagePreview] = useState<string>('');
   const [videoPreview, setVideoPreview] = useState<string>('');
+  const [uploadingImage, setUploadingImage] = useState(false);
+  const [uploadingVideo, setUploadingVideo] = useState(false);
+
+  const getHeroData = async () => {
+    const res = await fetch('http://localhost:5000/api/aboutHero');
+    if (!res.ok) throw new Error('Failed to fetch hero data');
+    return res.json();
+  };
+
+  // POST API inline
+  const saveHeroData = async (data: HeroData) => {
+    const res = await fetch('http://localhost:5000/api/aboutHero', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data)
+    });
+    if (!res.ok) throw new Error('Failed to save hero data');
+    return res.json();
+  };
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const data = await getHeroData();
+
+        if (!data) {
+          console.warn('No hero data returned from API');
+          return;
+        }
+
+        setHeroData(data);
+
+        // Set previews to existing database values
+        if (data.backgroundImage) {
+          setImagePreview(data.backgroundImage);
+        }
+
+        if (data.backgroundVideo) {
+          setVideoPreview(data.backgroundVideo);
+        }
+
+      } catch (err) {
+        console.error('Error loading hero data:', err);
+      }
+    })();
+  }, []);
 
   const handleSave = async () => {
     setIsLoading(true);
     try {
-      // API call to save hero data
-      console.log('Saving hero data:', heroData);
-      // await saveAboutHeroData(heroData);
+      // Ensure we're saving the current state, including existing images
+      const dataToSave = {
+        ...heroData,
+        // If no new image was uploaded, keep the existing one
+        backgroundImage: heroData.backgroundImage || imagePreview,
+        backgroundVideo: heroData.backgroundVideo || videoPreview
+      };
+      
+      await saveHeroData(dataToSave);
+      alert('Hero section saved successfully!');
     } catch (error) {
       console.error('Error saving hero data:', error);
+      alert('Error saving hero data');
     } finally {
       setIsLoading(false);
     }
   };
 
-  const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        const result = e.target?.result as string;
-        setImagePreview(result);
-        setHeroData(prev => ({ ...prev, backgroundImage: result }));
-      };
-      reader.readAsDataURL(file);
+    if (!file) return;
+
+    setUploadingImage(true);
+    const formData = new FormData();
+    formData.append('image', file);
+
+    try {
+      const res = await fetch('http://localhost:5000/api/aboutHero/upload-image', {
+        method: 'POST',
+        body: formData,
+      });
+      
+      if (!res.ok) {
+        throw new Error('Upload failed');
+      }
+      
+      const data = await res.json();
+      const newImageUrl = data.url;
+      
+      // Update both preview and hero data
+      setImagePreview(newImageUrl);
+      setHeroData(prev => ({ ...prev, backgroundImage: newImageUrl }));
+      
+    } catch (err) {
+      console.error('Image upload failed', err);
+      alert('Image upload failed');
+    } finally {
+      setUploadingImage(false);
+      // Clear the file input
+      event.target.value = '';
     }
   };
 
-  const handleVideoUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleVideoUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        const result = e.target?.result as string;
-        setVideoPreview(result);
-        setHeroData(prev => ({ ...prev, backgroundVideo: result }));
-      };
-      reader.readAsDataURL(file);
+    if (!file) return;
+
+    setUploadingVideo(true);
+    const formData = new FormData();
+    formData.append('video', file);
+
+    try {
+      const res = await fetch('http://localhost:5000/api/aboutHero/upload-video', {
+        method: 'POST',
+        body: formData,
+      });
+      
+      if (!res.ok) {
+        throw new Error('Upload failed');
+      }
+      
+      const data = await res.json();
+      const newVideoUrl = data.url;
+      
+      // Update both preview and hero data
+      setVideoPreview(newVideoUrl);
+      setHeroData(prev => ({ ...prev, backgroundVideo: newVideoUrl }));
+      
+    } catch (err) {
+      console.error('Video upload failed', err);
+      alert('Video upload failed');
+    } finally {
+      setUploadingVideo(false);
+      // Clear the file input
+      event.target.value = '';
     }
+  };
+
+  const handleRemoveImage = () => {
+    setImagePreview('');
+    setHeroData(prev => ({ ...prev, backgroundImage: '' }));
+  };
+
+  const handleRemoveVideo = () => {
+    setVideoPreview('');
+    setHeroData(prev => ({ ...prev, backgroundVideo: '' }));
   };
 
   const gradientOptions = [
@@ -158,20 +266,45 @@ export default function AboutHeroManagement() {
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Background Image
                 </label>
+                
+                {/* Current Image Display */}
+                {imagePreview && (
+                  <div className="mb-3 relative">
+                    <img 
+                      src={imagePreview} 
+                      alt="Current background" 
+                      className="w-full h-32 object-cover rounded-md border"
+                    />
+                    <button
+                      onClick={handleRemoveImage}
+                      className="absolute top-2 right-2 bg-red-500 text-white rounded-full p-1 hover:bg-red-600"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                    <div className="absolute bottom-2 left-2 bg-black/50 text-white text-xs px-2 py-1 rounded">
+                      Current Image
+                    </div>
+                  </div>
+                )}
+                
                 <div className="flex items-center gap-4">
                   <input
                     type="file"
                     accept="image/*"
                     onChange={handleImageUpload}
                     className="flex-1"
+                    disabled={uploadingImage}
                   />
-                  <AdminButton variant="outline">
+                  <AdminButton 
+                    variant="outline"
+                    disabled={uploadingImage}
+                  >
                     <Upload className="w-4 h-4 mr-2" />
-                    Upload
+                    {uploadingImage ? 'Uploading...' : 'Upload'}
                   </AdminButton>
                 </div>
                 <p className="text-xs text-gray-500 mt-1">
-                  Recommended: 1920x1080px or higher
+                  Recommended: 1920x1080px or higher. {imagePreview ? 'Upload new image to replace current one.' : ''}
                 </p>
               </div>
 
@@ -179,6 +312,27 @@ export default function AboutHeroManagement() {
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Background Video (Optional)
                 </label>
+                
+                {/* Current Video Display */}
+                {videoPreview && (
+                  <div className="mb-3 relative">
+                    <video 
+                      src={videoPreview} 
+                      className="w-full h-32 object-cover rounded-md border"
+                      controls
+                    />
+                    <button
+                      onClick={handleRemoveVideo}
+                      className="absolute top-2 right-2 bg-red-500 text-white rounded-full p-1 hover:bg-red-600"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                    <div className="absolute bottom-2 left-2 bg-black/50 text-white text-xs px-2 py-1 rounded">
+                      Current Video
+                    </div>
+                  </div>
+                )}
+                
                 <div className="space-y-2">
                   <div className="flex items-center gap-4">
                     <input
@@ -186,22 +340,30 @@ export default function AboutHeroManagement() {
                       accept="video/*"
                       onChange={handleVideoUpload}
                       className="flex-1"
+                      disabled={uploadingVideo}
                     />
-                    <AdminButton variant="outline">
+                    <AdminButton 
+                      variant="outline"
+                      disabled={uploadingVideo}
+                    >
                       <Upload className="w-4 h-4 mr-2" />
-                      Upload
+                      {uploadingVideo ? 'Uploading...' : 'Upload'}
                     </AdminButton>
                   </div>
                   <input
                     type="url"
-                    value={heroData.backgroundVideo}
-                    onChange={(e) => setHeroData(prev => ({ ...prev, backgroundVideo: e.target.value }))}
+                    value={heroData.backgroundVideo || ''}
+                    onChange={(e) => {
+                      const url = e.target.value;
+                      setHeroData(prev => ({ ...prev, backgroundVideo: url }));
+                      setVideoPreview(url);
+                    }}
                     placeholder="Or enter video URL..."
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
                 </div>
                 <p className="text-xs text-gray-500 mt-1">
-                  Video will loop automatically. Image will show as fallback.
+                  Video will loop automatically. Image will show as fallback. {videoPreview ? 'Upload new video to replace current one.' : ''}
                 </p>
               </div>
             </div>

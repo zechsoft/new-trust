@@ -78,59 +78,71 @@ export default function AddNewCause() {
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    if (!validateForm()) {
-      return;
+  e.preventDefault();
+
+  if (!validateForm()) return;
+
+  setIsSubmitting(true);
+
+  try {
+    const response = await fetch('http://localhost:5000/api/new', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(newCause)
+    });
+
+    if (!response.ok) {
+      const data = await response.json();
+      throw new Error(data.message || 'Failed to create cause');
     }
 
-    setIsSubmitting(true);
-    
-    // Simulate API call
-    try {
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      
-      // In a real application, you would make an API call here
-      const causeData = {
-        id: generateId(newCause.title),
-        title: newCause.title,
-        description: newCause.description,
-        category: newCause.category,
-        progress: 0,
-        raised: '$0',
-        goal: `$${newCause.goalAmount.toLocaleString()}`,
-        raisedAmount: 0,
-        goalAmount: newCause.goalAmount,
-        image: newCause.image,
-        lastUpdated: new Date().toISOString().split('T')[0],
-        status: newCause.status
-      };
+    const data = await response.json();
+    console.log('New cause created:', data);
 
-      console.log('New cause created:', causeData);
-      
-      setShowSuccess(true);
-      
-      // Redirect after success message
-      setTimeout(() => {
-        router.push('/admin/causes');
-      }, 2000);
-      
-    } catch (error) {
-      console.error('Error creating cause:', error);
-      setErrors({ submit: 'Failed to create cause. Please try again.' });
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
+    setShowSuccess(true);
+    setTimeout(() => router.push('/admin/causes'), 2000);
+  } catch (error: any) {
+    console.error('Error creating cause:', error.message);
+    setErrors({ submit: error.message });
+  } finally {
+    setIsSubmitting(false);
+  }
+};
 
-  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      // In a real application, you would upload the file to your server/cloud storage
-      const imageUrl = URL.createObjectURL(file);
-      setNewCause(prev => ({ ...prev, image: imageUrl }));
+
+const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const file = e.target.files?.[0];
+  if (!file) return;
+
+  const formData = new FormData();
+  formData.append('image', file); // must match backend multer field
+
+  try {
+    const res = await fetch('http://localhost:5000/api/new/upload-image', {
+      method: 'POST',
+      body: formData,
+    });
+
+    const data = await res.json();
+    console.log('Upload response:', data); // ✅ DEBUG
+
+    if (!res.ok || !data.url) {
+      throw new Error(data.message || 'Image upload failed');
     }
-  };
+
+    // ✅ Use the correct key from backend
+    setNewCause(prev => ({ ...prev, image: data.url }));
+    console.log('Uploaded image:', data.url); // ✅ Works now
+  } catch (err) {
+    console.error('Upload failed:', err);
+    setErrors(prev => ({ ...prev, image: 'Image upload failed' }));
+  }
+};
+
+
+
 
   if (showSuccess) {
     return (

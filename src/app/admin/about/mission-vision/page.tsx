@@ -1,6 +1,7 @@
 // src/app/admin/about/mission-vision/page.tsx
 'use client';
 
+import { useEffect } from 'react';
 import { useState } from 'react';
 import { Save, Eye, Plus, Edit, Trash2, Heart, Globe, Lightbulb, Star } from 'lucide-react';
 import AdminCard from '@/components/admin/ui/AdminCard';
@@ -87,11 +88,35 @@ export default function MissionVisionManagement() {
     return <IconComponent className={`w-6 h-6 ${iconOption.color}`} />;
   };
 
-  const handleSave = async () => {
-    console.log('Saving mission & vision data:', data);
-    // API call to save data
-    alert('Changes saved successfully!');
+  useEffect(() => {
+  const fetchData = async () => {
+    try {
+      const res = await fetch('http://localhost:5000/api/mission');
+      if (!res.ok) throw new Error('Failed to fetch');
+      const result = await res.json();
+      setData(result);
+    } catch (error) {
+      console.error('Error fetching mission-vision data:', error);
+      alert('Failed to load mission and vision data');
+    }
   };
+
+  fetchData();
+}, []);
+
+  const handleSave = async () => {
+  try {
+    await fetch('http://localhost:5000/api/mission', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data)
+    });
+    alert('Changes saved successfully!');
+  } catch (error) {
+    alert('Failed to save changes');
+    console.error(error);
+  }
+};
 
   const handleAddValue = () => {
     setEditingValue(null);

@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { gsap } from 'gsap';
 import dynamic from 'next/dynamic';
+import axios from 'axios'
 
 // Icons (assuming you're using Lucide or similar)
 import { 
@@ -29,7 +30,25 @@ const AdminEventModal = dynamic(() => import('@/components/admin/AdminEventModal
   ssr: false 
 });
 
-import { fetchEvents, createEvent, updateEvent, deleteEvent } from '@/lib/api/events';
+const fetchEvents = async () => {
+  const res = await axios.get('http://localhost:5000/api/events');
+  return res.data;
+};
+
+const createEvent = async (eventData) => {
+  const res = await axios.post('http://localhost:5000/api/events', eventData);
+  return res.data;
+};
+
+const updateEvent = async (_id, eventData) => {
+  const res = await axios.put(`http://localhost:5000/api/events/${_id}`, eventData);
+  return res.data;
+};
+
+const deleteEvent = async (_id) => {
+  const res = await axios.delete(`http://localhost:5000/api/events/${_id}`);
+  return res.data;
+};
 
 export default function AdminEventsPage() {
   const [events, setEvents] = useState([]);
@@ -143,7 +162,8 @@ export default function AdminEventsPage() {
         const validatedData = data.map(event => {
           // Ensure all required fields exist
           const validatedEvent = {
-            id: event.id || Math.random().toString(36).substr(2, 9),
+            _id: event._id,  // Preserve the MongoDB _id
+            id: event.id || event._id,  // Keep both for compatibility
             title: event.title || 'Untitled Event',
             description: event.description || '',
             category: event.category || 'Uncategorized',
@@ -298,12 +318,25 @@ export default function AdminEventsPage() {
     setIsModalOpen(true);
   };
 
+  // FIXED: Delete functionality with proper ID handling
   const handleDeleteEvent = async (eventId) => {
     try {
       setError(null);
-      await deleteEvent(eventId);
-      setEvents(prevEvents => prevEvents.filter(event => event.id !== eventId));
+      
+      // Find the event to get the correct _id
+      const eventToDelete = events.find(event => event._id === eventId || event.id === eventId);
+      if (!eventToDelete) {
+        throw new Error('Event not found');
+      }
+
+      // Use _id for the API call (MongoDB format)
+      await deleteEvent(eventToDelete._id);
+      
+      // Remove from state using _id
+      setEvents(prevEvents => prevEvents.filter(event => event._id !== eventToDelete._id));
       setDeleteConfirmId(null);
+      
+      console.log('Event deleted successfully');
     } catch (error) {
       console.error('Error deleting event:', error);
       setError('Failed to delete event. Please try again.');
@@ -319,11 +352,11 @@ export default function AdminEventsPage() {
           setEvents(prevEvents => [...prevEvents, newEvent]);
         }
       } else if (modalMode === 'edit' && selectedEvent) {
-        const updatedEvent = await updateEvent(selectedEvent.id, eventData);
+        const updatedEvent = await updateEvent(selectedEvent._id, eventData);
         if (updatedEvent) {
           setEvents(prevEvents => 
             prevEvents.map(event => 
-              event.id === selectedEvent.id ? updatedEvent : event
+              event._id === selectedEvent._id ? updatedEvent : event
             )
           );
         }
@@ -567,7 +600,7 @@ export default function AdminEventsPage() {
                     filteredEvents.map((event) => {
                       const eventStatus = getEventStatus(event);
                       return (
-                        <tr key={event.id} className="admin-row-animate hover:bg-gray-50">
+                        <tr key={event._id} className="admin-row-animate hover:bg-gray-50">
                           <td className="px-6 py-4">
                             <div className="flex items-center">
                               <img
@@ -631,7 +664,7 @@ export default function AdminEventsPage() {
                                 className="text-gray-600 hover:text-red-600 p-1"
                                 whileHover={{ scale: 1.1 }}
                                 whileTap={{ scale: 0.9 }}
-                                onClick={() => setDeleteConfirmId(event.id)}
+                                onClick={() => setDeleteConfirmId(event._id)}
                                 title="Delete Event"
                               >
                                 <Trash2 size={16} />

@@ -1,7 +1,8 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
+import axios from 'axios';
 import { motion } from 'framer-motion';
 import { 
   Heart, 
@@ -21,7 +22,8 @@ import {
   DollarSign,
   X,
   Save,
-  Upload
+  Upload,
+  Camera
 } from 'lucide-react';
 
 interface CauseStats {
@@ -33,6 +35,7 @@ interface CauseStats {
 }
 
 interface Cause {
+  _id?: string;
   id: string;
   title: string;
   description: string;
@@ -53,110 +56,26 @@ export default function CausesManagement() {
   const [filterStatus, setFilterStatus] = useState('All');
   const [editingCause, setEditingCause] = useState<Cause | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [uploadingImage, setUploadingImage] = useState(false);
+  const [selectedImageFile, setSelectedImageFile] = useState<File | null>(null);
+  const [previewImage, setPreviewImage] = useState<string>('');
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Updated stats based on client data
   const [stats, setStats] = useState<CauseStats>({
-    totalCauses: 6,
+    totalCauses: 0,
     totalDonors: 8450,
-    totalRaised: 187500,
-    activeCampaigns: 6,
-    avgProgress: 70
+    totalRaised: 0,
+    activeCampaigns: 0,
+    avgProgress: 0
   });
 
-  // Updated causes data to match client structure
-  const [causes, setCauses] = useState<Cause[]>([
-    {
-      id: 'clean-water',
-      title: 'Clean Water Initiative',
-      description: 'Providing access to clean and safe drinking water in rural communities across Africa.',
-      category: 'Water',
-      progress: 75,
-      raised: '$15,000',
-      goal: '$20,000',
-      raisedAmount: 15000,
-      goalAmount: 20000,
-      image: '/images/causes/clean-water.jpg',
-      lastUpdated: '2024-12-15',
-      status: 'active'
-    },
-    {
-      id: 'education',
-      title: 'Education for All',
-      description: 'Building schools and supporting education programs for underprivileged children.',
-      category: 'Education',
-      progress: 60,
-      raised: '$30,000',
-      goal: '$50,000',
-      raisedAmount: 30000,
-      goalAmount: 50000,
-      image: '/images/causes/education.jpg',
-      lastUpdated: '2024-12-14',
-      status: 'active'
-    },
-    {
-      id: 'healthcare',
-      title: 'Healthcare Access',
-      description: 'Improving healthcare facilities and services in remote and underserved areas.',
-      category: 'Healthcare',
-      progress: 45,
-      raised: '$22,500',
-      goal: '$50,000',
-      raisedAmount: 22500,
-      goalAmount: 50000,
-      image: '/images/causes/healthcare.jpg',
-      lastUpdated: '2024-12-13',
-      status: 'active'
-    },
-    {
-      id: 'sustainable-farming',
-      title: 'Sustainable Farming',
-      description: 'Teaching sustainable farming techniques to combat food insecurity and climate change.',
-      category: 'Agriculture',
-      progress: 85,
-      raised: '$42,500',
-      goal: '$50,000',
-      raisedAmount: 42500,
-      goalAmount: 50000,
-      image: '/images/causes/farming.jpg',
-      lastUpdated: '2024-12-12',
-      status: 'active'
-    },
-    {
-      id: 'women-empowerment',
-      title: 'Women Empowerment',
-      description: 'Supporting women entrepreneurs and providing skills training for economic independence.',
-      category: 'Empowerment',
-      progress: 65,
-      raised: '$32,500',
-      goal: '$50,000',
-      raisedAmount: 32500,
-      goalAmount: 50000,
-      image: '/images/causes/women.jpg',
-      lastUpdated: '2024-12-11',
-      status: 'active'
-    },
-    {
-      id: 'disaster-relief',
-      title: 'Disaster Relief',
-      description: 'Providing immediate aid and long-term support for communities affected by natural disasters.',
-      category: 'Emergency',
-      progress: 90,
-      raised: '$45,000',
-      goal: '$50,000',
-      raisedAmount: 45000,
-      goalAmount: 50000,
-      image: '/images/causes/disaster.jpg',
-      lastUpdated: '2024-12-10',
-      status: 'active'
-    }
-  ]);
+  const [causes, setCauses] = useState<Cause[]>([]);
 
-  // Get unique categories from causes
   const categories = ['All', ...Array.from(new Set(causes.map(cause => cause.category)))];
   const statuses = ['All', 'active', 'paused', 'completed'];
   const availableCategories = ['Water', 'Education', 'Healthcare', 'Agriculture', 'Empowerment', 'Emergency', 'Environment', 'Technology'];
 
-  // Filter causes based on search and filters
   const filteredCauses = causes.filter(cause => {
     const matchesSearch = cause.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          cause.description.toLowerCase().includes(searchTerm.toLowerCase());
@@ -166,17 +85,177 @@ export default function CausesManagement() {
     return matchesSearch && matchesCategory && matchesStatus;
   });
 
+  const updateStats = (causesData: Cause[]) => {
+    const totalRaised = causesData.reduce((sum, cause) => sum + cause.raisedAmount, 0);
+    const avgProgress = causesData.length > 0 
+      ? Math.round(causesData.reduce((sum, cause) => sum + cause.progress, 0) / causesData.length)
+      : 0;
+    const activeCampaigns = causesData.filter(cause => cause.status === 'active').length;
+
+    setStats({
+      totalCauses: causesData.length,
+      totalDonors: 8450,
+      totalRaised,
+      activeCampaigns,
+      avgProgress
+    });
+  };
+
+  useEffect(() => {
+    const fetchCauses = async () => {
+      setIsLoading(true);
+      try {
+        const res = await axios.get('http://localhost:5000/api/causeList');
+        
+        const processedCauses = res.data.map((cause: any) => ({
+          ...cause,
+          raisedAmount: typeof cause.raisedAmount === 'string' 
+            ? parseInt(cause.raisedAmount.replace(/[$,]/g, '')) 
+            : cause.raisedAmount,
+          goalAmount: typeof cause.goalAmount === 'string' 
+            ? parseInt(cause.goalAmount.replace(/[$,]/g, '')) 
+            : cause.goalAmount,
+          progress: cause.progress || Math.round((cause.raisedAmount / cause.goalAmount) * 100),
+          raised: cause.raised || `$${cause.raisedAmount?.toLocaleString()}`,
+          goal: cause.goal || `$${cause.goalAmount?.toLocaleString()}`
+        }));
+
+        setCauses(processedCauses);
+        updateStats(processedCauses);
+      } catch (error) {
+        console.error('Error fetching causes:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchCauses();
+  }, []);
+
+  // Image upload handler
+  // Frontend (React/TypeScript) - Fixed to work with your existing backend
+const handleImageUpload = async (file: File) => {
+  if (!file) return null;
+
+  // Validate file type
+  if (!file.type.startsWith('image/')) {
+    alert('Please select a valid image file.');
+    return null;
+  }
+
+  // Validate file size (max 5MB)
+  if (file.size > 5 * 1024 * 1024) {
+    alert('Image size should be less than 5MB.');
+    return null;
+  }
+
+  setUploadingImage(true);
+
+  try {
+    const formData = new FormData();
+    formData.append('image', file);
+
+    // Upload to your image upload endpoint
+    const response = await axios.post(
+      'http://localhost:5000/api/causeList/upload-image', 
+      formData,
+      {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+        timeout: 30000, // 30 second timeout
+      }
+    );
+
+    // Fixed: Your backend returns 'url', not 'imageUrl'
+    return response.data.url;
+  } catch (error) {
+    console.error('Error uploading image:', error);
+    
+    // Better error handling
+    if (error.response?.status === 413) {
+      alert('File too large. Please select an image smaller than 5MB.');
+    } else if (error.response?.data?.message) {
+      alert(`Upload failed: ${error.response.data.message}`);
+    } else if (error.code === 'ECONNABORTED') {
+      alert('Upload timeout. Please try a smaller image or check your connection.');
+    } else if (error.response?.status >= 500) {
+      alert('Server error. Please try again later.');
+    } else {
+      alert('Failed to upload image. Please try again.');
+    }
+    
+    return null;
+  } finally {
+    setUploadingImage(false);
+  }
+};
+
+  // Handle file selection
+  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    setSelectedImageFile(file);
+
+    // Create preview
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      setPreviewImage(e.target?.result as string);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  // Handle image change button click
+  const handleImageChangeClick = () => {
+    fileInputRef.current?.click();
+  };
+
+  // Upload selected image
+  const handleUploadSelectedImage = async () => {
+    if (!selectedImageFile || !editingCause) return;
+
+    const uploadedImageUrl = await handleImageUpload(selectedImageFile);
+    
+    if (uploadedImageUrl) {
+      setEditingCause(prev => prev ? {...prev, image: uploadedImageUrl} : null);
+      setSelectedImageFile(null);
+      setPreviewImage('');
+      
+      // Reset file input
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    }
+  };
+
+  // Cancel image selection
+  const handleCancelImageSelection = () => {
+    setSelectedImageFile(null);
+    setPreviewImage('');
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
   const handleEditCause = (cause: Cause) => {
     setEditingCause({ ...cause });
     setIsModalOpen(true);
+    // Reset image upload states
+    setSelectedImageFile(null);
+    setPreviewImage('');
   };
 
-  const handleSaveCause = () => {
-    if (!editingCause) return;
+  const handleSaveCause = async () => {
+    if (!editingCause || !editingCause._id) {
+      console.error('No cause selected for editing or missing _id');
+      return;
+    }
 
-    // Calculate progress based on raised and goal amounts
-    const progress = Math.round((editingCause.raisedAmount / editingCause.goalAmount) * 100);
+    setIsLoading(true);
     
+    const progress = Math.min(Math.round((editingCause.raisedAmount / editingCause.goalAmount) * 100), 100);
+
     const updatedCause = {
       ...editingCause,
       progress,
@@ -185,51 +264,63 @@ export default function CausesManagement() {
       lastUpdated: new Date().toISOString().split('T')[0]
     };
 
-    setCauses(prev => prev.map(cause => 
-      cause.id === editingCause.id ? updatedCause : cause
-    ));
+    try {
+      const response = await axios.put(`http://localhost:5000/api/causeList/${editingCause._id}`, updatedCause);
+      
+      console.log('Update response:', response.data);
 
-    // Update stats
-    const totalRaised = causes.reduce((sum, cause) => 
-      cause.id === editingCause.id ? sum + editingCause.raisedAmount : sum + cause.raisedAmount, 0
-    );
-    const avgProgress = Math.round(causes.reduce((sum, cause) => 
-      cause.id === editingCause.id ? sum + progress : sum + cause.progress, 0
-    ) / causes.length);
+      const updatedCauses = causes.map(cause => 
+        cause._id === editingCause._id ? { ...updatedCause, _id: editingCause._id } : cause
+      );
+      
+      setCauses(updatedCauses);
+      updateStats(updatedCauses);
 
-    setStats(prev => ({
-      ...prev,
-      totalRaised,
-      avgProgress
-    }));
-
-    setIsModalOpen(false);
-    setEditingCause(null);
+      setIsModalOpen(false);
+      setEditingCause(null);
+      setSelectedImageFile(null);
+      setPreviewImage('');
+      
+      alert('Cause updated successfully!');
+      
+    } catch (err) {
+      console.error('Error saving cause:', err);
+      alert('Error updating cause. Please try again.');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleCloseModal = () => {
     setIsModalOpen(false);
     setEditingCause(null);
+    setSelectedImageFile(null);
+    setPreviewImage('');
   };
 
-  const handleDeleteCause = (causeId: string) => {
-    if (window.confirm('Are you sure you want to delete this cause? This action cannot be undone.')) {
-      setCauses(prev => prev.filter(cause => cause.id !== causeId));
-      
-      // Update stats
-      const remainingCauses = causes.filter(cause => cause.id !== causeId);
-      const totalRaised = remainingCauses.reduce((sum, cause) => sum + cause.raisedAmount, 0);
-      const avgProgress = remainingCauses.length > 0 
-        ? Math.round(remainingCauses.reduce((sum, cause) => sum + cause.progress, 0) / remainingCauses.length)
-        : 0;
+  const handleDeleteCause = async (cause: Cause) => {
+    if (!window.confirm('Are you sure you want to delete this cause? This action cannot be undone.')) return;
 
-      setStats(prev => ({
-        ...prev,
-        totalCauses: remainingCauses.length,
-        totalRaised,
-        avgProgress,
-        activeCampaigns: remainingCauses.filter(cause => cause.status === 'active').length
-      }));
+    if (!cause._id) {
+      console.error('Cannot delete cause: missing _id');
+      return;
+    }
+
+    setIsLoading(true);
+
+    try {
+      await axios.delete(`http://localhost:5000/api/causeList/${cause._id}`);
+      
+      const remainingCauses = causes.filter(c => c._id !== cause._id);
+      setCauses(remainingCauses);
+      updateStats(remainingCauses);
+
+      alert('Cause deleted successfully!');
+    } catch (err) {
+      console.error('Error deleting cause:', err);
+      alert('Error deleting cause. Please try again.');
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -266,7 +357,7 @@ export default function CausesManagement() {
         </Link>
       </div>
 
-      {/* Enhanced Stats Overview */}
+      {/* Stats Overview */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
         <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
           <div className="flex items-center justify-between">
@@ -318,9 +409,6 @@ export default function CausesManagement() {
           </div>
         </div>
       </div>
-
-      {/* Management Sections */}
-    
 
       {/* Causes Management Table */}
       <div className="bg-white rounded-lg shadow-sm border border-gray-200">
@@ -391,79 +479,92 @@ export default function CausesManagement() {
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {filteredCauses.map((cause) => (
-                <tr key={cause.id} className="hover:bg-gray-50">
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="flex items-center">
-                      <img
-                        src={cause.image}
-                        alt={cause.title}
-                        className="w-12 h-12 rounded-lg object-cover"
-                      />
-                      <div className="ml-4">
-                        <div className="text-sm font-medium text-gray-900">{cause.title}</div>
-                        <div className="text-sm text-gray-500 max-w-xs truncate">{cause.description}</div>
-                        <div className="text-xs text-gray-400">Updated {cause.lastUpdated}</div>
-                      </div>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-gray-100 text-gray-800">
-                      {cause.category}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="flex flex-col">
-                      <div className="flex items-center mb-1">
-                        <div className="w-full bg-gray-200 rounded-full h-2 mr-2">
-                          <div 
-                            className={`h-2 rounded-full ${getProgressColor(cause.progress)}`}
-                            style={{ width: `${cause.progress}%` }}
-                          ></div>
-                        </div>
-                        <span className="text-sm font-medium text-gray-900 min-w-[3rem]">
-                          {cause.progress}%
-                        </span>
-                      </div>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm">
-                      <div className="font-medium text-gray-900">{cause.raised}</div>
-                      <div className="text-gray-500">of {cause.goal}</div>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(cause.status)}`}>
-                      {cause.status}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                    <div className="flex items-center space-x-2">
-                      <Link href={`/causes/${cause.id}`} className="text-blue-600 hover:text-blue-900">
-                        <Eye className="w-4 h-4" />
-                      </Link>
-                      <button 
-                        onClick={() => handleEditCause(cause)}
-                        className="text-green-600 hover:text-green-900"
-                      >
-                        <Edit className="w-4 h-4" />
-                      </button>
-                      <button 
-                        onClick={() => handleDeleteCause(cause.id)}
-                        className="text-red-600 hover:text-red-900"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
+              {isLoading ? (
+                <tr>
+                  <td colSpan={6} className="px-6 py-4 text-center">
+                    <div className="flex justify-center items-center">
+                      <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
+                      <span className="ml-2">Loading...</span>
                     </div>
                   </td>
                 </tr>
-              ))}
+              ) : (
+                filteredCauses.map((cause) => (
+                  <tr key={cause._id || cause.id} className="hover:bg-gray-50">
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="flex items-center">
+                        <img
+                          src={cause.image}
+                          alt={cause.title}
+                          className="w-12 h-12 rounded-lg object-cover"
+                        />
+                        <div className="ml-4">
+                          <div className="text-sm font-medium text-gray-900">{cause.title}</div>
+                          <div className="text-sm text-gray-500 max-w-xs truncate">{cause.description}</div>
+                          <div className="text-xs text-gray-400">Updated {cause.lastUpdated}</div>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-gray-100 text-gray-800">
+                        {cause.category}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="flex flex-col">
+                        <div className="flex items-center mb-1">
+                          <div className="w-full bg-gray-200 rounded-full h-2 mr-2">
+                            <div 
+                              className={`h-2 rounded-full ${getProgressColor(cause.progress)}`}
+                              style={{ width: `${Math.min(cause.progress, 100)}%` }}
+                            ></div>
+                          </div>
+                          <span className="text-sm font-medium text-gray-900 min-w-[3rem]">
+                            {cause.progress}%
+                          </span>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="text-sm">
+                        <div className="font-medium text-gray-900">{cause.raised}</div>
+                        <div className="text-gray-500">of {cause.goal}</div>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(cause.status)}`}>
+                        {cause.status}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                      <div className="flex items-center space-x-2">
+                        <Link href={`/causes/${cause.id}`} className="text-blue-600 hover:text-blue-900">
+                          <Eye className="w-4 h-4" />
+                        </Link>
+                        <button 
+                          onClick={() => handleEditCause(cause)}
+                          className="text-green-600 hover:text-green-900"
+                          disabled={isLoading}
+                        >
+                          <Edit className="w-4 h-4" />
+                        </button>
+                        <button 
+                          onClick={() => handleDeleteCause(cause)}
+                          className="text-red-600 hover:text-red-900"
+                          disabled={isLoading}
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>
         
-        {filteredCauses.length === 0 && (
+        {!isLoading && filteredCauses.length === 0 && (
           <div className="text-center py-12">
             <p className="text-gray-500">No causes found matching your criteria.</p>
           </div>
@@ -483,27 +584,90 @@ export default function CausesManagement() {
               <button 
                 onClick={handleCloseModal}
                 className="text-gray-400 hover:text-gray-600"
+                disabled={isLoading}
               >
                 <X className="w-6 h-6" />
               </button>
             </div>
             
             <div className="p-6 space-y-6">
-              {/* Image */}
+              {/* Enhanced Image Upload Section */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Cause Image
                 </label>
-                <div className="flex items-center space-x-4">
-                  <img 
-                    src={editingCause.image} 
-                    alt={editingCause.title}
-                    className="w-20 h-20 rounded-lg object-cover"
-                  />
-                  <button className="flex items-center px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50">
-                    <Upload className="w-4 h-4 mr-2" />
-                    Change Image
-                  </button>
+                
+                {/* Current Image */}
+                <div className="flex items-start space-x-4">
+                  <div className="flex-shrink-0">
+                    <img 
+                      src={previewImage || editingCause.image} 
+                      alt={editingCause.title}
+                      className="w-24 h-24 rounded-lg object-cover border border-gray-200"
+                    />
+                  </div>
+                  
+                  <div className="flex-1 space-y-3">
+                    {/* Hidden file input */}
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept="image/*"
+                      onChange={handleFileSelect}
+                      className="hidden"
+                    />
+                    
+                    {/* File selection and upload buttons */}
+                    {!selectedImageFile ? (
+                      <button 
+                        type="button"
+                        onClick={handleImageChangeClick}
+                        className="flex items-center px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                        disabled={uploadingImage || isLoading}
+                      >
+                        <Camera className="w-4 h-4 mr-2" />
+                        Choose New Image
+                      </button>
+                    ) : (
+                      <div className="space-y-2">
+                        <p className="text-sm text-gray-600">
+                          Selected: {selectedImageFile.name}
+                        </p>
+                        <div className="flex space-x-2">
+                          <button
+                            type="button"
+                            onClick={handleUploadSelectedImage}
+                            className="flex items-center px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
+                            disabled={uploadingImage || isLoading}
+                          >
+                            {uploadingImage ? (
+                              <>
+                                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                                Uploading...
+                              </>
+                            ) : (
+                              <>
+                                <Upload className="w-4 h-4 mr-2" />
+                                Upload
+                              </>
+                            )}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={handleCancelImageSelection}
+                            className="px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                            disabled={uploadingImage || isLoading}
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                    
+                    <p className="text-xs text-gray-500">
+                      Supports JPG, PNG, WebP. Max size: 5MB
+                    </p>
+                  </div>
                 </div>
               </div>
 
@@ -517,6 +681,7 @@ export default function CausesManagement() {
                   value={editingCause.title}
                   onChange={(e) => setEditingCause(prev => prev ? {...prev, title: e.target.value} : null)}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  disabled={isLoading}
                 />
               </div>
 
@@ -530,6 +695,7 @@ export default function CausesManagement() {
                   onChange={(e) => setEditingCause(prev => prev ? {...prev, description: e.target.value} : null)}
                   rows={3}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  disabled={isLoading}
                 />
               </div>
 
@@ -543,6 +709,7 @@ export default function CausesManagement() {
                     value={editingCause.category}
                     onChange={(e) => setEditingCause(prev => prev ? {...prev, category: e.target.value} : null)}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    disabled={isLoading}
                   >
                     {availableCategories.map(category => (
                       <option key={category} value={category}>{category}</option>
@@ -558,6 +725,7 @@ export default function CausesManagement() {
                     value={editingCause.status}
                     onChange={(e) => setEditingCause(prev => prev ? {...prev, status: e.target.value as 'active' | 'paused' | 'completed'} : null)}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    disabled={isLoading}
                   >
                     <option value="active">Active</option>
                     <option value="paused">Paused</option>
@@ -574,9 +742,15 @@ export default function CausesManagement() {
                   </label>
                   <input
                     type="number"
-                    value={editingCause.raisedAmount}
-                    onChange={(e) => setEditingCause(prev => prev ? {...prev, raisedAmount: parseInt(e.target.value)} : null)}
+                    min="0"
+                    value={editingCause.raisedAmount || ''}
+                    onChange={(e) => {
+                      const value = e.target.value;
+                      const numValue = value === '' ? 0 : parseInt(value);
+                      setEditingCause(prev => prev ? {...prev, raisedAmount: Math.max(0, numValue || 0)} : null);
+                    }}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    disabled={isLoading}
                   />
                 </div>
 
@@ -586,46 +760,83 @@ export default function CausesManagement() {
                   </label>
                   <input
                     type="number"
-                    value={editingCause.goalAmount}
-                    onChange={(e) => setEditingCause(prev => prev ? {...prev, goalAmount: parseInt(e.target.value)} : null)}
+                    min="1"
+                    value={editingCause.goalAmount || ''}
+                    onChange={(e) => {
+                      const value = e.target.value;
+                      const numValue = value === '' ? 0 : parseInt(value);
+                      setEditingCause(prev => prev ? {...prev, goalAmount: Math.max(0, numValue || 0)} : null);
+                    }}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    disabled={isLoading}
                   />
                 </div>
               </div>
 
-              {/* Progress Preview */}
+              {/* Progress Display */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Progress Preview
+                  Current Progress
                 </label>
-                <div className="flex items-center">
-                  <div className="w-full bg-gray-200 rounded-full h-3 mr-3">
+                <div className="flex items-center space-x-4">
+                  <div className="flex-1 bg-gray-200 rounded-full h-3">
                     <div 
-                      className={`h-3 rounded-full ${getProgressColor(Math.round((editingCause.raisedAmount / editingCause.goalAmount) * 100))}`}
-                      style={{ width: `${Math.min(Math.round((editingCause.raisedAmount / editingCause.goalAmount) * 100), 100)}%` }}
+                      className={`h-3 rounded-full ${getProgressColor(
+                        editingCause.goalAmount > 0 
+                          ? Math.min(Math.round((editingCause.raisedAmount / editingCause.goalAmount) * 100), 100)
+                          : 0
+                      )}`}
+                      style={{ 
+                        width: `${editingCause.goalAmount > 0 
+                          ? Math.min(Math.round((editingCause.raisedAmount / editingCause.goalAmount) * 100), 100)
+                          : 0
+                        }%` 
+                      }}
                     ></div>
                   </div>
                   <span className="text-sm font-medium text-gray-900 min-w-[3rem]">
-                    {Math.round((editingCause.raisedAmount / editingCause.goalAmount) * 100)}%
+                    {editingCause.goalAmount > 0 
+                      ? Math.min(Math.round((editingCause.raisedAmount / editingCause.goalAmount) * 100), 100)
+                      : 0
+                    }%
                   </span>
                 </div>
+                <p className="text-xs text-gray-500 mt-1">
+                  Progress is automatically calculated based on raised/goal amounts
+                </p>
               </div>
             </div>
 
-            <div className="flex justify-end space-x-3 p-6 border-t border-gray-200">
-              <button
-                onClick={handleCloseModal}
-                className="px-4 py-2 text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleSaveCause}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2"
-              >
-                <Save className="w-4 h-4" />
-                Save Changes
-              </button>
+            {/* Modal Footer */}
+            <div className="flex items-center justify-end px-6 py-4 bg-gray-50 border-t border-gray-200 rounded-b-lg">
+              <div className="flex space-x-3">
+                <button
+                  type="button"
+                  onClick={handleCloseModal}
+                  className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors"
+                  disabled={isLoading}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSaveCause}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
+                  disabled={isLoading || uploadingImage}
+                >
+                  {isLoading ? (
+                    <>
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                      Saving...
+                    </>
+                  ) : (
+                    <>
+                      <Save className="w-4 h-4 mr-2" />
+                      Save Changes
+                    </>
+                  )}
+                </button>
+              </div>
             </div>
           </motion.div>
         </div>

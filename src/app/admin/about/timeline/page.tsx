@@ -1,52 +1,43 @@
-// src/app/admin/about/timeline/page.tsx
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import axios from 'axios';
 import { Plus, Edit, Trash2, Save } from 'lucide-react';
 import AdminCard from '@/components/admin/ui/AdminCard';
-import AdminButton  from '@/components/admin/ui/AdminButton';
-import {AdminModal} from '@/components/admin/ui/AdminModal';
+import AdminButton from '@/components/admin/ui/AdminButton';
+import { AdminModal } from '@/components/admin/ui/AdminModal';
 
 interface TimelineItem {
-  id: number;
+  _id?: string; // For MongoDB _id
   year: string;
   title: string;
   description: string;
 }
 
-export default function TimelineManagement() {
-  const [timelineItems, setTimelineItems] = useState<TimelineItem[]>([
-    {
-      id: 1,
-      year: '2015',
-      title: 'Foundation Established',
-      description: 'Global Kindness Trust was founded with a mission to create positive change across communities worldwide.'
-    },
-    {
-      id: 2,
-      year: '2018',
-      title: 'First Major Campaign',
-      description: 'Launched our first major fundraising campaign focused on education and youth development programs.'
-    },
-    {
-      id: 3,
-      year: '2020',
-      title: 'Global Expansion',
-      description: 'Expanded operations to 15 countries, reaching over 100,000 beneficiaries through various initiatives.'
-    }
-  ]);
+const API_URL = 'http://localhost:5000/api/timeline';
 
+export default function TimelineManagement() {
+  const [timelineItems, setTimelineItems] = useState<TimelineItem[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<TimelineItem | null>(null);
   const [formData, setFormData] = useState<Partial<TimelineItem>>({});
 
+  useEffect(() => {
+    fetchTimeline();
+  }, []);
+
+  const fetchTimeline = async () => {
+    try {
+      const res = await axios.get(API_URL);
+      setTimelineItems(res.data);
+    } catch (err) {
+      console.error('Error fetching timeline items', err);
+    }
+  };
+
   const handleAddItem = () => {
     setEditingItem(null);
-    setFormData({
-      year: '',
-      title: '',
-      description: ''
-    });
+    setFormData({ year: '', title: '', description: '' });
     setIsModalOpen(true);
   };
 
@@ -56,36 +47,38 @@ export default function TimelineManagement() {
     setIsModalOpen(true);
   };
 
-  const handleSaveItem = () => {
+  const handleSaveItem = async () => {
     if (!formData.year || !formData.title || !formData.description) {
       alert('Please fill in all required fields');
       return;
     }
 
-    if (editingItem) {
-      // Update existing item
-      setTimelineItems(prev => prev.map(item => 
-        item.id === editingItem.id 
-          ? { ...item, ...formData as TimelineItem }
-          : item
-      ));
-    } else {
-      // Add new item
-      const newId = Math.max(...timelineItems.map(item => item.id), 0) + 1;
-      const newItem: TimelineItem = {
-        id: newId,
-        ...formData as Omit<TimelineItem, 'id'>
-      };
-      setTimelineItems(prev => [...prev, newItem]);
+    try {
+      if (editingItem && editingItem._id) {
+        const res = await axios.put(`${API_URL}/${editingItem._id}`, formData);
+        setTimelineItems(prev =>
+          prev.map(item => (item._id === res.data._id ? res.data : item))
+        );
+      } else {
+        const res = await axios.post(API_URL, formData);
+        setTimelineItems(prev => [...prev, res.data]);
+      }
+      setIsModalOpen(false);
+      setFormData({});
+    } catch (err) {
+      console.error('Error saving timeline item', err);
     }
-    
-    setIsModalOpen(false);
-    setFormData({});
   };
 
-  const handleDeleteItem = (id: number) => {
+  const handleDeleteItem = async (id?: string) => {
+    if (!id) return;
     if (confirm('Are you sure you want to delete this timeline item?')) {
-      setTimelineItems(prev => prev.filter(item => item.id !== id));
+      try {
+        await axios.delete(`${API_URL}/${id}`);
+        setTimelineItems(prev => prev.filter(item => item._id !== id));
+      } catch (err) {
+        console.error('Error deleting timeline item', err);
+      }
     }
   };
 
@@ -107,14 +100,14 @@ export default function TimelineManagement() {
       {/* Timeline Items */}
       <div className="space-y-4">
         {sortedItems.map((item) => (
-          <AdminCard key={item.id} className="p-6">
+          <AdminCard key={item._id} className="p-6">
             <div className="flex items-start justify-between">
               <div className="flex-1">
                 <div className="flex items-center gap-3 mb-3">
                   <span className="bg-purple-600 text-white px-4 py-2 rounded-full text-sm font-bold">
                     {item.year}
                   </span>
-                  <span className="text-sm text-gray-500">ID: {item.id}</span>
+                  <span className="text-sm text-gray-500">ID: {item._id}</span>
                 </div>
                 <h3 className="text-xl font-semibold text-gray-900 mb-3">{item.title}</h3>
                 <p className="text-gray-600 leading-relaxed">{item.description}</p>
@@ -130,7 +123,7 @@ export default function TimelineManagement() {
                 <AdminButton 
                   variant="outline" 
                   size="sm"
-                  onClick={() => handleDeleteItem(item.id)}
+                  onClick={() => handleDeleteItem(item._id)}
                   className="text-red-600 hover:text-red-700 hover:border-red-300"
                 >
                   <Trash2 className="w-4 h-4" />

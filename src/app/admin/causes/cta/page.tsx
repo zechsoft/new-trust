@@ -2,6 +2,8 @@
 
 import { useState } from 'react';
 import { motion } from 'framer-motion';
+import axios from 'axios';
+import { useEffect } from 'react';
 import { 
   Save, 
   ArrowLeft, 
@@ -162,6 +164,74 @@ export default function CTAAdmin() {
   const [activeTab, setActiveTab] = useState<'content' | 'design' | 'buttons' | 'preview'>('content');
   const [previewMode, setPreviewMode] = useState<'desktop' | 'tablet' | 'mobile'>('desktop');
   const [hasChanges, setHasChanges] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [nextButtonId, setNextButtonId] = useState(3); // Track next available ID
+
+  useEffect(() => {
+    const fetchCTA = async () => {
+      try {
+        setIsLoading(true);
+        const res = await axios.get('http://localhost:5000/api/causecta');
+        if (res.data) {
+          setSettings({
+            title: res.data.title || "Join Us in Making a Difference",
+            description: res.data.description || "Your contribution can change lives. Every donation, no matter the size, brings us one step closer to creating a better world for everyone.",
+            backgroundColor: res.data.backgroundColor || "bg-blue-700",
+            textColor: res.data.textColor || "text-white",
+            isVisible: res.data.isVisible !== undefined ? res.data.isVisible : true,
+            animation: {
+              enabled: res.data.animation?.enabled !== undefined ? res.data.animation.enabled : true,
+              duration: res.data.animation?.duration || 0.7,
+              delay: res.data.animation?.delay || 0.2
+            },
+            layout: res.data.layout || "center",
+            spacing: res.data.spacing || "normal"
+          });
+          
+          // Handle buttons with proper ID management
+          if (res.data.buttons && Array.isArray(res.data.buttons) && res.data.buttons.length > 0) {
+            const processedButtons = res.data.buttons.map((btn, index) => ({
+              id: btn.id || (index + 1), // Use existing ID or generate sequential
+              text: btn.text || "Button Text",
+              href: btn.href || "#",
+              type: btn.type || "secondary",
+              isVisible: btn.isVisible !== undefined ? btn.isVisible : true
+            }));
+            setButtons(processedButtons);
+            
+            // Set next available ID
+            const maxId = Math.max(...processedButtons.map(b => b.id));
+            setNextButtonId(maxId + 1);
+          } else {
+            // Use default buttons if none exist
+            setButtons([
+              {
+                id: 1,
+                text: "Donate Now",
+                href: "/donate",
+                type: "primary",
+                isVisible: true
+              },
+              {
+                id: 2,
+                text: "Volunteer With Us",
+                href: "/volunteer",
+                type: "secondary",
+                isVisible: true
+              }
+            ]);
+            setNextButtonId(3);
+          }
+        }
+      } catch (err) {
+        console.error('Failed to fetch CTA data:', err);
+        // Keep default values on error
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    fetchCTA();
+  }, []);
 
   const handleSettingsChange = (field: string, value: any) => {
     setSettings(prev => ({
@@ -191,13 +261,14 @@ export default function CTAAdmin() {
 
   const addButton = () => {
     const newButton: CTAButton = {
-      id: Math.max(...buttons.map(b => b.id)) + 1,
+      id: nextButtonId,
       text: "New Button",
       href: "#",
       type: "secondary",
       isVisible: true
     };
     setButtons(prev => [...prev, newButton]);
+    setNextButtonId(prev => prev + 1);
     setHasChanges(true);
   };
 
@@ -208,10 +279,35 @@ export default function CTAAdmin() {
     }
   };
 
-  const handleSave = () => {
-    // Save functionality would go here
-    setHasChanges(false);
-    alert('CTA section saved successfully!');
+  const handleSave = async () => {
+    try {
+      setIsLoading(true);
+      
+      // Ensure all buttons have valid IDs
+      const buttonsToSave = buttons.map((btn, index) => ({
+        id: btn.id || (index + 1),
+        text: btn.text || "Button Text",
+        href: btn.href || "#",
+        type: btn.type || "secondary",
+        isVisible: btn.isVisible !== undefined ? btn.isVisible : true
+      }));
+      
+      const payload = { 
+        ...settings, 
+        buttons: buttonsToSave 
+      };
+      
+      console.log('Saving payload:', payload); // Debug log
+      
+      await axios.post('http://localhost:5000/api/causecta', payload);
+      setHasChanges(false);
+      alert('CTA section saved successfully!');
+    } catch (err) {
+      console.error('Error saving CTA section:', err);
+      alert('Failed to save CTA section. Please check the console for details.');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const resetToDefaults = () => {
@@ -246,9 +342,21 @@ export default function CTAAdmin() {
           isVisible: true
         }
       ]);
+      setNextButtonId(3);
       setHasChanges(true);
     }
   };
+
+  if (isLoading) {
+    return (
+      <div className="p-6 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
+          <p className="mt-2 text-gray-600">Loading CTA settings...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="p-6 space-y-6">
@@ -266,18 +374,19 @@ export default function CTAAdmin() {
         <div className="flex gap-3">
           <button
             onClick={resetToDefaults}
-            className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors flex items-center gap-2"
+            disabled={isLoading}
+            className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors flex items-center gap-2 disabled:opacity-50"
           >
             <RefreshCw className="w-4 h-4" />
             Reset
           </button>
           <button
             onClick={handleSave}
-            disabled={!hasChanges}
+            disabled={!hasChanges || isLoading}
             className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <Save className="w-4 h-4" />
-            Save Changes
+            {isLoading ? 'Saving...' : 'Save Changes'}
           </button>
         </div>
       </div>
@@ -500,7 +609,7 @@ export default function CTAAdmin() {
                 {buttons.map((button, index) => (
                   <div key={button.id} className="border border-gray-200 rounded-lg p-4">
                     <div className="flex justify-between items-center mb-4">
-                      <h4 className="font-medium">Button {index + 1}</h4>
+                      <h4 className="font-medium">Button {index + 1} (ID: {button.id})</h4>
                       <div className="flex items-center gap-2">
                         <button
                           onClick={() => handleButtonChange(button.id, 'isVisible', !button.isVisible)}

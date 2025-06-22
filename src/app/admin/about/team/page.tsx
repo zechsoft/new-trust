@@ -5,7 +5,6 @@ import { useState, useEffect } from 'react';
 import { Plus, Edit, Trash2, Save, X, Upload, Users, Eye, EyeOff } from 'lucide-react';
 import AdminCard from '@/components/admin/ui/AdminCard';
 import AdminButton from '@/components/admin/ui/AdminButton';
-import {AdminTable} from '@/components/admin/ui/AdminTable';
 import { AdminModal } from '@/components/admin/ui/AdminModal';
 
 interface TeamMember {
@@ -70,6 +69,21 @@ export default function TeamManagement() {
   const [formData, setFormData] = useState<Partial<TeamMember>>({});
   const [imagePreview, setImagePreview] = useState<string>('');
 
+  useEffect(() => {
+  const fetchData = async () => {
+    try {
+      const res = await fetch('http://localhost:5000/api/team');
+      const data = await res.json();
+      setTeamMembers(data.members || []);
+      setSectionSettings(data.sectionSettings || {});
+    } catch (err) {
+      console.error('Failed to load team data:', err);
+    }
+  };
+  fetchData();
+}, []);
+
+
   const handleAddMember = () => {
     setEditingMember(null);
     setFormData({
@@ -85,67 +99,90 @@ export default function TeamManagement() {
   };
 
   const handleEditMember = (member: TeamMember) => {
-    // Add safety check
-    if (!member) {
-      console.error('Cannot edit: member is undefined');
-      return;
-    }
-    
+    console.log('Editing member:', member);
     setEditingMember(member);
     setFormData(member);
     setImagePreview(member.image || '');
     setIsModalOpen(true);
   };
 
-  const handleSaveMember = () => {
-    if (editingMember) {
-      // Update existing member
-      setTeamMembers(prev => prev.map(member => 
-        member.id === editingMember.id 
-          ? { ...member, ...formData }
-          : member
-      ));
-    } else {
-      // Add new member
-      const newMember: TeamMember = {
-        id: Date.now().toString(),
-        name: formData.name || '',
-        role: formData.role || '',
-        bio: formData.bio || '',
-        image: formData.image || '',
-        order: formData.order || teamMembers.length + 1,
-        isVisible: formData.isVisible !== undefined ? formData.isVisible : true
-      };
-      setTeamMembers(prev => [...prev, newMember]);
-    }
+  const handleSaveMember = async () => {
+  try {
+    const res = await fetch('http://localhost:5000/api/team/member', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ...formData, id: editingMember?.id })
+    });
+
+    const data = await res.json();
+    setTeamMembers(data.members || []);
     setIsModalOpen(false);
     setFormData({});
     setImagePreview('');
-  };
+  } catch (err) {
+    console.error('Error saving member:', err);
+  }
+};
 
-  const handleDeleteMember = (id: string) => {
-    if (confirm('Are you sure you want to delete this team member?')) {
-      setTeamMembers(prev => prev.filter(member => member.id !== id));
+
+  const handleDeleteMember = async (id: string) => {
+  if (confirm('Are you sure you want to delete this team member?')) {
+    try {
+      const res = await fetch(`http://localhost:5000/api/team/member/${id}`, {
+        method: 'DELETE'
+      });
+      const data = await res.json();
+      if (data.success) {
+        setTeamMembers(prev => prev.filter(member => member.id !== id));
+      }
+    } catch (err) {
+      console.error('Error deleting member:', err);
     }
-  };
+  }
+};
 
-  const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        const result = e.target?.result as string;
-        setImagePreview(result);
-        setFormData(prev => ({ ...prev, image: result }));
-      };
-      reader.readAsDataURL(file);
-    }
-  };
 
-  const handleSaveSettings = () => {
-    console.log('Saving section settings:', sectionSettings);
+  const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+  const file = event.target.files?.[0];
+  if (!file) return;
+
+  const formDataData = new FormData();
+  formDataData.append('image', file);
+
+  try {
+    const res = await fetch('http://localhost:5000/api/team/upload-image', {
+      method: 'POST',
+      body: formDataData,
+    });
+
+    if (!res.ok) throw new Error('Image upload failed');
+    const data = await res.json();
+
+    setImagePreview(data.url); // preview the uploaded image
+    setFormData(prev => ({ ...prev, image: data.url })); // save image URL to form data
+  } catch (err) {
+    console.error('Upload failed:', err);
+    alert('Image upload failed. Please try again.');
+  }
+};
+
+
+  const handleSaveSettings = async () => {
+  try {
+    const res = await fetch('http://localhost:5000/api/team/settings', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(sectionSettings)
+    });
+
+    const updatedSettings = await res.json();
+    setSectionSettings(updatedSettings);
     setIsSettingsModalOpen(false);
-  };
+  } catch (err) {
+    console.error('Error saving settings:', err);
+  }
+};
+
 
   const backgroundOptions = [
     { name: 'Light Gray', value: 'gray-50' },
@@ -155,93 +192,9 @@ export default function TeamManagement() {
     { name: 'Light Green', value: 'green-50' }
   ];
 
-  // Fixed columns definition with proper safety checks
-  const columns = [
-    {
-      key: 'image',
-      label: 'Photo',
-      render: (member: TeamMember) => {
-        if (!member) return <div className="w-10 h-10 bg-gray-200 rounded-full" />;
-        return (
-          <img 
-            src={member.image || '/api/placeholder/40/40'} 
-            alt={member.name || 'Team member'}
-            className="w-10 h-10 rounded-full object-cover"
-          />
-        );
-      }
-    },
-    { 
-      key: 'name', 
-      label: 'Name',
-      render: (member: TeamMember) => member?.name || 'N/A'
-    },
-    { 
-      key: 'role', 
-      label: 'Role',
-      render: (member: TeamMember) => member?.role || 'N/A'
-    },
-    { 
-      key: 'order', 
-      label: 'Order',
-      render: (member: TeamMember) => member?.order || 0
-    },
-    {
-      key: 'isVisible',
-      label: 'Status',
-      render: (member: TeamMember) => {
-        if (!member) return <span className="px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-800">Unknown</span>;
-        return (
-          <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-            member.isVisible ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
-          }`}>
-            {member.isVisible ? 'Visible' : 'Hidden'}
-          </span>
-        );
-      }
-    },
-    {
-      key: 'bio',
-      label: 'Bio Preview',
-      render: (member: TeamMember) => (
-        <div className="max-w-xs">
-          <p className="text-sm text-gray-600 truncate">
-            {member?.bio || 'No bio provided'}
-          </p>
-        </div>
-      )
-    },
-    {
-      key: 'actions',
-      label: 'Actions',
-      render: (member: TeamMember) => {
-        if (!member) return null;
-        return (
-          <div className="flex gap-2">
-            <AdminButton 
-              variant="outline" 
-              size="sm"
-              onClick={() => handleEditMember(member)}
-            >
-              <Edit className="w-4 h-4" />
-            </AdminButton>
-            <AdminButton 
-              variant="outline" 
-              size="sm"
-              onClick={() => handleDeleteMember(member.id)}
-              className="text-red-600 hover:text-red-700"
-            >
-              <Trash2 className="w-4 h-4" />
-            </AdminButton>
-          </div>
-        );
-      }
-    }
-  ];
-
   // Filter and sort team members safely
   const sortedTeamMembers = teamMembers
-    .filter(member => member && member.id) // Filter out any undefined/invalid members
+    .filter(member => member && member.id)
     .sort((a, b) => (a.order || 0) - (b.order || 0));
 
   return (
@@ -305,10 +258,89 @@ export default function TeamManagement() {
       <AdminCard>
         <div className="p-6">
           <h2 className="text-lg font-semibold mb-4">Team Members</h2>
-          <AdminTable
-            data={sortedTeamMembers}
-            columns={columns}
-          />
+          
+          {/* Custom Table Implementation */}
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Photo
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Name
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Role
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Order
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Status
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Bio Preview
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Actions
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {sortedTeamMembers.map((member) => (
+                  <tr key={member.id}>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <img 
+                        src={member.image || '/api/placeholder/40/40'} 
+                        alt={member.name || 'Team member'}
+                        className="w-10 h-10 rounded-full object-cover"
+                      />
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                      {member.name}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      {member.role}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      {member.order}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                        member.isVisible ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
+                      }`}>
+                        {member.isVisible ? 'Visible' : 'Hidden'}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="max-w-xs">
+                        <p className="text-sm text-gray-600 truncate">
+                          {member.bio || 'No bio provided'}
+                        </p>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                      <div className="flex gap-2">
+                        <button 
+                          onClick={() => handleEditMember(member)}
+                          className="inline-flex items-center px-3 py-1 border border-gray-300 rounded-md text-sm leading-4 font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                        >
+                          <Edit className="w-4 h-4" />
+                        </button>
+                        <button 
+                          onClick={() => handleDeleteMember(member.id)}
+                          className="inline-flex items-center px-3 py-1 border border-gray-300 rounded-md text-sm leading-4 font-medium text-red-600 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       </AdminCard>
 

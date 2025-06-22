@@ -10,9 +10,6 @@ import {
   MessageSquare, 
   BarChart3,
   Plus,
-  Edit,
-  Eye,
-  Trash2,
   Image as ImageIcon,
   FileText,
   Settings
@@ -26,82 +23,70 @@ interface CauseStats {
 }
 
 interface Cause {
-  id: number;
+  _id?: string;
+  id: string;
   title: string;
+  description: string;
   category: string;
-  raised: number;
-  goal: number;
-  donors: number;
-  status: 'active' | 'paused' | 'completed';
+  raisedAmount: number;
+  goalAmount: number;
   image: string;
+  status: 'active' | 'paused' | 'completed';
   lastUpdated: string;
 }
 
 export default function CausesManagement() {
   const [stats, setStats] = useState<CauseStats>({
-    totalCauses: 5,
-    totalDonors: 10170,
-    totalRaised: 5350000,
-    activeCampaigns: 5
+    totalCauses: 0,
+    totalDonors: 0,
+    totalRaised: 0,
+    activeCampaigns: 0
   });
 
-  const [causes, setCauses] = useState<Cause[]>([
-    {
-      id: 1,
-      title: "Feeding the Hungry",
-      category: "Food",
-      raised: 1250000,
-      goal: 2000000,
-      donors: 3245,
-      status: 'active',
-      image: '/images/causes/hunger.jpg',
-      lastUpdated: '2024-12-15'
-    },
-    {
-      id: 2,
-      title: "Educating Underprivileged Children",
-      category: "Education",
-      raised: 1500000,
-      goal: 3000000,
-      donors: 2156,
-      status: 'active',
-      image: '/images/causes/education.jpg',
-      lastUpdated: '2024-12-14'
-    },
-    {
-      id: 3,
-      title: "Healthcare for All",
-      category: "Healthcare",
-      raised: 980000,
-      goal: 1500000,
-      donors: 1879,
-      status: 'active',
-      image: '/images/causes/healthcare.jpg',
-      lastUpdated: '2024-12-13'
-    },
-    {
-      id: 4,
-      title: "Women Empowerment",
-      category: "Empowerment",
-      raised: 870000,
-      goal: 1200000,
-      donors: 1456,
-      status: 'active',
-      image: '/images/causes/women.jpg',
-      lastUpdated: '2024-12-12'
-    },
-    {
-      id: 5,
-      title: "Environmental Sustainability",
-      category: "Environment",
-      raised: 750000,
-      goal: 1000000,
-      donors: 1234,
-      status: 'active',
-      image: '/images/causes/environment.jpg',
-      lastUpdated: '2024-12-11'
+  const [causes, setCauses] = useState<Cause[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  // Fetch causes from API
+  const fetchCauses = async () => {
+    try {
+      setLoading(true);
+      const response = await fetch('http://localhost:5000/api/causeList');
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      setCauses(data);
+      
+      // Calculate stats from fetched data
+      const totalCauses = data.length;
+      const activeCampaigns = data.filter((cause: Cause) => cause.status === 'active').length;
+      const totalRaised = data.reduce((sum: number, cause: Cause) => sum + cause.raisedAmount, 0);
+      
+      // Calculate approximate donors (you might want to add this field to your schema)
+      const totalDonors = Math.floor(totalRaised / 1000); // Rough estimate
+      
+      setStats({
+        totalCauses,
+        totalDonors,
+        totalRaised,
+        activeCampaigns
+      });
+      
+      setError(null);
+    } catch (err) {
+      console.error('Error fetching causes:', err);
+      setError(err instanceof Error ? err.message : 'Failed to fetch causes');
+    } finally {
+      setLoading(false);
     }
-  ]);
+  };
+
+  useEffect(() => {
+    fetchCauses();
+  }, []);
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-IN', {
@@ -172,6 +157,41 @@ export default function CausesManagement() {
     }
   ];
 
+  if (loading) {
+    return (
+      <div className="p-6 space-y-8">
+        <div className="flex justify-center items-center h-64">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="p-6 space-y-8">
+        <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+          <div className="flex">
+            <div className="ml-3">
+              <h3 className="text-sm font-medium text-red-800">Error Loading Causes</h3>
+              <div className="mt-2 text-sm text-red-700">
+                <p>{error}</p>
+              </div>
+              <div className="mt-4">
+                <button
+                  onClick={fetchCauses}
+                  className="bg-red-100 px-3 py-2 rounded-md text-sm font-medium text-red-800 hover:bg-red-200"
+                >
+                  Try Again
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="p-6 space-y-8">
       {/* Header */}
@@ -180,13 +200,21 @@ export default function CausesManagement() {
           <h1 className="text-3xl font-bold text-gray-900">Causes Management</h1>
           <p className="text-gray-600 mt-2">Manage your causes page content and campaigns</p>
         </div>
-        <Link
-          href="/admin/causes/causes-list"
-          className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2"
-        >
-          <Plus className="w-4 h-4" />
-          Add New Cause
-        </Link>
+        <div className="flex gap-2">
+          <button
+            onClick={fetchCauses}
+            className="bg-gray-100 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-200 transition-colors"
+          >
+            Refresh
+          </button>
+          <Link
+            href="/admin/causes/causes-list"
+            className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2"
+          >
+            <Plus className="w-4 h-4" />
+            Add New Cause
+          </Link>
+        </div>
       </div>
 
       {/* Stats Overview */}
@@ -277,89 +305,83 @@ export default function CausesManagement() {
         </div>
         
         <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Cause
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Category
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Progress
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Donors
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Status
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Actions
-                </th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {causes.slice(0, 5).map((cause) => (
-                <tr key={cause.id} className="hover:bg-gray-50">
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="flex items-center">
-                      <img
-                        src={cause.image}
-                        alt={cause.title}
-                        className="w-10 h-10 rounded-lg object-cover"
-                      />
-                      <div className="ml-4">
-                        <div className="text-sm font-medium text-gray-900">{cause.title}</div>
-                        <div className="text-sm text-gray-500">Updated {cause.lastUpdated}</div>
-                      </div>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span className="text-sm text-gray-900">{cause.category}</span>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="flex flex-col">
-                      <div className="text-sm font-medium text-gray-900">
-                        {formatCurrency(cause.raised)} / {formatCurrency(cause.goal)}
-                      </div>
-                      <div className="w-full bg-gray-200 rounded-full h-2 mt-1">
-                        <div 
-                          className="bg-blue-600 h-2 rounded-full" 
-                          style={{ width: `${(cause.raised / cause.goal) * 100}%` }}
-                        ></div>
-                      </div>
-                      <div className="text-xs text-gray-500 mt-1">
-                        {Math.round((cause.raised / cause.goal) * 100)}% completed
-                      </div>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {cause.donors.toLocaleString()}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(cause.status)}`}>
-                      {cause.status}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                    <div className="flex items-center space-x-2">
-                      <button className="text-blue-600 hover:text-blue-900">
-                        <Eye className="w-4 h-4" />
-                      </button>
-                      <button className="text-green-600 hover:text-green-900">
-                        <Edit className="w-4 h-4" />
-                      </button>
-                      <button className="text-red-600 hover:text-red-900">
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    </div>
-                  </td>
+          {causes.length === 0 ? (
+            <div className="text-center py-8">
+              <Heart className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+              <h3 className="text-lg font-medium text-gray-900">No causes found</h3>
+              <p className="text-gray-500">Add your first cause to get started.</p>
+            </div>
+          ) : (
+            <table className="w-full">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Cause
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Category
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Progress
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Status
+                  </th>
+
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {causes.slice(0, 5).map((cause) => (
+                  <tr key={cause._id || cause.id} className="hover:bg-gray-50">
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="flex items-center">
+                        <img
+                          src={cause.image}
+                          alt={cause.title}
+                          className="w-10 h-10 rounded-lg object-cover"
+                          onError={(e) => {
+                            const target = e.target as HTMLImageElement;
+                            target.src = '/images/placeholder-cause.jpg';
+                          }}
+                        />
+                        <div className="ml-4">
+                          <div className="text-sm font-medium text-gray-900">{cause.title}</div>
+                          <div className="text-sm text-gray-500">
+                            {cause.lastUpdated ? `Updated ${cause.lastUpdated}` : 'No update date'}
+                          </div>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span className="text-sm text-gray-900">{cause.category}</span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="flex flex-col">
+                        <div className="text-sm font-medium text-gray-900">
+                          {formatCurrency(cause.raisedAmount)} / {formatCurrency(cause.goalAmount)}
+                        </div>
+                        <div className="w-full bg-gray-200 rounded-full h-2 mt-1">
+                          <div 
+                            className="bg-blue-600 h-2 rounded-full" 
+                            style={{ width: `${Math.min((cause.raisedAmount / cause.goalAmount) * 100, 100)}%` }}
+                          ></div>
+                        </div>
+                        <div className="text-xs text-gray-500 mt-1">
+                          {Math.round((cause.raisedAmount / cause.goalAmount) * 100)}% completed
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(cause.status)}`}>
+                        {cause.status}
+                      </span>
+                    </td>
+
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
         </div>
       </div>
     </div>

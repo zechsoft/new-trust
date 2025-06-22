@@ -1,6 +1,8 @@
 'use client'
+
 import { motion } from 'framer-motion';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import axios from 'axios';
 
 interface Category {
   id: string;
@@ -10,63 +12,104 @@ interface Category {
   createdAt: string;
 }
 
-interface AdminEventFiltersProps {
-  categories?: Category[];
-}
-
-export default function AdminEventFilters({ categories: initialCategories }: AdminEventFiltersProps) {
-  const [categories, setCategories] = useState<Category[]>(initialCategories || [
-    { id: '1', name: 'All Events', eventCount: 156, isActive: true, createdAt: '2024-01-15' },
-    { id: '2', name: 'Conferences', eventCount: 24, isActive: true, createdAt: '2024-01-20' },
-    { id: '3', name: 'Workshops', eventCount: 18, isActive: true, createdAt: '2024-01-22' },
-    { id: '4', name: 'Networking', eventCount: 32, isActive: true, createdAt: '2024-01-25' },
-    { id: '5', name: 'Training', eventCount: 15, isActive: false, createdAt: '2024-02-01' },
-    { id: '6', name: 'Webinars', eventCount: 67, isActive: true, createdAt: '2024-02-05' }
-  ]);
-  
+export default function AdminEventFilters() {
+  const [categories, setCategories] = useState<Category[]>([]);
   const [newCategoryName, setNewCategoryName] = useState('');
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingName, setEditingName] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [showAddForm, setShowAddForm] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const filteredCategories = categories.filter(category =>
-    category.name.toLowerCase().includes(searchTerm.toLowerCase())
-  );
-
-  const addCategory = () => {
-    if (newCategoryName.trim()) {
-      const newCategory: Category = {
-        id: Date.now().toString(),
-        name: newCategoryName.trim(),
-        eventCount: 0,
-        isActive: true,
-        createdAt: new Date().toISOString().split('T')[0]
-      };
-      setCategories([...categories, newCategory]);
-      setNewCategoryName('');
-      setShowAddForm(false);
+  // Fetch categories from backend
+  const fetchCategories = async (search = '') => {
+    try {
+      setLoading(true);
+      const res = await axios.get('http://localhost:5000/api/filter', { params: { search } });
+      setCategories(res.data.map((cat: any) => ({
+        id: cat._id,
+        name: cat.name,
+        eventCount: cat.eventCount,
+        isActive: cat.isActive,
+        createdAt: cat.createdAt,
+      })));
+      setLoading(false);
+    } catch (err) {
+      setError('Failed to fetch categories');
+      setLoading(false);
     }
   };
 
-  const updateCategory = (id: string) => {
-    if (editingName.trim()) {
+  useEffect(() => {
+    fetchCategories();
+  }, []);
+
+  // Add category API call
+  const addCategory = async () => {
+    if (!newCategoryName.trim()) return;
+    try {
+      const res = await axios.post('http://localhost:5000/api/filter', { name: newCategoryName.trim() });
+      setCategories([...categories, {
+        id: res.data._id,
+        name: res.data.name,
+        eventCount: res.data.eventCount,
+        isActive: res.data.isActive,
+        createdAt: res.data.createdAt,
+      }]);
+      setNewCategoryName('');
+      setShowAddForm(false);
+      setError(null);
+    } catch (err) {
+      setError('Failed to add category');
+    }
+  };
+
+  // Update category API call
+  const updateCategory = async (id: string) => {
+    if (!editingName.trim()) return;
+    try {
+      const res = await axios.put(`http://localhost:5000/api/filter/${id}`, { name: editingName.trim() });
       setCategories(categories.map(cat =>
-        cat.id === id ? { ...cat, name: editingName.trim() } : cat
+        cat.id === id ? { ...cat, name: res.data.name } : cat
       ));
       setEditingId(null);
       setEditingName('');
+      setError(null);
+    } catch (err) {
+      setError('Failed to update category');
     }
   };
 
-  const toggleCategoryStatus = (id: string) => {
-    setCategories(categories.map(cat =>
-      cat.id === id ? { ...cat, isActive: !cat.isActive } : cat
-    ));
+  // Toggle active status API call
+  const toggleCategoryStatus = async (id: string) => {
+    try {
+      const res = await axios.patch(`http://localhost:5000/api/filter/${id}/toggle`);
+      setCategories(categories.map(cat =>
+        cat.id === id ? { ...cat, isActive: res.data.isActive } : cat
+      ));
+      setError(null);
+    } catch (err) {
+      setError('Failed to toggle category status');
+    }
   };
 
-  const deleteCategory = (id: string) => {
-    setCategories(categories.filter(cat => cat.id !== id));
+  // Delete category API call
+  const deleteCategory = async (id: string) => {
+    try {
+      await axios.delete(`http://localhost:5000/api/filter/${id}`);
+      setCategories(categories.filter(cat => cat.id !== id));
+      setError(null);
+    } catch (err) {
+      setError('Failed to delete category');
+    }
+  };
+
+  // Search handler - calls fetchCategories with search term
+  const onSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const term = e.target.value;
+    setSearchTerm(term);
+    fetchCategories(term);
   };
 
   const startEditing = (category: Category) => {
@@ -74,8 +117,11 @@ export default function AdminEventFilters({ categories: initialCategories }: Adm
     setEditingName(category.name);
   };
 
+  const filteredCategories = categories; // already filtered via backend search
+
   const totalEvents = categories.reduce((sum, cat) => sum + cat.eventCount, 0);
   const activeCategories = categories.filter(cat => cat.isActive).length;
+
 
   return (
     <div className="min-h-screen bg-gray-50 p-6">

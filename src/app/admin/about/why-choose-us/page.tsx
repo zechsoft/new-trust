@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import axios from 'axios';
 import { motion } from 'framer-motion';
 import { 
   CheckCircle, 
@@ -41,6 +42,8 @@ interface SectionContent {
   subtitle: string;
   ctaText: string;
 }
+
+const API_BASE_URL = 'http://localhost:5000/api/choose';
 
 export default function WhyChooseUsAdmin() {
   const [isEditing, setIsEditing] = useState(false);
@@ -114,12 +117,46 @@ export default function WhyChooseUsAdmin() {
     check: <CheckCircle className="w-8 h-8 text-green-500" />,
   };
 
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const res = await axios.get(API_BASE_URL);
+        if (res.data) {
+          setSectionContent({
+            mainTitle: res.data.mainTitle || '',
+            subtitle: res.data.subtitle || '',
+            ctaText: res.data.ctaText || '',
+          });
+          setReasons(res.data.reasons || []);
+          setCtaButtons(res.data.ctaButtons || []);
+        }
+      } catch (error) {
+        console.error('Error fetching Why Choose Us data:', error);
+      }
+    };
+
+    fetchData();
+  }, []);
+
+  // Fixed: Generate unique ID properly
+  const generateNewId = () => {
+    if (reasons.length === 0) return 1;
+    return Math.max(...reasons.map(r => r.id)) + 1;
+  };
+
+  // Fixed: Handle both add and edit operations correctly
   const handleSaveReason = (reason: Reason) => {
-    if (editingReason) {
-      setReasons(reasons.map(r => r.id === reason.id ? reason : r));
-    } else {
-      const newReason = { ...reason, id: Math.max(...reasons.map(r => r.id)) + 1 };
+    if (reason.id === 0) {
+      // Adding new reason
+      const newReason = { 
+        ...reason, 
+        id: generateNewId(),
+        order: reasons.length + 1
+      };
       setReasons([...reasons, newReason]);
+    } else {
+      // Editing existing reason
+      setReasons(reasons.map(r => r.id === reason.id ? reason : r));
     }
     setEditingReason(null);
   };
@@ -136,10 +173,34 @@ export default function WhyChooseUsAdmin() {
     setReasons(newReasons.map((reason, index) => ({ ...reason, order: index + 1 })));
   };
 
-  const handleSaveSection = () => {
-    // Here you would typically save to your backend
-    console.log('Saving section content:', { sectionContent, reasons, ctaButtons });
-    setIsEditing(false);
+  // Fixed: Add new reason with proper initial values
+  const handleAddNewReason = () => {
+    const newReason: Reason = {
+      id: 0, // Temporary ID for new reasons
+      title: '',
+      description: '',
+      iconType: 'shield',
+      order: reasons.length + 1
+    };
+    setEditingReason(newReason);
+  };
+
+  const handleSaveSection = async () => {
+    const payload = {
+      mainTitle: sectionContent.mainTitle,
+      subtitle: sectionContent.subtitle,
+      ctaText: sectionContent.ctaText,
+      reasons,
+      ctaButtons,
+    };
+
+    try {
+      await axios.post(API_BASE_URL, payload);
+      console.log('Saved successfully');
+      setIsEditing(false);
+    } catch (error) {
+      console.error('Error saving Why Choose Us data:', error);
+    }
   };
 
   return (
@@ -226,7 +287,7 @@ export default function WhyChooseUsAdmin() {
         {isEditing && (
           <AdminButton
             size="sm"
-            onClick={() => setEditingReason({ id: 0, title: '', description: '', iconType: 'shield', order: reasons.length + 1 })}
+            onClick={handleAddNewReason}
           >
             <Plus className="w-4 h-4 mr-2" />
             Add Reason

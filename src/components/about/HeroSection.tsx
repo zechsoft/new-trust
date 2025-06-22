@@ -1,35 +1,163 @@
 import { motion } from 'framer-motion';
-import { useRef } from 'react';
+import { useRef, useState, useEffect } from 'react';
+
+interface HeroData {
+  title: string;
+  subtitle: string;
+  backgroundImage: string;
+  backgroundVideo?: string;
+  overlayGradient: {
+    from: string;
+    to: string;
+    opacity: number;
+  };
+  showScrollIndicator: boolean;
+  height: string;
+  isVisible: boolean;
+}
 
 export default function HeroSection() {
   const videoRef = useRef<HTMLVideoElement>(null);
+  const [heroData, setHeroData] = useState<HeroData | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  // Fetch hero data from database
+  useEffect(() => {
+    const fetchHeroData = async () => {
+      try {
+        const response = await fetch('http://localhost:5000/api/aboutHero');
+        if (!response.ok) {
+          throw new Error('Failed to fetch hero data');
+        }
+        const data = await response.json();
+        setHeroData(data);
+      } catch (err) {
+        console.error('Error fetching hero data:', err);
+        setError('Failed to load hero section');
+        // Fallback to default data
+        setHeroData({
+          title: 'About Our Mission',
+          subtitle: 'One Act of Kindness, Infinite Impact',
+          backgroundImage: '/api/placeholder/1920/1080',
+          backgroundVideo: '',
+          overlayGradient: {
+            from: 'purple-900/60',
+            to: 'blue-900/60',
+            opacity: 60
+          },
+          showScrollIndicator: true,
+          height: '70vh',
+          isVisible: true
+        });
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchHeroData();
+  }, []);
+
+  // Convert Tailwind gradient classes to CSS
+  const getGradientStyle = (overlayGradient: any) => {
+    const colorMap: { [key: string]: string } = {
+      'purple-900': 'rgb(88, 28, 135)',
+      'blue-900': 'rgb(30, 58, 138)',
+      'indigo-900': 'rgb(49, 46, 129)',
+      'green-900': 'rgb(20, 83, 45)',
+      'orange-900': 'rgb(154, 52, 18)',
+      'red-900': 'rgb(127, 29, 29)',
+      'gray-900': 'rgb(17, 24, 39)',
+      'black': 'rgb(0, 0, 0)'
+    };
+
+    const fromColor = overlayGradient.from.replace('/60', '');
+    const toColor = overlayGradient.to.replace('/60', '');
+    const opacity = overlayGradient.opacity / 100;
+
+    const fromRgb = colorMap[fromColor] || colorMap['purple-900'];
+    const toRgb = colorMap[toColor] || colorMap['blue-900'];
+
+    return {
+      background: `linear-gradient(to right, ${fromRgb.replace('rgb', 'rgba').replace(')', `, ${opacity})`)}, ${toRgb.replace('rgb', 'rgba').replace(')', `, ${opacity})`)})`
+    };
+  };
+
+  // Loading state
+  if (loading) {
+    return (
+      <div className="relative h-[70vh] overflow-hidden bg-gray-900 flex items-center justify-center">
+        <div className="text-white text-xl">Loading...</div>
+      </div>
+    );
+  }
+
+  // Error state or if section is not visible
+  if (error || !heroData || !heroData.isVisible) {
+    return null;
+  }
 
   return (
-    <div className="relative h-[70vh] overflow-hidden">
-      {/* Video background */}
+    <div 
+      className="relative overflow-hidden"
+      style={{ height: heroData.height }}
+    >
+      {/* Background Media */}
       <div className="absolute inset-0 z-0">
-        <div className="w-full h-full bg-gray-900">
-          {/* Placeholder for video - in production, replace with actual video */}
-          <img 
-            src="/api/placeholder/1920/1080" 
-            alt="Charity work in action" 
-            className="w-full h-full object-cover opacity-50"
-          />
-        </div>
+        {heroData.backgroundVideo ? (
+          <div className="w-full h-full">
+            <video
+              ref={videoRef}
+              autoPlay
+              loop
+              muted
+              playsInline
+              className="w-full h-full object-cover"
+              poster={heroData.backgroundImage}
+            >
+              <source src={heroData.backgroundVideo} type="video/mp4" />
+              {/* Fallback to image if video fails */}
+            </video>
+            {/* Fallback image if video doesn't load */}
+            <img 
+              src={heroData.backgroundImage}
+              alt="Hero background"
+              className="absolute inset-0 w-full h-full object-cover"
+              style={{ display: 'none' }}
+              onError={(e) => {
+                e.currentTarget.style.display = 'block';
+                if (videoRef.current) {
+                  videoRef.current.style.display = 'none';
+                }
+              }}
+            />
+          </div>
+        ) : (
+          <div className="w-full h-full bg-gray-900">
+            <img 
+              src={heroData.backgroundImage}
+              alt="Hero background"
+              className="w-full h-full object-cover"
+            />
+          </div>
+        )}
       </div>
       
-      {/* Overlay */}
-      <div className="absolute inset-0 bg-gradient-to-r from-purple-900/60 to-blue-900/60 z-10" />
+      {/* Gradient Overlay */}
+      <div 
+        className="absolute inset-0 z-10" 
+        style={getGradientStyle(heroData.overlayGradient)}
+      />
       
       {/* Content */}
       <div className="relative z-20 h-full flex flex-col items-center justify-center text-center px-4">
-        <motion.h1 
+        <motion.h1
           className="text-4xl md:text-6xl lg:text-7xl font-bold text-white mb-6"
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.8, delay: 0.2 }}
         >
-          About Our Mission
+          {heroData.title}
         </motion.h1>
         
         <motion.div
@@ -39,33 +167,35 @@ export default function HeroSection() {
           transition={{ duration: 0.8, delay: 0.4 }}
         >
           <p className="text-xl md:text-2xl text-white font-light">
-            One Act of Kindness, Infinite Impact
+            {heroData.subtitle}
           </p>
         </motion.div>
         
-        <motion.div 
-          className="absolute bottom-8 w-full flex justify-center"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ duration: 1, delay: 1 }}
-        >
-          <div className="animate-bounce w-10 h-10 rounded-full bg-white/20 flex items-center justify-center">
-            <svg 
-              className="w-6 h-6 text-white" 
-              fill="none" 
-              stroke="currentColor" 
-              viewBox="0 0 24 24" 
-              xmlns="http://www.w3.org/2000/svg"
-            >
-              <path 
-                strokeLinecap="round" 
-                strokeLinejoin="round" 
-                strokeWidth={2} 
-                d="M19 14l-7 7m0 0l-7-7m7 7V3" 
-              />
-            </svg>
-          </div>
-        </motion.div>
+        {heroData.showScrollIndicator && (
+          <motion.div 
+            className="absolute bottom-8 w-full flex justify-center"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 1, delay: 1 }}
+          >
+            <div className="animate-bounce w-10 h-10 rounded-full bg-white/20 flex items-center justify-center">
+              <svg 
+                className="w-6 h-6 text-white" 
+                fill="none" 
+                stroke="currentColor" 
+                viewBox="0 0 24 24"
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                <path 
+                  strokeLinecap="round" 
+                  strokeLinejoin="round" 
+                  strokeWidth={2} 
+                  d="M19 14l-7 7m0 0l-7-7m7 7V3" 
+                />
+              </svg>
+            </div>
+          </motion.div>
+        )}
       </div>
     </div>
   );

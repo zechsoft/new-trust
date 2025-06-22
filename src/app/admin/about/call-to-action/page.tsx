@@ -1,5 +1,5 @@
 'use client';
-
+import axios from 'axios'
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { 
@@ -13,7 +13,9 @@ import {
   Settings,
   RotateCcw,
   Plus,
-  Trash2
+  Trash2,
+  Upload,
+  X
 } from 'lucide-react';
 import AdminCard from '@/components/admin/ui/AdminCard';
 import AdminButton from '@/components/admin/ui/AdminButton';
@@ -47,6 +49,8 @@ interface AnimationSettings {
   buttonsDelay: number;
   duration: number;
 }
+
+
 
 export default function CallToActionAdmin() {
   const [isEditing, setIsEditing] = useState(false);
@@ -90,6 +94,8 @@ export default function CallToActionAdmin() {
     duration: 0.6,
   });
 
+  const [imageUploading, setImageUploading] = useState(false);
+
   const colorOptions = [
     'purple-600', 'blue-500', 'green-500', 'red-500', 'yellow-500', 
     'indigo-600', 'pink-500', 'teal-500', 'orange-500', 'gray-800'
@@ -101,10 +107,81 @@ export default function CallToActionAdmin() {
     large: 'py-20',
   };
 
-  const handleSaveSection = () => {
-    // Here you would typically save to your backend
-    console.log('Saving CTA section:', { sectionContent, ctaButtons, animationSettings });
+  useEffect(() => {
+  const fetchCTAData = async () => {
+    try {
+      const res = await axios.get('http://localhost:5000/api/aboutcta');
+      if (res.data) {
+        setSectionContent({
+          mainTitle: res.data.mainTitle,
+          description: res.data.description,
+          backgroundType: res.data.backgroundType,
+          gradientFrom: res.data.gradientFrom,
+          gradientTo: res.data.gradientTo,
+          solidColor: res.data.solidColor,
+          backgroundImage: res.data.backgroundImage || '',
+          textColor: res.data.textColor,
+          padding: res.data.padding,
+        });
+        setCtaButtons(res.data.buttons || []);
+        setAnimationSettings(res.data.animation || animationSettings);
+      }
+    } catch (error) {
+      console.error('Failed to fetch CTA data:', error);
+    }
+  };
+
+  fetchCTAData();
+}, []);
+
+  const handleSaveSection = async () => {
+  try {
+    await axios.post('http://localhost:5000/api/aboutcta', {
+      ...sectionContent,
+      buttons: ctaButtons,
+      animation: animationSettings,
+    });
     setIsEditing(false);
+    console.log('CTA section saved successfully');
+  } catch (error) {
+    console.error('Failed to save CTA section:', error);
+  }
+};
+
+  const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    setImageUploading(true);
+    
+    try {
+      const formData = new FormData();
+      formData.append('image', file);
+
+      const response = await axios.post('http://localhost:5000/api/aboutcta/upload-image', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+
+      if (response.data.url) {
+        setSectionContent({
+          ...sectionContent,
+          backgroundImage: response.data.url,
+        });
+      }
+    } catch (error) {
+      console.error('Failed to upload image:', error);
+    } finally {
+      setImageUploading(false);
+    }
+  };
+
+  const handleRemoveImage = () => {
+    setSectionContent({
+      ...sectionContent,
+      backgroundImage: '',
+    });
   };
 
   const handleAddButton = () => {
@@ -159,8 +236,19 @@ export default function CallToActionAdmin() {
       return `bg-gradient-to-r from-${sectionContent.gradientFrom} to-${sectionContent.gradientTo}`;
     } else if (sectionContent.backgroundType === 'solid') {
       return `bg-${sectionContent.solidColor}`;
+    } else if (sectionContent.backgroundType === 'image' && sectionContent.backgroundImage) {
+      return 'bg-cover bg-center bg-no-repeat';
     }
     return 'bg-gray-800';
+  };
+
+  const getBackgroundStyle = () => {
+    if (sectionContent.backgroundType === 'image' && sectionContent.backgroundImage) {
+      return {
+        backgroundImage: `url(${sectionContent.backgroundImage})`,
+      };
+    }
+    return {};
   };
 
   return (
@@ -204,8 +292,14 @@ export default function CallToActionAdmin() {
 
       {/* Preview */}
       <AdminCard className="p-0 overflow-hidden">
-        <div className={`${paddingOptions[sectionContent.padding]} ${getBackgroundClass()} text-${sectionContent.textColor}`}>
-          <div className="container mx-auto px-4">
+        <div 
+          className={`${paddingOptions[sectionContent.padding]} ${getBackgroundClass()} text-${sectionContent.textColor} relative`}
+          style={getBackgroundStyle()}
+        >
+          {sectionContent.backgroundType === 'image' && sectionContent.backgroundImage && (
+            <div className="absolute inset-0 bg-black bg-opacity-40"></div>
+          )}
+          <div className="container mx-auto px-4 relative z-10">
             <div className="max-w-4xl mx-auto text-center">
               <h2 className="text-3xl md:text-5xl font-bold mb-6">
                 {sectionContent.mainTitle}
@@ -370,6 +464,62 @@ export default function CallToActionAdmin() {
                     <option key={color} value={color}>{color}</option>
                   ))}
                 </select>
+              </div>
+            )}
+
+            {sectionContent.backgroundType === 'image' && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Background Image
+                </label>
+                <div className="space-y-3">
+                  {sectionContent.backgroundImage ? (
+                    <div className="relative">
+                      <img
+                        src={sectionContent.backgroundImage}
+                        alt="Background"
+                        className="w-full h-48 object-cover rounded-lg border border-gray-300"
+                      />
+                      {isEditing && (
+                        <button
+                          onClick={handleRemoveImage}
+                          className="absolute top-2 right-2 bg-red-500 text-white rounded-full p-1 hover:bg-red-600 transition-colors"
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="w-full h-48 border-2 border-dashed border-gray-300 rounded-lg flex items-center justify-center">
+                      <div className="text-center">
+                        <Upload className="w-12 h-12 text-gray-400 mx-auto mb-2" />
+                        <p className="text-gray-500">No image selected</p>
+                      </div>
+                    </div>
+                  )}
+                  
+                  {isEditing && (
+                    <div>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={handleImageUpload}
+                        disabled={imageUploading}
+                        className="hidden"
+                        id="background-image-upload"
+                      />
+                      <label
+                        htmlFor="background-image-upload"
+                        className={`inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 cursor-pointer ${
+                          imageUploading ? 'opacity-50 cursor-not-allowed' : ''
+                        }`}
+                      >
+                        <Upload className="w-4 h-4 mr-2" />
+                        {imageUploading ? 'Uploading...' : sectionContent.backgroundImage ? 'Change Image' : 'Upload Image'}
+                      </label>
+                    </div>
+                  )}
+                </div>
               </div>
             )}
 

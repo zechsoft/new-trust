@@ -1,5 +1,5 @@
 'use client';
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import Image from 'next/image';
 import { motion } from 'framer-motion';
 
@@ -10,26 +10,25 @@ interface BeforeAfterSlideProps {
   description: string;
 }
 
-const transformProjects = [
-  {
-    beforeImage: "/images/before-after/village-before.jpg",
-    afterImage: "/images/before-after/village-after.jpg",
-    title: "Sustainable Water Project",
-    description: "Transforming a water-scarce village with clean water access for all residents"
-  },
-  {
-    beforeImage: "/images/before-after/school-before.jpg",
-    afterImage: "/images/before-after/school-after.jpg",
-    title: "School Renovation",
-    description: "Rebuilding and equipping a dilapidated school with modern facilities"
-  },
-  {
-    beforeImage: "/images/before-after/clinic-before.jpg",
-    afterImage: "/images/before-after/clinic-after.jpg",
-    title: "Healthcare Center",
-    description: "Converting an unused building into a fully-functional medical clinic"
-  }
-];
+interface TransformProject {
+  _id: string;
+  beforeImage: string;
+  afterImage: string;
+  title: string;
+  description: string;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+interface SectionSettings {
+  _id: string;
+  title: string;
+  subtitle: string;
+  backgroundColor: string;
+  textColor: string;
+  isVisible: boolean;
+}
 
 const BeforeAfterSlide: React.FC<BeforeAfterSlideProps> = ({ 
   beforeImage, 
@@ -55,10 +54,11 @@ const BeforeAfterSlide: React.FC<BeforeAfterSlideProps> = ({
       setSliderPosition(Math.min(Math.max(x, 0), 100));
     }
   };
+
   return (
     <div className="mb-12">
-      <h4 className="text-xl font-bold mb-2">{title}</h4>
-      <p className="text-gray-300 mb-4">{description}</p>
+      <h4 className="text-xl font-bold mb-2" style={{ color: 'inherit' }}>{title}</h4>
+      <p className="mb-4 opacity-75" style={{ color: 'inherit' }}>{description}</p>
       
       <div 
         ref={containerRef}
@@ -108,20 +108,133 @@ const BeforeAfterSlide: React.FC<BeforeAfterSlideProps> = ({
 };
 
 const BeforeAfterSlider = () => {
+  const [projects, setProjects] = useState<TransformProject[]>([]);
+  const [settings, setSettings] = useState<SectionSettings | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        setLoading(true);
+        
+        // Fetch projects and settings in parallel
+        const [projectsResponse, settingsResponse] = await Promise.all([
+          fetch('http://localhost:5000/api/transform-projects'),
+          fetch('http://localhost:5000/api/transform-section-settings')
+        ]);
+
+        if (!projectsResponse.ok) {
+          throw new Error(`Failed to fetch projects: ${projectsResponse.status}`);
+        }
+        
+        if (!settingsResponse.ok) {
+          throw new Error(`Failed to fetch settings: ${settingsResponse.status}`);
+        }
+
+        const projectsData = await projectsResponse.json();
+        const settingsData = await settingsResponse.json();
+
+        // Filter only active projects
+        const activeProjects = projectsData.filter((project: TransformProject) => project.isActive);
+        
+        setProjects(activeProjects);
+        setSettings(settingsData);
+      } catch (err) {
+        console.error('Error fetching data:', err);
+        setError(err instanceof Error ? err.message : 'Failed to load data');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchData();
+  }, []);
+
+  // Don't render if section is not visible or if there's an error
+  if (error) {
+    console.error('BeforeAfterSlider Error:', error);
+    return null;
+  }
+
+  if (loading) {
+    return (
+      <section className="bg-blue-900 text-white py-16">
+        <div className="container mx-auto px-4">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white mx-auto"></div>
+            <p className="mt-4 text-lg">Loading transformations...</p>
+          </div>
+        </div>
+      </section>
+    );
+  }
+
+  if (!settings?.isVisible || projects.length === 0) {
+    return null;
+  }
+
+  // Use settings for dynamic styling and content
+  const title = settings.title || 'See Our Impact';
+  const subtitle = settings.subtitle || 'Witness the transformative power of our projects through these before and after comparisons.';
+
+  // Function to process color values - handles hex, rgb, rgba, or Tailwind classes
+  const processColor = (colorValue: string, defaultColor: string) => {
+    if (!colorValue) return defaultColor;
+    
+    // If it's already a hex color, rgb, rgba, or named color, use it directly
+    if (colorValue.startsWith('#') || 
+        colorValue.startsWith('rgb') || 
+        colorValue.startsWith('hsl') ||
+        /^[a-zA-Z]+$/.test(colorValue.replace(/\s/g, ''))) {
+      return colorValue;
+    }
+    
+    // If it's a Tailwind class, convert it
+    const tailwindColorMap: { [key: string]: string } = {
+      'bg-blue-900': '#1e3a8a',
+      'bg-blue-800': '#1e40af',
+      'bg-blue-700': '#1d4ed8',
+      'bg-gray-900': '#111827',
+      'bg-gray-800': '#1f2937',
+      'bg-black': '#000000',
+      'bg-white': '#ffffff',
+      'bg-green-900': '#14532d',
+      'bg-red-900': '#7f1d1d',
+      'bg-purple-900': '#581c87',
+      'bg-indigo-900': '#312e81',
+      'text-white': '#ffffff',
+      'text-black': '#000000',
+      'text-gray-100': '#f3f4f6',
+      'text-gray-200': '#e5e7eb',
+      'text-gray-800': '#1f2937',
+      'text-gray-900': '#111827',
+      'text-blue-100': '#dbeafe',
+      'text-blue-900': '#1e3a8a',
+    };
+    
+    return tailwindColorMap[colorValue] || defaultColor;
+  };
+
+  const sectionStyle = {
+    backgroundColor: processColor(settings.backgroundColor || 'bg-blue-900', '#1e3a8a'),
+    color: processColor(settings.textColor || 'text-white', '#ffffff'),
+  };
+
   return (
-    <section className="bg-blue-900 text-white py-16">
+    <section className="py-16" style={sectionStyle}>
       <div className="container mx-auto px-4">
         <div className="text-center mb-12">
-          <h2 className="text-3xl md:text-4xl font-bold mb-4">See Our Impact</h2>
-          <p className="text-xl text-gray-300 max-w-3xl mx-auto">
-            Witness the transformative power of our projects through these before and after comparisons.
+          <h2 className="text-3xl md:text-4xl font-bold mb-4">{title}</h2>
+          <p className="text-xl max-w-3xl mx-auto opacity-80">
+            {subtitle}
           </p>
         </div>
         
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-          {transformProjects.map((project, index) => (
+          {projects.map((project, index) => (
             <motion.div
-              key={index}
+              key={project._id}
               initial={{ opacity: 0, y: 20 }}
               whileInView={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5, delay: index * 0.2 }}
