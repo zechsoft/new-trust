@@ -1,16 +1,106 @@
 'use client'
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { motion } from 'framer-motion';
 import { gsap } from 'gsap';
-import Image from 'next/image';
 
 const HeroSection = () => {
   const heroRef = useRef<HTMLDivElement>(null);
   const textRef = useRef<HTMLDivElement>(null);
+  const videoRef = useRef<HTMLVideoElement>(null); // Add video ref for debugging
+  const [heroData, setHeroData] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [videoError, setVideoError] = useState(null); // Track video errors
+  const [videoLoaded, setVideoLoaded] = useState(false); // Track video load status
+
+  // Fetch hero data from API
+  useEffect(() => {
+    const fetchHeroData = async () => {
+      try {
+        setLoading(true);
+        const response = await fetch('http://localhost:5000/api/vhero', {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        });
+        
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        console.log('Fetched hero data:', data); // Debug log
+        setHeroData(data);
+        setError(null);
+      } catch (err) {
+        setError(err.message);
+        console.error('Error fetching hero data:', err);
+        // Set default data in case of error - use a test video URL
+        setHeroData({
+          title: "Become a Volunteer",
+          quote: "Volunteering is not about giving your time; it's about changing lives – including your own.",
+          buttonText: "Join Now",
+          buttonLink: "#volunteer-signup",
+          // Use a test video URL that definitely works
+          videoUrl: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4",
+          overlayOpacity: 0.3, // Reduced opacity so you can see the video
+          backgroundColor: "#1f2937",
+          textColor: "#ffffff",
+          buttonColor: "#7c3aed",
+          buttonHoverColor: "#6d28d9",
+          enableTypewriter: true,
+          typewriterSpeed: 45,
+          enableScrollIndicator: true,
+          enableVideoAutoplay: true,
+          enableVideoLoop: true,
+          enableVideoMute: true
+        });
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchHeroData();
+  }, []);
+
+  // Video event handlers for debugging
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video) return;
+
+    const handleVideoLoad = () => {
+      console.log('Video loaded successfully');
+      setVideoLoaded(true);
+      setVideoError(null);
+    };
+
+    const handleVideoError = (e) => {
+      console.error('Video error:', e);
+      setVideoError('Failed to load video');
+      setVideoLoaded(false);
+    };
+
+    const handleVideoCanPlay = () => {
+      console.log('Video can play');
+    };
+
+    video.addEventListener('loadeddata', handleVideoLoad);
+    video.addEventListener('error', handleVideoError);
+    video.addEventListener('canplay', handleVideoCanPlay);
+
+    return () => {
+      video.removeEventListener('loadeddata', handleVideoLoad);
+      video.removeEventListener('error', handleVideoError);
+      video.removeEventListener('canplay', handleVideoCanPlay);
+    };
+  }, [heroData]);
 
   // GSAP animations for hero section
   useEffect(() => {
+    if (!heroData || loading) return;
+
     // Page load animation
     if (heroRef.current) {
       gsap.from(heroRef.current, {
@@ -21,9 +111,9 @@ const HeroSection = () => {
       });
     }
 
-    // Typewriter effect for quote
-    if (textRef.current) {
-      const text = "Volunteering is not about giving your time; it's about changing lives – including your own.";
+    // Typewriter effect for quote (if enabled)
+    if (textRef.current && heroData.enableTypewriter && heroData.quote) {
+      const text = heroData.quote;
       const textElement = textRef.current;
       textElement.innerHTML = '';
 
@@ -35,32 +125,103 @@ const HeroSection = () => {
         } else {
           clearInterval(typeEffect);
         }
-      }, 45); // Speed of typing
-    }
+      }, heroData.typewriterSpeed || 45);
 
-    return () => {
-      // Cleanup
-    };
-  }, []);
+      return () => clearInterval(typeEffect);
+    } else if (textRef.current && heroData.quote) {
+      // If typewriter is disabled, show the full text immediately
+      textRef.current.innerHTML = heroData.quote;
+    }
+  }, [heroData, loading]);
+
+  // Loading state
+  if (loading) {
+    return (
+      <section className="relative min-h-screen flex items-center justify-center bg-gray-900">
+        <div className="text-white text-xl flex items-center gap-2">
+          <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-white"></div>
+          Loading hero content...
+        </div>
+      </section>
+    );
+  }
+
+  // Default values if no data is available
+  const {
+    title = "Become a Volunteer",
+    quote = "Volunteering is not about giving your time; it's about changing lives – including your own.",
+    buttonText = "Join Now",
+    buttonLink = "#volunteer-signup",
+    videoUrl = "/videos/volunteers-hero.mp4",
+    overlayOpacity = 0.5,
+    backgroundColor = "#1f2937",
+    textColor = "#ffffff",
+    buttonColor = "#7c3aed",
+    buttonHoverColor = "#6d28d9",
+    enableTypewriter = true,
+    typewriterSpeed = 45,
+    enableScrollIndicator = true,
+    enableVideoAutoplay = true,
+    enableVideoLoop = true,
+    enableVideoMute = true
+  } = heroData || {};
+
+  // Convert overlayOpacity to proper decimal (if it's > 1, divide by 10)
+  const normalizedOverlayOpacity = overlayOpacity > 1 ? overlayOpacity / 10 : overlayOpacity;
+  
+  // Force a lower opacity for testing - you can adjust this value
+  const testOverlayOpacity = Math.min(normalizedOverlayOpacity, 0.4);
+
+  // Debug log for video URL
+  console.log('Video URL:', videoUrl);
+  console.log('Video loaded:', videoLoaded);
+  console.log('Video error:', videoError);
 
   return (
     <section 
       ref={heroRef} 
       className="relative min-h-screen flex items-center justify-center overflow-hidden"
+      style={{ backgroundColor: backgroundColor }}
     >
-      {/* Video Background with Overlay */}
-      <div className="absolute inset-0 z-0">
-        <video
-          autoPlay
-          muted
-          loop
-          playsInline
-          className="absolute w-full h-full object-cover"
-        >
-          <source src="/videos/volunteers-hero.mp4" type="video/mp4" />
-        </video>
-        <div className="absolute inset-0 bg-black/50 z-10"></div>
-      </div>
+      {/* Video Background with Dynamic Overlay */}
+      {videoUrl && (
+        <div className="absolute inset-0 z-0">
+          <video
+            ref={videoRef}
+            autoPlay={enableVideoAutoplay}
+            muted={enableVideoMute}
+            loop={enableVideoLoop}
+            playsInline
+            preload="metadata" // Add preload attribute
+            className="absolute w-full h-full object-cover"
+            style={{ 
+              opacity: videoLoaded ? 1 : 0,
+              transition: 'opacity 0.3s ease-in-out'
+            }}
+          >
+            <source src={videoUrl} type="video/mp4" />
+            {/* Add additional source formats if available */}
+            <source src={videoUrl.replace('.mp4', '.webm')} type="video/webm" />
+            <source src={videoUrl.replace('.mp4', '.ogg')} type="video/ogg" />
+            Your browser does not support the video tag.
+          </video>
+          
+          {/* Fallback background if video fails */}
+          {videoError && (
+            <div 
+              className="absolute inset-0 bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900"
+              style={{ opacity: 0.8 }}
+            />
+          )}
+          
+          <div 
+            className="absolute inset-0 bg-black z-10"
+            style={{ opacity: testOverlayOpacity }}
+          ></div>
+        </div>
+      )}
+
+      
 
       {/* Hero Content */}
       <div className="container mx-auto px-4 z-20 text-center">
@@ -68,30 +229,44 @@ const HeroSection = () => {
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.8, delay: 0.2 }}
-          className="text-4xl md:text-6xl lg:text-7xl font-bold text-white mb-6"
+          className="text-4xl md:text-6xl lg:text-7xl font-bold mb-6"
+          style={{ color: textColor }}
         >
-          Become a Volunteer
+          {title}
         </motion.h1>
 
-        <div className="max-w-3xl mx-auto">
-          <div 
-            ref={textRef}
-            className="text-xl md:text-2xl text-white italic mb-12 min-h-[6rem]"
-          ></div>
-        </div>
+        {quote && (
+          <div className="max-w-3xl mx-auto">
+            <div 
+              ref={textRef}
+              className="text-xl md:text-2xl italic mb-12 min-h-[6rem]"
+              style={{ color: textColor }}
+            ></div>
+          </div>
+        )}
 
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.8, delay: 1.5 }}
+          transition={{ duration: 0.8, delay: enableTypewriter ? 1.5 : 0.8 }}
         >
           <motion.a
-            href="#volunteer-signup"
-            className="px-8 py-4 bg-purple-600 text-white font-bold rounded-full text-xl hover:bg-purple-700 transition-all duration-300 shadow-lg inline-block"
+            href={buttonLink}
+            className="px-8 py-4 font-bold rounded-full text-xl transition-all duration-300 shadow-lg inline-block"
+            style={{ 
+              backgroundColor: buttonColor,
+              color: textColor
+            }}
+            onMouseEnter={(e) => {
+              e.target.style.backgroundColor = buttonHoverColor || buttonColor;
+            }}
+            onMouseLeave={(e) => {
+              e.target.style.backgroundColor = buttonColor;
+            }}
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
             animate={{ 
-              boxShadow: ["0px 0px 0px rgba(124, 58, 237, 0.5)", "0px 0px 20px rgba(124, 58, 237, 0.5)", "0px 0px 0px rgba(124, 58, 237, 0.5)"],
+              boxShadow: [`0px 0px 0px ${buttonColor}50`, `0px 0px 20px ${buttonColor}50`, `0px 0px 0px ${buttonColor}50`],
             }}
             transition={{
               boxShadow: {
@@ -100,24 +275,32 @@ const HeroSection = () => {
               }
             }}
           >
-            Join Now
+            {buttonText}
           </motion.a>
         </motion.div>
 
-        {/* Scroll Indicator */}
-        <motion.div 
-          className="absolute bottom-10 left-1/2 transform -translate-x-1/2"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1, y: [0, 10, 0] }}
-          transition={{ 
-            opacity: { delay: 2, duration: 1 },
-            y: { delay: 2, duration: 1.5, repeat: Infinity }
-          }}
-        >
-          <div className="w-8 h-12 rounded-full border-2 border-white flex justify-center items-start p-2">
-            <div className="w-1 h-3 bg-white rounded-full animate-bounce"></div>
-          </div>
-        </motion.div>
+        {/* Conditional Scroll Indicator */}
+        {enableScrollIndicator && (
+          <motion.div 
+            className="absolute bottom-10 left-1/2 transform -translate-x-1/2"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1, y: [0, 10, 0] }}
+            transition={{ 
+              opacity: { delay: 2, duration: 1 },
+              y: { delay: 2, duration: 1.5, repeat: Infinity }
+            }}
+          >
+            <div 
+              className="w-8 h-12 rounded-full border-2 flex justify-center items-start p-2"
+              style={{ borderColor: textColor }}
+            >
+              <div 
+                className="w-1 h-3 rounded-full animate-bounce"
+                style={{ backgroundColor: textColor }}
+              ></div>
+            </div>
+          </motion.div>
+        )}
       </div>
     </section>
   );

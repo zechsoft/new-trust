@@ -20,7 +20,8 @@ import {
   Calendar,
   Globe,
   Award,
-  Target
+  Target,
+  X
 } from 'lucide-react';
 
 interface Partner {
@@ -34,23 +35,24 @@ interface Partner {
   contact_email: string;
 }
 
-interface EffortData {
-  id: string;
-  area: string;
-  percentage: number;
-  color: string;
-  target_percentage: number;
-  monthly_hours: number;
-  volunteers_involved: number;
-}
-
 interface TrustMetrics {
   total_partners: number;
   verified_partners: number;
   transparency_score: number;
-  total_volunteer_hours: number;
   impact_reports_published: number;
   certification_level: string;
+}
+
+interface Report {
+  id: string;
+  title: string;
+  type: string;
+  period: string;
+  description: string;
+  created_date: string;
+  file_url: string;
+  icon: any;
+  color: string;
 }
 
 export default function TrustSectionAdmin() {
@@ -87,108 +89,173 @@ export default function TrustSectionAdmin() {
     }
   ]);
 
-  const [effortsData, setEffortsData] = useState<EffortData[]>([
-    {
-      id: '1',
-      area: 'Education & Literacy',
-      percentage: 85,
-      color: 'bg-blue-500',
-      target_percentage: 80,
-      monthly_hours: 2400,
-      volunteers_involved: 145
-    },
-    {
-      id: '2',
-      area: 'Health & Wellness',
-      percentage: 70,
-      color: 'bg-purple-500',
-      target_percentage: 75,
-      monthly_hours: 1800,
-      volunteers_involved: 98
-    },
-    {
-      id: '3',
-      area: 'Environmental',
-      percentage: 65,
-      color: 'bg-green-500',
-      target_percentage: 70,
-      monthly_hours: 1200,
-      volunteers_involved: 87
-    },
-    {
-      id: '4',
-      area: 'Community Support',
-      percentage: 90,
-      color: 'bg-amber-500',
-      target_percentage: 85,
-      monthly_hours: 3200,
-      volunteers_involved: 203
-    },
-    {
-      id: '5',
-      area: 'Disaster Relief',
-      percentage: 50,
-      color: 'bg-red-500',
-      target_percentage: 60,
-      monthly_hours: 800,
-      volunteers_involved: 45
-    }
-  ]);
-
   const [trustMetrics, setTrustMetrics] = useState<TrustMetrics>({
     total_partners: 15,
     verified_partners: 12,
     transparency_score: 94,
-    total_volunteer_hours: 8750,
     impact_reports_published: 4,
     certification_level: 'Gold Standard'
   });
 
+  const [reports] = useState<Report[]>([
+    {
+      id: '1',
+      title: 'Annual Impact Report',
+      type: 'impact',
+      period: 'Q4 2024',
+      description: 'Comprehensive overview of organizational activities and partner collaborations',
+      created_date: '2024-12-15',
+      file_url: '/reports/annual-impact-2024.pdf',
+      icon: FileText,
+      color: 'blue'
+    },
+    {
+      id: '2',
+      title: 'Partnership Metrics',
+      type: 'metrics',
+      period: 'Monthly',
+      description: 'Detailed breakdown of partnership performance and collaboration outcomes',
+      created_date: '2024-12-01',
+      file_url: '/reports/partnership-metrics-dec.pdf',
+      icon: BarChart3,
+      color: 'green'
+    },
+    {
+      id: '3',
+      title: 'Transparency Audit',
+      type: 'audit',
+      period: 'Quarterly',
+      description: 'Third-party verification of transparency and accountability measures',
+      created_date: '2024-10-30',
+      file_url: '/reports/transparency-audit-q3.pdf',
+      icon: Shield,
+      color: 'purple'
+    }
+  ]);
+
   const [activeTab, setActiveTab] = useState('overview');
   const [isEditing, setIsEditing] = useState(false);
   const [editingPartner, setEditingPartner] = useState<Partner | null>(null);
-  const [editingEffort, setEditingEffort] = useState<EffortData | null>(null);
+  const [showAddPartner, setShowAddPartner] = useState(false);
+  const [viewingPartner, setViewingPartner] = useState<Partner | null>(null);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState<string | null>(null);
 
+  // Create new partner template
+  const createNewPartner = (): Partner => ({
+    id: Date.now().toString(),
+    name: '',
+    logo: '',
+    website: '',
+    status: 'active',
+    partnership_since: new Date().toISOString().split('T')[0],
+    description: '',
+    contact_email: ''
+  });
+
+  // Handle adding new partner
+  const handleAddPartner = () => {
+    setEditingPartner(createNewPartner());
+    setShowAddPartner(true);
+  };
+
+  // Handle editing existing partner
   const handleEditPartner = (partner: Partner) => {
     setEditingPartner({ ...partner });
     setIsEditing(true);
   };
 
+  // Handle saving partner (both new and edited)
   const handleSavePartner = () => {
     if (editingPartner) {
-      setPartners(prev => 
-        prev.map(p => p.id === editingPartner.id ? editingPartner : p)
-      );
+      if (showAddPartner) {
+        // Adding new partner
+        setPartners(prev => [...prev, editingPartner]);
+        setTrustMetrics(prev => ({
+          ...prev,
+          total_partners: prev.total_partners + 1,
+          verified_partners: prev.verified_partners + 1
+        }));
+        setShowAddPartner(false);
+      } else {
+        // Editing existing partner
+        setPartners(prev => 
+          prev.map(p => p.id === editingPartner.id ? editingPartner : p)
+        );
+        setIsEditing(false);
+      }
       setEditingPartner(null);
-      setIsEditing(false);
     }
   };
 
+  // Handle viewing partner details
+  const handleViewPartner = (partner: Partner) => {
+    setViewingPartner(partner);
+  };
+
+  // Handle deleting partner with confirmation
   const handleDeletePartner = (id: string) => {
+    setShowDeleteConfirm(id);
+  };
+
+  const confirmDeletePartner = (id: string) => {
     setPartners(prev => prev.filter(p => p.id !== id));
+    setTrustMetrics(prev => ({
+      ...prev,
+      total_partners: prev.total_partners - 1,
+      verified_partners: Math.max(0, prev.verified_partners - 1)
+    }));
+    setShowDeleteConfirm(null);
   };
 
-  const handleEditEffort = (effort: EffortData) => {
-    setEditingEffort({ ...effort });
+  // Handle report download
+  const handleDownloadReport = (report: Report) => {
+    // Simulate download
+    const link = document.createElement('a');
+    link.href = report.file_url;
+    link.download = `${report.title.replace(/\s+/g, '-').toLowerCase()}.pdf`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   };
 
-  const handleSaveEffort = () => {
-    if (editingEffort) {
-      setEffortsData(prev => 
-        prev.map(e => e.id === editingEffort.id ? editingEffort : e)
-      );
-      setEditingEffort(null);
-    }
+  // Handle report viewing
+  const handleViewReport = (report: Report) => {
+    // Open report in new tab
+    window.open(report.file_url, '_blank');
+  };
+
+  // Handle generating new report
+  const handleGenerateReport = () => {
+    alert('Report generation feature would integrate with your reporting system');
+  };
+
+  // Cancel editing/adding
+  const handleCancel = () => {
+    setIsEditing(false);
+    setShowAddPartner(false);
+    setEditingPartner(null);
   };
 
   const getStatusColor = (status: string) => {
     return status === 'active' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800';
   };
 
-  const getPerformanceColor = (current: number, target: number) => {
-    if (current >= target) return 'text-green-600';
-    if (current >= target * 0.8) return 'text-yellow-600';
-    return 'text-red-600';
+  const getColorClasses = (color: string) => {
+    const colorMap: { [key: string]: string } = {
+      blue: 'text-blue-600',
+      green: 'text-green-600',
+      purple: 'text-purple-600'
+    };
+    return colorMap[color] || 'text-gray-600';
+  };
+
+  const getButtonColorClasses = (color: string) => {
+    const colorMap: { [key: string]: string } = {
+      blue: 'bg-blue-600 hover:bg-blue-700',
+      green: 'bg-green-600 hover:bg-green-700',
+      purple: 'bg-purple-600 hover:bg-purple-700'
+    };
+    return colorMap[color] || 'bg-gray-600 hover:bg-gray-700';
   };
 
   return (
@@ -199,11 +266,11 @@ export default function TrustSectionAdmin() {
           <Shield className="h-8 w-8 text-blue-600" />
           <h1 className="text-3xl font-bold text-gray-900">Trust & Transparency Management</h1>
         </div>
-        <p className="text-gray-600">Manage partnerships, transparency metrics, and volunteer effort distribution</p>
+        <p className="text-gray-600">Manage partnerships, transparency metrics, and reporting</p>
       </div>
 
       {/* Trust Metrics Overview */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-6 mb-8">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 mb-8">
         <div className="bg-white p-6 rounded-lg shadow-sm">
           <div className="flex items-center justify-between">
             <div>
@@ -237,16 +304,6 @@ export default function TrustSectionAdmin() {
         <div className="bg-white p-6 rounded-lg shadow-sm">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-gray-600">Total Hours</p>
-              <p className="text-2xl font-bold text-indigo-600">{trustMetrics.total_volunteer_hours.toLocaleString()}</p>
-            </div>
-            <TrendingUp className="h-8 w-8 text-indigo-600" />
-          </div>
-        </div>
-
-        <div className="bg-white p-6 rounded-lg shadow-sm">
-          <div className="flex items-center justify-between">
-            <div>
               <p className="text-sm font-medium text-gray-600">Impact Reports</p>
               <p className="text-2xl font-bold text-emerald-600">{trustMetrics.impact_reports_published}</p>
             </div>
@@ -269,7 +326,7 @@ export default function TrustSectionAdmin() {
       <div className="bg-white rounded-lg shadow-sm mb-8">
         <div className="border-b border-gray-200">
           <nav className="flex space-x-8 px-6">
-            {['overview', 'partners', 'efforts', 'reports'].map((tab) => (
+            {['overview', 'partners', 'reports'].map((tab) => (
               <button
                 key={tab}
                 onClick={() => setActiveTab(tab)}
@@ -279,7 +336,7 @@ export default function TrustSectionAdmin() {
                     : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                 }`}
               >
-                {tab === 'efforts' ? 'Volunteer Efforts' : tab}
+                {tab}
               </button>
             ))}
           </nav>
@@ -342,7 +399,10 @@ export default function TrustSectionAdmin() {
             <div className="space-y-6">
               <div className="flex justify-between items-center">
                 <h3 className="text-lg font-semibold text-gray-900">Partner Organizations</h3>
-                <button className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 flex items-center space-x-2">
+                <button 
+                  onClick={handleAddPartner}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 flex items-center space-x-2"
+                >
                   <Plus className="h-4 w-4" />
                   <span>Add Partner</span>
                 </button>
@@ -388,15 +448,21 @@ export default function TrustSectionAdmin() {
                           <button 
                             onClick={() => handleEditPartner(partner)}
                             className="text-blue-600 hover:text-blue-900"
+                            title="Edit partner"
                           >
                             <Edit className="h-4 w-4" />
                           </button>
-                          <button className="text-gray-600 hover:text-gray-900">
+                          <button 
+                            onClick={() => handleViewPartner(partner)}
+                            className="text-gray-600 hover:text-gray-900"
+                            title="View details"
+                          >
                             <Eye className="h-4 w-4" />
                           </button>
                           <button 
                             onClick={() => handleDeletePartner(partner.id)}
                             className="text-red-600 hover:text-red-900"
+                            title="Delete partner"
                           >
                             <Trash2 className="h-4 w-4" />
                           </button>
@@ -409,163 +475,75 @@ export default function TrustSectionAdmin() {
             </div>
           )}
 
-          {/* Volunteer Efforts Tab */}
-          {activeTab === 'efforts' && (
-            <div className="space-y-6">
-              <div className="flex justify-between items-center">
-                <h3 className="text-lg font-semibold text-gray-900">Volunteer Effort Distribution</h3>
-                <button className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 flex items-center space-x-2">
-                  <Download className="h-4 w-4" />
-                  <span>Export Data</span>
-                </button>
-              </div>
-
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                {/* Effort Distribution Chart */}
-                <div className="bg-white border rounded-lg p-6">
-                  <h4 className="font-semibold text-gray-900 mb-4">Current Distribution</h4>
-                  <div className="space-y-4">
-                    {effortsData.map((item) => (
-                      <div key={item.id} className="space-y-2">
-                        <div className="flex justify-between items-center">
-                          <span className="text-gray-700 font-medium">{item.area}</span>
-                          <div className="flex items-center space-x-2">
-                            <span className={`font-medium ${getPerformanceColor(item.percentage, item.target_percentage)}`}>
-                              {item.percentage}%
-                            </span>
-                            <span className="text-sm text-gray-500">
-                              (Target: {item.target_percentage}%)
-                            </span>
-                          </div>
-                        </div>
-                        <div className="h-3 w-full bg-gray-200 rounded-full overflow-hidden">
-                          <div 
-                            className={`h-full ${item.color} rounded-full transition-all duration-300`} 
-                            style={{ width: `${item.percentage}%` }}
-                          ></div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Detailed Metrics */}
-                <div className="space-y-4">
-                  {effortsData.map((effort) => (
-                    <div key={effort.id} className="bg-white border rounded-lg p-4">
-                      <div className="flex justify-between items-start mb-2">
-                        <h5 className="font-medium text-gray-900">{effort.area}</h5>
-                        <button 
-                          onClick={() => handleEditEffort(effort)}
-                          className="text-blue-600 hover:text-blue-800"
-                        >
-                          <Edit className="h-4 w-4" />
-                        </button>
-                      </div>
-                      <div className="grid grid-cols-2 gap-4 text-sm">
-                        <div>
-                          <span className="text-gray-500">Monthly Hours:</span>
-                          <span className="ml-2 font-medium">{effort.monthly_hours}</span>
-                        </div>
-                        <div>
-                          <span className="text-gray-500">Volunteers:</span>
-                          <span className="ml-2 font-medium">{effort.volunteers_involved}</span>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-          )}
-
           {/* Reports Tab */}
           {activeTab === 'reports' && (
             <div className="space-y-6">
               <div className="flex justify-between items-center">
                 <h3 className="text-lg font-semibold text-gray-900">Transparency Reports</h3>
-                <button className="px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 flex items-center space-x-2">
+                <button 
+                  onClick={handleGenerateReport}
+                  className="px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 flex items-center space-x-2"
+                >
                   <Plus className="h-4 w-4" />
                   <span>Generate Report</span>
                 </button>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                <div className="bg-white border rounded-lg p-6">
-                  <div className="flex items-center justify-between mb-4">
-                    <FileText className="h-8 w-8 text-blue-600" />
-                    <span className="text-sm text-gray-500">Q4 2024</span>
-                  </div>
-                  <h4 className="font-semibold text-gray-900 mb-2">Annual Impact Report</h4>
-                  <p className="text-sm text-gray-600 mb-4">
-                    Comprehensive overview of volunteer activities and partner collaborations
-                  </p>
-                  <div className="flex space-x-2">
-                    <button className="flex-1 px-3 py-2 bg-blue-600 text-white text-sm rounded hover:bg-blue-700">
-                      Download
-                    </button>
-                    <button className="px-3 py-2 border border-gray-300 text-gray-700 text-sm rounded hover:bg-gray-50">
-                      View
-                    </button>
-                  </div>
-                </div>
-
-                <div className="bg-white border rounded-lg p-6">
-                  <div className="flex items-center justify-between mb-4">
-                    <BarChart3 className="h-8 w-8 text-green-600" />
-                    <span className="text-sm text-gray-500">Monthly</span>
-                  </div>
-                  <h4 className="font-semibold text-gray-900 mb-2">Volunteer Metrics</h4>
-                  <p className="text-sm text-gray-600 mb-4">
-                    Detailed breakdown of volunteer hours and effort distribution
-                  </p>
-                  <div className="flex space-x-2">
-                    <button className="flex-1 px-3 py-2 bg-green-600 text-white text-sm rounded hover:bg-green-700">
-                      Download
-                    </button>
-                    <button className="px-3 py-2 border border-gray-300 text-gray-700 text-sm rounded hover:bg-gray-50">
-                      View
-                    </button>
-                  </div>
-                </div>
-
-                <div className="bg-white border rounded-lg p-6">
-                  <div className="flex items-center justify-between mb-4">
-                    <Shield className="h-8 w-8 text-purple-600" />
-                    <span className="text-sm text-gray-500">Quarterly</span>
-                  </div>
-                  <h4 className="font-semibold text-gray-900 mb-2">Transparency Audit</h4>
-                  <p className="text-sm text-gray-600 mb-4">
-                    Third-party verification of transparency and accountability measures
-                  </p>
-                  <div className="flex space-x-2">
-                    <button className="flex-1 px-3 py-2 bg-purple-600 text-white text-sm rounded hover:bg-purple-700">
-                      Download
-                    </button>
-                    <button className="px-3 py-2 border border-gray-300 text-gray-700 text-sm rounded hover:bg-gray-50">
-                      View
-                    </button>
-                  </div>
-                </div>
+                {reports.map((report) => {
+                  const IconComponent = report.icon;
+                  return (
+                    <div key={report.id} className="bg-white border rounded-lg p-6">
+                      <div className="flex items-center justify-between mb-4">
+                        <IconComponent className={`h-8 w-8 ${getColorClasses(report.color)}`} />
+                        <span className="text-sm text-gray-500">{report.period}</span>
+                      </div>
+                      <h4 className="font-semibold text-gray-900 mb-2">{report.title}</h4>
+                      <p className="text-sm text-gray-600 mb-4">{report.description}</p>
+                      <div className="flex space-x-2">
+                        <button 
+                          onClick={() => handleDownloadReport(report)}
+                          className={`flex-1 px-3 py-2 text-white text-sm rounded ${getButtonColorClasses(report.color)}`}
+                        >
+                          Download
+                        </button>
+                        <button 
+                          onClick={() => handleViewReport(report)}
+                          className="px-3 py-2 border border-gray-300 text-gray-700 text-sm rounded hover:bg-gray-50"
+                        >
+                          View
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             </div>
           )}
         </div>
       </div>
 
-      {/* Edit Partner Modal */}
-      {isEditing && editingPartner && (
+      {/* Edit/Add Partner Modal */}
+      {(isEditing || showAddPartner) && editingPartner && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-full max-w-md">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">Edit Partner</h3>
+          <div className="bg-white rounded-lg p-6 w-full max-w-md max-h-[90vh] overflow-y-auto">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-semibold text-gray-900">
+                {showAddPartner ? 'Add New Partner' : 'Edit Partner'}
+              </h3>
+              <button onClick={handleCancel} className="text-gray-400 hover:text-gray-600">
+                <X className="h-5 w-5" />
+              </button>
+            </div>
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Organization Name</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Organization Name *</label>
                 <input
                   type="text"
                   value={editingPartner.name}
                   onChange={(e) => setEditingPartner({...editingPartner, name: e.target.value})}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                  required
                 />
               </div>
               <div>
@@ -575,14 +553,35 @@ export default function TrustSectionAdmin() {
                   value={editingPartner.website}
                   onChange={(e) => setEditingPartner({...editingPartner, website: e.target.value})}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                  placeholder="https://example.org"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Contact Email</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Contact Email *</label>
                 <input
                   type="email"
                   value={editingPartner.contact_email}
                   onChange={(e) => setEditingPartner({...editingPartner, contact_email: e.target.value})}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
+                <textarea
+                  value={editingPartner.description}
+                  onChange={(e) => setEditingPartner({...editingPartner, description: e.target.value})}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                  rows={3}
+                  placeholder="Brief description of the organization"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Partnership Since</label>
+                <input
+                  type="date"
+                  value={editingPartner.partnership_since}
+                  onChange={(e) => setEditingPartner({...editingPartner, partnership_since: e.target.value})}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
                 />
               </div>
@@ -601,12 +600,13 @@ export default function TrustSectionAdmin() {
             <div className="flex space-x-3 mt-6">
               <button
                 onClick={handleSavePartner}
-                className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+                disabled={!editingPartner.name || !editingPartner.contact_email}
+                className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed"
               >
-                Save Changes
+                {showAddPartner ? 'Add Partner' : 'Save Changes'}
               </button>
               <button
-                onClick={() => {setIsEditing(false); setEditingPartner(null);}}
+                onClick={handleCancel}
                 className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50"
               >
                 Cancel
@@ -616,71 +616,79 @@ export default function TrustSectionAdmin() {
         </div>
       )}
 
-      {/* Edit Effort Modal */}
-      {editingEffort && (
+      {/* View Partner Modal */}
+      {viewingPartner && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg p-6 w-full max-w-md">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">Edit Volunteer Effort</h3>
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-semibold text-gray-900">Partner Details</h3>
+              <button onClick={() => setViewingPartner(null)} className="text-gray-400 hover:text-gray-600">
+                <X className="h-5 w-5" />
+              </button>
+            </div>
             <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Area</label>
-                <input
-                  type="text"
-                  value={editingEffort.area}
-                  onChange={(e) => setEditingEffort({...editingEffort, area: e.target.value})}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
-                />
+              <div className="flex items-center space-x-3">
+                <Building2 className="h-8 w-8 text-gray-600" />
+                <div>
+                  <h4 className="font-semibold text-gray-900">{viewingPartner.name}</h4>
+                  <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(viewingPartner.status)}`}>
+                    {viewingPartner.status}
+                  </span>
+                </div>
               </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Current Percentage</label>
-                <input
-                  type="number"
-                  min="0"
-                  max="100"
-                  value={editingEffort.percentage}
-                  onChange={(e) => setEditingEffort({...editingEffort, percentage: parseInt(e.target.value)})}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Target Percentage</label>
-                <input
-                  type="number"
-                  min="0"
-                  max="100"
-                  value={editingEffort.target_percentage}
-                  onChange={(e) => setEditingEffort({...editingEffort, target_percentage: parseInt(e.target.value)})}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Monthly Hours</label>
-                <input
-                  type="number"
-                                    value={editingEffort.monthly_hours}
-                  onChange={(e) => setEditingEffort({...editingEffort, monthly_hours: parseInt(e.target.value)})}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Volunteers Involved</label>
-                <input
-                  type="number"
-                  value={editingEffort.volunteers_involved}
-                  onChange={(e) => setEditingEffort({...editingEffort, volunteers_involved: parseInt(e.target.value)})}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
-                />
+              <div className="border-t pt-4 space-y-3">
+                <div>
+                  <label className="text-sm font-medium text-gray-500">Website</label>
+                  <p className="text-sm text-gray-900">{viewingPartner.website || 'Not provided'}</p>
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-gray-500">Contact Email</label>
+                  <p className="text-sm text-gray-900">{viewingPartner.contact_email}</p>
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-gray-500">Partnership Since</label>
+                  <p className="text-sm text-gray-900">
+                    {new Date(viewingPartner.partnership_since).toLocaleDateString()}
+                  </p>
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-gray-500">Description</label>
+                  <p className="text-sm text-gray-900">{viewingPartner.description || 'No description provided'}</p>
+                </div>
               </div>
             </div>
-            <div className="flex space-x-3 mt-6">
+            <div className="flex justify-end mt-6">
               <button
-                onClick={handleSaveEffort}
-                className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+                onClick={() => setViewingPartner(null)}
+                className="px-4 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50"
               >
-                Save Changes
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {showDeleteConfirm && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 w-full max-w-sm">
+            <div className="flex items-center space-x-3 mb-4">
+              <AlertCircle className="h-6 w-6 text-red-600" />
+              <h3 className="text-lg font-semibold text-gray-900">Confirm Deletion</h3>
+            </div>
+            <p className="text-sm text-gray-600 mb-6">
+              Are you sure you want to delete this partner? This action cannot be undone.
+            </p>
+            <div className="flex space-x-3">
+              <button
+                onClick={() => confirmDeletePartner(showDeleteConfirm)}
+                className="flex-1 px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700"
+              >
+                Delete
               </button>
               <button
-                onClick={() => setEditingEffort(null)}
+                onClick={() => setShowDeleteConfirm(null)}
                 className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50"
               >
                 Cancel

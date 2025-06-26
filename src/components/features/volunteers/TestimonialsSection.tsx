@@ -5,16 +5,22 @@ import { motion } from 'framer-motion';
 import { gsap } from 'gsap';
 import Image from 'next/image';
 
-// Define testimonial type
+// Define testimonial type to match your database schema
 type Testimonial = {
-  id: number;
+  _id: string;
   name: string;
+  email: string;
   role: string;
   location: string;
   image: string;
   quote: string;
   rating: number;
   yearsSince: number;
+  status: 'pending' | 'published' | 'featured' | 'rejected';
+  submittedDate: string;
+  publishedDate: string;
+  category: string;
+  verified: boolean;
 };
 
 // Pre-generate static star positions to avoid hydration mismatches
@@ -30,69 +36,49 @@ export default function TestimonialsSection() {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [activeTestimonial, setActiveTestimonial] = useState<Testimonial | null>(null);
   const [isClient, setIsClient] = useState(false);
+  const [testimonials, setTestimonials] = useState<Testimonial[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   
   // Set isClient to true on component mount to ensure hydration completes
   useEffect(() => {
     setIsClient(true);
   }, []);
-  
-  // Sample testimonials data
-  const testimonials: Testimonial[] = [
-    {
-      id: 1,
-      name: "Sarah Johnson",
-      role: "Teaching Volunteer",
-      location: "Kenya",
-      image: "/images/testimonials/volunteer-1.jpg",
-      quote: "Volunteering as a teacher in Kenya changed my perspective forever. The children's eagerness to learn despite difficult circumstances was truly inspiring. This experience has given me much more than I could ever give back.",
-      rating: 5,
-      yearsSince: 2
-    },
-    {
-      id: 2,
-      name: "Michael Chen",
-      role: "Medical Support",
-      location: "Guatemala",
-      image: "/images/testimonials/volunteer-2.jpg",
-      quote: "As a medical student, I wanted to use my skills where they were most needed. Working alongside local healthcare providers taught me so much about resourcefulness and compassion. I've made lifelong connections and found my purpose.",
-      rating: 5,
-      yearsSince: 1
-    },
-    {
-      id: 3,
-      name: "Amara Okafor",
-      role: "Environmental Advocate",
-      location: "Nigeria",
-      image: "/images/testimonials/volunteer-3.jpg",
-      quote: "Being part of reforestation efforts in my home country has been incredibly rewarding. Seeing barren land transform into thriving ecosystems gives me hope for our planet's future. The community we've built is like family.",
-      rating: 5,
-      yearsSince: 3
-    },
-    {
-      id: 4,
-      name: "Thomas Rivera",
-      role: "Community Outreach",
-      location: "Peru",
-      image: "/images/testimonials/volunteer-4.jpg",
-      quote: "Facilitating communication between our organization and remote villages in Peru has been challenging but deeply fulfilling. Watching communities take ownership of sustainable development projects makes every difficult moment worthwhile.",
-      rating: 5,
-      yearsSince: 2
-    },
-    {
-      id: 5,
-      name: "Emma Larsson",
-      role: "Fundraising Coordinator",
-      location: "Remote",
-      image: "/images/testimonials/volunteer-5.jpg",
-      quote: "Even though I volunteer remotely, I feel deeply connected to our mission. Organizing virtual fundraising events that bring people together from around the world has shown me the power of collective action.",
-      rating: 5,
-      yearsSince: 1
-    }
-  ];
+
+  // Fetch testimonials from database
+  useEffect(() => {
+    const fetchTestimonials = async () => {
+      try {
+        setLoading(true);
+        const response = await fetch('http://localhost:5000/api/vtest'); // Adjust API endpoint as needed
+        
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        
+        // Filter to only show published or featured testimonials
+        const publishedTestimonials = data.filter(
+          (testimonial: Testimonial) => 
+            testimonial.status === 'published' || testimonial.status === 'featured'
+        );
+        
+        setTestimonials(publishedTestimonials);
+      } catch (err) {
+        console.error('Error fetching testimonials:', err);
+        setError(err instanceof Error ? err.message : 'Failed to load testimonials');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchTestimonials();
+  }, []);
 
   // Auto-scroll functionality
   useEffect(() => {
-    if (!scrollRef.current) return;
+    if (!scrollRef.current || testimonials.length === 0) return;
 
     let animating = false;
     let scrollPosition = 0;
@@ -151,7 +137,67 @@ export default function TestimonialsSection() {
         scrollContainer.removeEventListener('mouseleave', handleMouseLeave);
       }
     };
-  }, []);
+  }, [testimonials]);
+
+  // Loading state
+  if (loading) {
+    return (
+      <section className="py-20 bg-gradient-to-r from-purple-50 to-blue-50">
+        <div className="container mx-auto px-4">
+          <div className="text-center mb-12">
+            <h2 className="text-3xl md:text-5xl font-bold text-gray-800 mb-4">Volunteer Stories</h2>
+            <p className="text-xl text-gray-600 max-w-3xl mx-auto">
+              Loading testimonials...
+            </p>
+          </div>
+          <div className="flex justify-center items-center space-x-4 py-20">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600"></div>
+            <span className="text-gray-600 text-lg">Loading volunteer stories...</span>
+          </div>
+        </div>
+      </section>
+    );
+  }
+
+  // Error state
+  if (error) {
+    return (
+      <section className="py-20 bg-gradient-to-r from-purple-50 to-blue-50">
+        <div className="container mx-auto px-4">
+          <div className="text-center mb-12">
+            <h2 className="text-3xl md:text-5xl font-bold text-gray-800 mb-4">Volunteer Stories</h2>
+            <p className="text-xl text-red-600 max-w-3xl mx-auto">
+              Unable to load testimonials. Please try again later.
+            </p>
+          </div>
+          <div className="text-center">
+            <button 
+              onClick={() => window.location.reload()} 
+              className="bg-purple-600 hover:bg-purple-700 text-white px-6 py-3 rounded-lg transition-colors duration-300"
+            >
+              Retry
+            </button>
+          </div>
+        </div>
+      </section>
+    );
+  }
+
+  // No testimonials state
+  if (testimonials.length === 0) {
+    return (
+      <section className="py-20 bg-gradient-to-r from-purple-50 to-blue-50">
+        <div className="container mx-auto px-4">
+          <div className="text-center mb-12">
+            <h2 className="text-3xl md:text-5xl font-bold text-gray-800 mb-4">Volunteer Stories</h2>
+            <p className="text-xl text-gray-600 max-w-3xl mx-auto">
+              No testimonials available at the moment. Check back soon!
+            </p>
+          </div>
+        </div>
+      </section>
+    );
+  }
 
   return (
     <section className="py-20 bg-gradient-to-r from-purple-50 to-blue-50">
@@ -177,14 +223,14 @@ export default function TestimonialsSection() {
         >
           {testimonials.map((testimonial) => (
             <motion.div
-              key={testimonial.id}
+              key={testimonial._id}
               whileHover={{ scale: 1.03, y: -5 }}
               className="flex-shrink-0 w-80 bg-white rounded-xl shadow-lg overflow-hidden cursor-pointer"
               onClick={() => setActiveTestimonial(testimonial)}
             >
               <div className="relative h-48">
                 <Image
-                  src={testimonial.image}
+                  src={testimonial.image || '/images/default-avatar.jpg'} // Fallback image
                   alt={testimonial.name}
                   fill
                   className="object-cover"
@@ -203,6 +249,15 @@ export default function TestimonialsSection() {
                       </svg>
                     ))}
                   </div>
+                  {/* Show verification badge if verified */}
+                  {testimonial.verified && (
+                    <div className="flex items-center mt-2">
+                      <svg className="w-4 h-4 text-green-400 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M6.267 3.455a3.066 3.066 0 001.745-.723 3.066 3.066 0 013.976 0 3.066 3.066 0 001.745.723 3.066 3.066 0 012.812 2.812c.051.643.304 1.254.723 1.745a3.066 3.066 0 010 3.976 3.066 3.066 0 00-.723 1.745 3.066 3.066 0 01-2.812 2.812 3.066 3.066 0 00-1.745.723 3.066 3.066 0 01-3.976 0 3.066 3.066 0 00-1.745-.723 3.066 3.066 0 01-2.812-2.812 3.066 3.066 0 00-.723-1.745 3.066 3.066 0 010-3.976 3.066 3.066 0 00.723-1.745 3.066 3.066 0 012.812-2.812zm7.44 5.252a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                      </svg>
+                      <span className="text-green-400 text-xs">Verified</span>
+                    </div>
+                  )}
                 </div>
               </div>
               <div className="p-6">
@@ -216,6 +271,13 @@ export default function TestimonialsSection() {
                 <div className="mt-4 text-purple-600 font-medium">
                   Volunteering for {testimonial.yearsSince} {testimonial.yearsSince === 1 ? 'year' : 'years'}
                 </div>
+                {testimonial.category && (
+                  <div className="mt-2">
+                    <span className="inline-block bg-purple-100 text-purple-800 text-xs px-2 py-1 rounded-full">
+                      {testimonial.category}
+                    </span>
+                  </div>
+                )}
               </div>
             </motion.div>
           ))}
@@ -233,7 +295,7 @@ export default function TestimonialsSection() {
             >
               <div className="relative h-64 sm:h-80">
                 <Image
-                  src={activeTestimonial.image}
+                  src={activeTestimonial.image || '/images/default-avatar.jpg'}
                   alt={activeTestimonial.name}
                   fill
                   className="object-cover"
@@ -250,12 +312,26 @@ export default function TestimonialsSection() {
               <div className="p-8">
                 <div className="flex items-center justify-between mb-6">
                   <div>
-                    <h3 className="text-2xl font-bold text-gray-800">{activeTestimonial.name}</h3>
+                    <div className="flex items-center">
+                      <h3 className="text-2xl font-bold text-gray-800 mr-2">{activeTestimonial.name}</h3>
+                      {activeTestimonial.verified && (
+                        <svg className="w-6 h-6 text-green-500" fill="currentColor" viewBox="0 0 20 20">
+                          <path fillRule="evenodd" d="M6.267 3.455a3.066 3.066 0 001.745-.723 3.066 3.066 0 013.976 0 3.066 3.066 0 001.745.723 3.066 3.066 0 012.812 2.812c.051.643.304 1.254.723 1.745a3.066 3.066 0 010 3.976 3.066 3.066 0 00-.723 1.745 3.066 3.066 0 01-2.812 2.812 3.066 3.066 0 00-1.745.723 3.066 3.066 0 01-3.976 0 3.066 3.066 0 00-1.745-.723 3.066 3.066 0 01-2.812-2.812 3.066 3.066 0 00-.723-1.745 3.066 3.066 0 010-3.976 3.066 3.066 0 00.723-1.745 3.066 3.066 0 012.812-2.812zm7.44 5.252a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                        </svg>
+                      )}
+                    </div>
                     <div className="flex items-center text-gray-600">
                       <span className="mr-2">{activeTestimonial.role}</span>
                       <span className="w-1 h-1 rounded-full bg-gray-400"></span>
                       <span className="ml-2">{activeTestimonial.location}</span>
                     </div>
+                    {activeTestimonial.category && (
+                      <div className="mt-2">
+                        <span className="inline-block bg-purple-100 text-purple-800 text-sm px-3 py-1 rounded-full">
+                          {activeTestimonial.category}
+                        </span>
+                      </div>
+                    )}
                   </div>
                   <div className="flex">
                     {[...Array(5)].map((_, i) => (
@@ -277,8 +353,15 @@ export default function TestimonialsSection() {
                   </svg>
                   <p className="text-lg text-gray-700 italic">{activeTestimonial.quote}</p>
                 </div>
-                <div className="text-purple-600 font-medium">
-                  Volunteering for {activeTestimonial.yearsSince} {activeTestimonial.yearsSince === 1 ? 'year' : 'years'}
+                <div className="flex items-center justify-between">
+                  <div className="text-purple-600 font-medium">
+                    Volunteering for {activeTestimonial.yearsSince} {activeTestimonial.yearsSince === 1 ? 'year' : 'years'}
+                  </div>
+                  {activeTestimonial.publishedDate && (
+                    <div className="text-sm text-gray-500">
+                      Published: {new Date(activeTestimonial.publishedDate).toLocaleDateString()}
+                    </div>
+                  )}
                 </div>
               </div>
             </motion.div>

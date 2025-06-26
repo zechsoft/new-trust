@@ -4,7 +4,23 @@ import { useState, useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { gsap } from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
-import Image from 'next/image';
+
+interface TopVolunteer {
+  name: string;
+  hours: number;
+  badge: string;
+  email: string;
+  status: 'active' | 'inactive';
+  joinDate: string;
+}
+
+interface ImpactGoal {
+  metric: string;
+  currentValue: number;
+  targetValue: number;
+  deadline: string;
+  status: 'on-track' | 'behind' | 'achieved';
+}
 
 interface ImpactStats {
   volunteersThisMonth: number;
@@ -13,13 +29,22 @@ interface ImpactStats {
   livesImpacted: number;
 }
 
+interface ImpactData {
+  stats: ImpactStats;
+  topVolunteers: TopVolunteer[];
+  goals: ImpactGoal[];
+}
+
 const ImpactTrackerSection = () => {
-  const [impactStats, setImpactStats] = useState<ImpactStats>({
+  const [impactData, setImpactData] = useState<ImpactData | null>(null);
+  const [animatedStats, setAnimatedStats] = useState<ImpactStats>({
     volunteersThisMonth: 0,
     totalHours: 0,
     projects: 0,
     livesImpacted: 0
   });
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   
   const [userHours, setUserHours] = useState<number>(1);
   const [userImpact, setUserImpact] = useState<{hours: number, people: number}>({ hours: 1, people: 3 });
@@ -27,40 +52,101 @@ const ImpactTrackerSection = () => {
   const sectionRef = useRef<HTMLDivElement>(null);
   const countRef = useRef<HTMLDivElement>(null);
   
-  // Animate counting for stats
+  // Function to get initials from name for avatar
+  const getInitials = (name: string) => {
+    return name.split(' ').map(word => word[0]).join('').toUpperCase();
+  };
+
+  // Function to get a consistent color for each volunteer based on their name
+  const getAvatarColor = (name: string) => {
+    const colors = [
+      'bg-blue-500',
+      'bg-green-500', 
+      'bg-purple-500',
+      'bg-pink-500',
+      'bg-indigo-500',
+      'bg-yellow-500',
+      'bg-red-500',
+      'bg-teal-500'
+    ];
+    const index = name.length % colors.length;
+    return colors[index];
+  };
+  
+  // Fetch data from database
   useEffect(() => {
-    gsap.registerPlugin(ScrollTrigger);
-    
-    if (countRef.current) {
-      const tl = gsap.timeline({
-        scrollTrigger: {
-          trigger: countRef.current,
-          start: "top 80%",
-          end: "bottom 20%",
-          toggleActions: "play none none none"
+    const fetchImpactData = async () => {
+      try {
+        setLoading(true);
+        const response = await fetch('http://localhost:5000/api/vimpact'); // Adjust API endpoint as needed
+        
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
         }
-      });
-      
-      tl.to(impactStats, {
-        duration: 2,
-        volunteersThisMonth: 230,
-        totalHours: 10645,
-        projects: 52,
-        livesImpacted: 5280,
-        roundProps: ["volunteersThisMonth", "totalHours", "projects", "livesImpacted"],
-        onUpdate: () => {
-          setImpactStats({...impactStats});
-        },
-        ease: "power2.out"
-      });
-    }
-    
-    return () => {
-      if (ScrollTrigger.getById("impact-counter")) {
-        ScrollTrigger.getById("impact-counter")?.kill();
+        
+        const data: ImpactData = await response.json();
+        setImpactData(data);
+        setError(null);
+      } catch (err) {
+        console.error('Error fetching impact data:', err);
+        setError(err instanceof Error ? err.message : 'Failed to fetch data');
+        
+        // Fallback to dummy data if API fails
+        setImpactData({
+          stats: {
+            volunteersThisMonth: 230,
+            totalHours: 10645,
+            projects: 52,
+            livesImpacted: 5280
+          },
+          topVolunteers: [
+            { name: "Sarah Johnson", hours: 143, badge: "Community Hero", email: "sarah@example.com", status: "active", joinDate: "2024-01-15" },
+            { name: "Michael Chen", hours: 126, badge: "Teacher", email: "michael@example.com", status: "active", joinDate: "2024-02-20" },
+            { name: "Aisha Patel", hours: 118, badge: "Environmental Champion", email: "aisha@example.com", status: "active", joinDate: "2024-01-30" },
+            { name: "David Wilson", hours: 107, badge: "Mentor", email: "david@example.com", status: "active", joinDate: "2024-03-05" },
+          ],
+          goals: []
+        });
+      } finally {
+        setLoading(false);
       }
     };
+
+    fetchImpactData();
   }, []);
+  
+  // Animate counting for stats when data is loaded
+  useEffect(() => {
+    if (!impactData || !countRef.current) return;
+    
+    gsap.registerPlugin(ScrollTrigger);
+    
+    const tl = gsap.timeline({
+      scrollTrigger: {
+        trigger: countRef.current,
+        start: "top 80%",
+        end: "bottom 20%",
+        toggleActions: "play none none none"
+      }
+    });
+    
+    tl.to(animatedStats, {
+      duration: 2,
+      volunteersThisMonth: impactData.stats.volunteersThisMonth,
+      totalHours: impactData.stats.totalHours,
+      projects: impactData.stats.projects,
+      livesImpacted: impactData.stats.livesImpacted,
+      roundProps: ["volunteersThisMonth", "totalHours", "projects", "livesImpacted"],
+      onUpdate: () => {
+        setAnimatedStats({...animatedStats});
+      },
+      ease: "power2.out"
+    });
+    
+    return () => {
+      ScrollTrigger.getAll().forEach(trigger => trigger.kill());
+    };
+  }, [impactData]);
   
   // Calculate user impact
   useEffect(() => {
@@ -79,14 +165,49 @@ const ImpactTrackerSection = () => {
     hidden: { y: 20, opacity: 0 },
     visible: { y: 0, opacity: 1, transition: { duration: 0.5 } }
   };
-  
-  // Top volunteers data
-  const topVolunteers = [
-    { name: "Sarah Johnson", hours: 143, image: "/avatars/volunteer-1.jpg", badge: "Community Hero" },
-    { name: "Michael Chen", hours: 126, image: "/avatars/volunteer-2.jpg", badge: "Teacher" },
-    { name: "Aisha Patel", hours: 118, image: "/avatars/volunteer-3.jpg", badge: "Environmental Champion" },
-    { name: "David Wilson", hours: 107, image: "/avatars/volunteer-4.jpg", badge: "Mentor" },
-  ];
+
+  // Filter active volunteers and sort by hours
+  const activeVolunteers = impactData?.topVolunteers
+    .filter(volunteer => volunteer.status === 'active')
+    .sort((a, b) => b.hours - a.hours)
+    .slice(0, 4) || [];
+
+  if (loading) {
+    return (
+      <section className="py-16 bg-gradient-to-b from-indigo-50 to-white">
+        <div className="container mx-auto px-4">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mx-auto mb-4"></div>
+            <p className="text-gray-600">Loading impact data...</p>
+          </div>
+        </div>
+      </section>
+    );
+  }
+
+  if (error && !impactData) {
+    return (
+      <section className="py-16 bg-gradient-to-b from-indigo-50 to-white">
+        <div className="container mx-auto px-4">
+          <div className="text-center">
+            <div className="text-red-600 mb-4">
+              <svg className="w-12 h-12 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              <p className="text-lg font-semibold">Unable to load impact data</p>
+              <p className="text-sm text-gray-600 mt-1">{error}</p>
+            </div>
+            <button 
+              onClick={() => window.location.reload()} 
+              className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
+            >
+              Retry
+            </button>
+          </div>
+        </div>
+      </section>
+    );
+  }
   
   return (
     <section ref={sectionRef} className="py-16 bg-gradient-to-b from-indigo-50 to-white">
@@ -102,6 +223,11 @@ const ImpactTrackerSection = () => {
           <p className="text-xl text-gray-600 max-w-3xl mx-auto">
             Watch in real-time how our volunteers are changing the world
           </p>
+          {error && (
+            <div className="mt-4 p-3 bg-yellow-100 border border-yellow-400 text-yellow-700 rounded-md text-sm max-w-md mx-auto">
+              Using cached data due to connection issues
+            </div>
+          )}
         </motion.div>
         
         {/* Live Stats Counter */}
@@ -121,7 +247,7 @@ const ImpactTrackerSection = () => {
               </div>
               <h3 className="text-lg font-medium text-gray-700">New Volunteers</h3>
             </div>
-            <p className="text-4xl font-bold text-blue-600">{impactStats.volunteersThisMonth}</p>
+            <p className="text-4xl font-bold text-blue-600">{animatedStats.volunteersThisMonth}</p>
             <p className="text-sm text-gray-500 mt-1">This month</p>
           </motion.div>
           
@@ -140,7 +266,7 @@ const ImpactTrackerSection = () => {
               </div>
               <h3 className="text-lg font-medium text-gray-700">Hours Logged</h3>
             </div>
-            <p className="text-4xl font-bold text-purple-600">{impactStats.totalHours.toLocaleString()}</p>
+            <p className="text-4xl font-bold text-purple-600">{animatedStats.totalHours.toLocaleString()}</p>
             <p className="text-sm text-gray-500 mt-1">And counting</p>
           </motion.div>
           
@@ -159,7 +285,7 @@ const ImpactTrackerSection = () => {
               </div>
               <h3 className="text-lg font-medium text-gray-700">Active Projects</h3>
             </div>
-            <p className="text-4xl font-bold text-green-600">{impactStats.projects}</p>
+            <p className="text-4xl font-bold text-green-600">{animatedStats.projects}</p>
             <p className="text-sm text-gray-500 mt-1">Ongoing initiatives</p>
           </motion.div>
           
@@ -178,7 +304,7 @@ const ImpactTrackerSection = () => {
               </div>
               <h3 className="text-lg font-medium text-gray-700">Lives Impacted</h3>
             </div>
-            <p className="text-4xl font-bold text-amber-600">{impactStats.livesImpacted.toLocaleString()}</p>
+            <p className="text-4xl font-bold text-amber-600">{animatedStats.livesImpacted.toLocaleString()}</p>
             <p className="text-sm text-gray-500 mt-1">People helped</p>
           </motion.div>
         </div>
@@ -275,20 +401,16 @@ const ImpactTrackerSection = () => {
           <h3 className="text-2xl font-bold text-center text-gray-800 mb-8">Volunteer Recognition Board</h3>
           
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {topVolunteers.map((volunteer, index) => (
+            {activeVolunteers.map((volunteer, index) => (
               <motion.div 
-                key={index} 
+                key={`${volunteer.email}-${index}`} 
                 className="bg-white rounded-xl p-4 shadow-md flex items-center"
                 variants={itemVariants}
                 whileHover={{ scale: 1.02, boxShadow: "0 10px 25px -5px rgba(0, 0, 0, 0.1)" }}
                 transition={{ duration: 0.2 }}
               >
-                <div className="w-16 h-16 relative mr-4 rounded-full overflow-hidden bg-gray-200">
-                  <div className="absolute inset-0 flex items-center justify-center text-gray-400">
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                    </svg>
-                  </div>
+                <div className={`w-16 h-16 rounded-full flex items-center justify-center text-white font-bold text-lg mr-4 ${getAvatarColor(volunteer.name)}`}>
+                  {getInitials(volunteer.name)}
                 </div>
                 <div className="flex-1">
                   <h4 className="font-bold text-gray-800">{volunteer.name}</h4>
@@ -302,6 +424,13 @@ const ImpactTrackerSection = () => {
                     {volunteer.badge}
                   </span>
                 </div>
+                {index === 0 && (
+                  <div className="ml-2">
+                    <svg className="w-6 h-6 text-yellow-500" fill="currentColor" viewBox="0 0 24 24">
+                      <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+                    </svg>
+                  </div>
+                )}
               </motion.div>
             ))}
           </div>

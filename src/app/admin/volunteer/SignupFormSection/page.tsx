@@ -27,7 +27,7 @@ import {
 import Link from 'next/link';
 
 interface Volunteer {
-  id: string;
+  _id: string;
   firstName: string;
   lastName: string;
   email: string;
@@ -39,90 +39,62 @@ interface Volunteer {
   skills: string[];
   experience: string;
   languages: string[];
-  aadhaarCard: string;
-  photo: string;
-  status: 'pending' | 'approved' | 'rejected';
-  signupDate: string;
+  aadhaarCardPath: string;
+  photoPath: string;
   volunteerId: string;
-  lastUpdated: string;
+  certificateDate?: string;
+  badgeLevel?: string;
+  createdAt: string;
+  updatedAt: string;
+  status?: 'pending' | 'approved' | 'rejected'; // Add status field to your schema if needed
 }
 
 export default function AdminVolunteerSignupsPage() {
   const [volunteers, setVolunteers] = useState<Volunteer[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState('all');
   const [selectedVolunteer, setSelectedVolunteer] = useState<Volunteer | null>(null);
   const [viewMode, setViewMode] = useState<'list' | 'details'>('list');
 
-  // Mock data - in a real app, you would fetch this from your API
+  // Fetch volunteers from API
   useEffect(() => {
-    const mockVolunteers: Volunteer[] = [
-      {
-        id: '1',
-        firstName: 'Rahul',
-        lastName: 'Sharma',
-        email: 'rahul.sharma@example.com',
-        phone: '+91 9876543210',
-        address: '123 Main St, Bangalore, Karnataka',
-        interests: ['Teaching & Education', 'Community Service'],
-        availability: 'Weekend mornings',
-        commitmentType: 'recurring',
-        skills: ['Teaching', 'Communication'],
-        experience: '2 years teaching underprivileged children',
-        languages: ['English', 'Hindi'],
-        aadhaarCard: '/uploads/aadhaar1.jpg',
-        photo: '/uploads/photo1.jpg',
-        status: 'approved',
-        signupDate: '2023-10-15',
-        volunteerId: 'VOL-12345-2023',
-        lastUpdated: '2023-10-16'
-      },
-      {
-        id: '2',
-        firstName: 'Priya',
-        lastName: 'Patel',
-        email: 'priya.patel@example.com',
-        phone: '+91 8765432109',
-        address: '456 Oak Ave, Mumbai, Maharashtra',
-        interests: ['Medical & Healthcare', 'Fundraising'],
-        availability: 'Weekday evenings',
-        commitmentType: 'one-time',
-        skills: ['Medical', 'Fundraising'],
-        experience: 'Nursing student looking to gain experience',
-        languages: ['English', 'Hindi', 'Marathi'],
-        aadhaarCard: '/uploads/aadhaar2.jpg',
-        photo: '/uploads/photo2.jpg',
-        status: 'pending',
-        signupDate: '2023-11-02',
-        volunteerId: 'VOL-23456-2023',
-        lastUpdated: '2023-11-02'
-      },
-      {
-        id: '3',
-        firstName: 'Amit',
-        lastName: 'Singh',
-        email: 'amit.singh@example.com',
-        phone: '+91 7654321098',
-        address: '789 Pine Rd, Delhi',
-        interests: ['Environmental', 'Event Planning'],
-        availability: 'Flexible schedule',
-        commitmentType: 'recurring',
-        skills: ['Leadership', 'Organization'],
-        experience: 'Organized community clean-up events',
-        languages: ['English', 'Hindi', 'Punjabi'],
-        aadhaarCard: '/uploads/aadhaar3.jpg',
-        photo: '/uploads/photo3.jpg',
-        status: 'rejected',
-        signupDate: '2023-09-28',
-        volunteerId: 'VOL-34567-2023',
-        lastUpdated: '2023-09-30'
-      }
-    ];
-
-    setVolunteers(mockVolunteers);
-    setLoading(false);
+    fetchVolunteers();
   }, []);
+
+  const fetchVolunteers = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      const response = await fetch('http://localhost:5000/api/vsignup');
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      
+      // Transform data to match expected format
+      const transformedData = data.map((volunteer: any) => ({
+        ...volunteer,
+        id: volunteer._id, // For backward compatibility
+        signupDate: volunteer.createdAt,
+        lastUpdated: volunteer.updatedAt,
+        aadhaarCard: volunteer.aadhaarCardPath,
+        photo: volunteer.photoPath,
+        status: volunteer.status || 'pending', // Default to pending if not set
+      }));
+      
+      setVolunteers(transformedData);
+    } catch (error) {
+      console.error('Error fetching volunteers:', error);
+      setError('Failed to load volunteer data. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const filteredVolunteers = volunteers.filter(volunteer => {
     const matchesSearch = 
@@ -136,24 +108,54 @@ export default function AdminVolunteerSignupsPage() {
     return matchesSearch && matchesStatus;
   });
 
+  const updateVolunteerStatus = async (id: string, status: 'approved' | 'rejected') => {
+    try {
+      const response = await fetch(`http://localhost:5000/api/vsignup/${id}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ status }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to update volunteer status');
+      }
+
+      // Update local state
+      setVolunteers(prev => 
+        prev.map(v => 
+          v._id === id ? { 
+            ...v, 
+            status, 
+            lastUpdated: new Date().toISOString() 
+          } : v
+        )
+      );
+
+      if (selectedVolunteer && selectedVolunteer._id === id) {
+        setSelectedVolunteer(prev => prev ? { ...prev, status } : null);
+      }
+
+      // Optionally close details view after action
+      if (viewMode === 'details') {
+        setTimeout(() => {
+          setSelectedVolunteer(null);
+          setViewMode('list');
+        }, 1000);
+      }
+    } catch (error) {
+      console.error('Error updating volunteer status:', error);
+      alert('Failed to update volunteer status. Please try again.');
+    }
+  };
+
   const approveVolunteer = (id: string) => {
-    setVolunteers(prev => 
-      prev.map(v => 
-        v.id === id ? { ...v, status: 'approved', lastUpdated: new Date().toISOString().split('T')[0] } : v
-      )
-    );
-    setSelectedVolunteer(null);
-    setViewMode('list');
+    updateVolunteerStatus(id, 'approved');
   };
 
   const rejectVolunteer = (id: string) => {
-    setVolunteers(prev => 
-      prev.map(v => 
-        v.id === id ? { ...v, status: 'rejected', lastUpdated: new Date().toISOString().split('T')[0] } : v
-      )
-    );
-    setSelectedVolunteer(null);
-    setViewMode('list');
+    updateVolunteerStatus(id, 'rejected');
   };
 
   const getStatusColor = (status: string) => {
@@ -174,6 +176,49 @@ export default function AdminVolunteerSignupsPage() {
     setSelectedVolunteer(null);
     setViewMode('list');
   };
+
+  const exportVolunteers = () => {
+    const csv = [
+      ['Volunteer ID', 'Name', 'Email', 'Phone', 'Status', 'Signup Date'].join(','),
+      ...filteredVolunteers.map(v => [
+        v.volunteerId,
+        `${v.firstName} ${v.lastName}`,
+        v.email,
+        v.phone,
+        v.status,
+        new Date(v.signupDate).toLocaleDateString()
+      ].join(','))
+    ].join('\n');
+
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `volunteers-${new Date().toISOString().split('T')[0]}.csv`;
+    a.click();
+    window.URL.revokeObjectURL(url);
+  };
+
+  // Error state
+  if (error) {
+    return (
+      <div className="min-h-screen bg-gray-50 p-6">
+        <div className="max-w-md mx-auto mt-20">
+          <div className="bg-red-50 border border-red-200 rounded-lg p-6 text-center">
+            <AlertCircle className="h-12 w-12 text-red-600 mx-auto mb-4" />
+            <h2 className="text-lg font-semibold text-red-900 mb-2">Error Loading Data</h2>
+            <p className="text-red-700 mb-4">{error}</p>
+            <button 
+              onClick={fetchVolunteers}
+              className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700"
+            >
+              Try Again
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50 p-6">
@@ -247,7 +292,10 @@ export default function AdminVolunteerSignupsPage() {
                   <option value="approved">Approved</option>
                   <option value="rejected">Rejected</option>
                 </select>
-                <button className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 flex items-center space-x-2">
+                <button 
+                  onClick={exportVolunteers}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 flex items-center space-x-2"
+                >
                   <Download className="h-4 w-4" />
                   <span>Export</span>
                 </button>
@@ -255,8 +303,9 @@ export default function AdminVolunteerSignupsPage() {
             </div>
             
             {loading ? (
-              <div className="p-6 text-center">
-                <p>Loading volunteer data...</p>
+              <div className="p-8 text-center">
+                <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                <p className="mt-4 text-gray-600">Loading volunteer data...</p>
               </div>
             ) : (
               <div className="overflow-x-auto">
@@ -273,60 +322,71 @@ export default function AdminVolunteerSignupsPage() {
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
-                    {filteredVolunteers.map((volunteer) => (
-                      <tr key={volunteer.id}>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                          {volunteer.volunteerId}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm font-medium text-gray-900">
-                            {volunteer.firstName} {volunteer.lastName}
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm text-gray-900">{volunteer.email}</div>
-                          <div className="text-sm text-gray-500">{volunteer.phone}</div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm text-gray-900">
-                            {volunteer.interests.slice(0, 2).join(', ')}
-                            {volunteer.interests.length > 2 ? '...' : ''}
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          {new Date(volunteer.signupDate).toLocaleDateString()}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(volunteer.status)}`}>
-                            {volunteer.status}
-                          </span>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">
-                          <button 
-                            onClick={() => viewVolunteerDetails(volunteer)}
-                            className="text-blue-600 hover:text-blue-900"
-                          >
-                            <Eye className="h-4 w-4" />
-                          </button>
-                          {volunteer.status === 'pending' && (
-                            <>
-                              <button 
-                                onClick={() => approveVolunteer(volunteer.id)}
-                                className="text-green-600 hover:text-green-900"
-                              >
-                                <CheckCircle className="h-4 w-4" />
-                              </button>
-                              <button 
-                                onClick={() => rejectVolunteer(volunteer.id)}
-                                className="text-red-600 hover:text-red-900"
-                              >
-                                <Trash2 className="h-4 w-4" />
-                              </button>
-                            </>
-                          )}
+                    {filteredVolunteers.length === 0 ? (
+                      <tr>
+                        <td colSpan={7} className="px-6 py-8 text-center text-gray-500">
+                          No volunteers found matching your criteria.
                         </td>
                       </tr>
-                    ))}
+                    ) : (
+                      filteredVolunteers.map((volunteer) => (
+                        <tr key={volunteer._id}>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                            {volunteer.volunteerId}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="text-sm font-medium text-gray-900">
+                              {volunteer.firstName} {volunteer.lastName}
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="text-sm text-gray-900">{volunteer.email}</div>
+                            <div className="text-sm text-gray-500">{volunteer.phone}</div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="text-sm text-gray-900">
+                              {volunteer.interests.slice(0, 2).join(', ')}
+                              {volunteer.interests.length > 2 ? '...' : ''}
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                            {new Date(volunteer.signupDate).toLocaleDateString()}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(volunteer.status)}`}>
+                              {volunteer.status}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">
+                            <button 
+                              onClick={() => viewVolunteerDetails(volunteer)}
+                              className="text-blue-600 hover:text-blue-900"
+                              title="View Details"
+                            >
+                              <Eye className="h-4 w-4" />
+                            </button>
+                            {volunteer.status === 'pending' && (
+                              <>
+                                <button 
+                                  onClick={() => approveVolunteer(volunteer._id)}
+                                  className="text-green-600 hover:text-green-900"
+                                  title="Approve"
+                                >
+                                  <CheckCircle className="h-4 w-4" />
+                                </button>
+                                <button 
+                                  onClick={() => rejectVolunteer(volunteer._id)}
+                                  className="text-red-600 hover:text-red-900"
+                                  title="Reject"
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </button>
+                              </>
+                            )}
+                          </td>
+                        </tr>
+                      ))
+                    )}
                   </tbody>
                 </table>
               </div>
@@ -357,14 +417,14 @@ export default function AdminVolunteerSignupsPage() {
                   {selectedVolunteer.status === 'pending' && (
                     <>
                       <button 
-                        onClick={() => approveVolunteer(selectedVolunteer.id)}
+                        onClick={() => approveVolunteer(selectedVolunteer._id)}
                         className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 flex items-center space-x-2"
                       >
                         <CheckCircle className="h-4 w-4" />
                         <span>Approve</span>
                       </button>
                       <button 
-                        onClick={() => rejectVolunteer(selectedVolunteer.id)}
+                        onClick={() => rejectVolunteer(selectedVolunteer._id)}
                         className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 flex items-center space-x-2"
                       >
                         <Trash2 className="h-4 w-4" />
@@ -383,9 +443,12 @@ export default function AdminVolunteerSignupsPage() {
                       <div className="flex flex-col items-center">
                         <div className="w-32 h-32 rounded-full overflow-hidden mb-4 border-4 border-white shadow">
                           <img 
-                            src={selectedVolunteer.photo} 
+                            src={selectedVolunteer.photo || '/default-avatar.png'} 
                             alt={`${selectedVolunteer.firstName} ${selectedVolunteer.lastName}`}
                             className="w-full h-full object-cover"
+                            onError={(e) => {
+                              e.currentTarget.src = '/default-avatar.png';
+                            }}
                           />
                         </div>
                         <h2 className="text-xl font-bold text-gray-900">
@@ -497,14 +560,16 @@ export default function AdminVolunteerSignupsPage() {
                               <File className="h-5 w-5 text-gray-400 mr-2" />
                               <span className="text-sm text-gray-900">aadhaar_card.jpg</span>
                             </div>
-                            <a 
-                              href={selectedVolunteer.aadhaarCard} 
-                              target="_blank" 
-                              rel="noopener noreferrer"
-                              className="text-blue-600 hover:text-blue-800"
-                            >
-                              <Eye className="h-4 w-4" />
-                            </a>
+                            {selectedVolunteer.aadhaarCard && (
+                              <a 
+                                href={selectedVolunteer.aadhaarCard} 
+                                target="_blank" 
+                                rel="noopener noreferrer"
+                                className="text-blue-600 hover:text-blue-800"
+                              >
+                                <Eye className="h-4 w-4" />
+                              </a>
+                            )}
                           </div>
                         </div>
                         <div>
@@ -514,14 +579,16 @@ export default function AdminVolunteerSignupsPage() {
                               <Image className="h-5 w-5 text-gray-400 mr-2" />
                               <span className="text-sm text-gray-900">profile_photo.jpg</span>
                             </div>
-                            <a 
-                              href={selectedVolunteer.photo} 
-                              target="_blank" 
-                              rel="noopener noreferrer"
-                              className="text-blue-600 hover:text-blue-800"
-                            >
-                              <Eye className="h-4 w-4" />
-                            </a>
+                            {selectedVolunteer.photo && (
+                              <a 
+                                href={selectedVolunteer.photo} 
+                                target="_blank" 
+                                rel="noopener noreferrer"
+                                className="text-blue-600 hover:text-blue-800"
+                              >
+                                <Eye className="h-4 w-4" />
+                              </a>
+                            )}
                           </div>
                         </div>
                       </div>

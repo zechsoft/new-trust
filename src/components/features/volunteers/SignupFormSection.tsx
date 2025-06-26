@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import html2canvas from 'html2canvas';
+import axios from 'axios'; 
 import jsPDF from 'jspdf';
 import { QRCodeCanvas } from 'qrcode.react';
 
@@ -258,29 +259,70 @@ const SignupFormSection = ({ onSubmitSuccess }: SignupFormSectionProps) => {
 
   // Form submission
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  e.preventDefault();
 
-    if (validateStep()) {
-      setIsSubmitting(true);
+  if (!validateStep()) return;
 
-      // Simulate API call
-      await new Promise((resolve) => setTimeout(resolve, 1500));
+  setIsSubmitting(true);
 
-      console.log('Form submitted with values:', formData);
-      setIsSubmitting(false);
-      setFormSubmitted(true);
-
-      // Show certificate and ID card
-      setShowCertificate(true);
-      setShowIdCard(true);
-
-      // Simulate email sending
-      console.log('Sending email with certificate and ID card to:', formData.email);
-
-      // Trigger confetti effect
-      onSubmitSuccess();
+  try {
+    // 🔹 Upload Aadhaar Card
+    let aadhaarCardUrl = '';
+    if (formData.aadhaarCard) {
+      const aadhaarForm = new FormData();
+      aadhaarForm.append('image', formData.aadhaarCard);
+      const aadhaarRes = await axios.post('http://localhost:5000/api/vsignup/upload-image', aadhaarForm);
+      aadhaarCardUrl = aadhaarRes.data.url;
     }
-  };
+
+    // 🔹 Upload Photo
+    let photoUrl = '';
+    if (formData.photo) {
+      const photoForm = new FormData();
+      photoForm.append('image', formData.photo);
+      const photoRes = await axios.post('http://localhost:5000/api/vsignup/upload-image', photoForm);
+      photoUrl = photoRes.data.url;
+    }
+
+    // 🔹 Prepare full volunteer data
+    const payload = {
+      firstName: formData.firstName,
+      lastName: formData.lastName,
+      email: formData.email,
+      phone: formData.phone,
+      address: formData.address,
+      interests: formData.interests,
+      availability: formData.availability,
+      commitmentType: formData.commitmentType,
+      skills: formData.skills,
+      experience: formData.experience,
+      languages: formData.languages,
+      aadhaarCardPath: aadhaarCardUrl,
+      photoPath: photoUrl,
+      volunteerId,
+      certificateDate,
+      badgeLevel: getBadgeLevel(),
+    };
+
+    // 🔹 Submit form data to backend
+    const response = await axios.post('http://localhost:5000/api/vsignup', payload);
+
+    console.log('Volunteer created:', response.data);
+
+    setIsSubmitting(false);
+    setFormSubmitted(true);
+    setShowCertificate(true);
+    setShowIdCard(true);
+
+    // Simulate sending email (can be enhanced later)
+    console.log('Sending certificate to:', formData.email);
+
+    onSubmitSuccess();
+  } catch (error) {
+    console.error('Error submitting form:', error);
+    setIsSubmitting(false);
+  }
+};
 
   // Generate PDF certificate
   const downloadCertificate = async () => {

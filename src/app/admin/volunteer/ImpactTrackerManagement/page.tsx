@@ -142,46 +142,110 @@ export default function AdminImpactTrackerPage() {
   const [newVolunteer, setNewVolunteer] = useState<Partial<TopVolunteer>>({});
   const [showAddVolunteer, setShowAddVolunteer] = useState(false);
 
-  const handleStatsUpdate = () => {
-    setImpactStats(tempStats);
-    setEditingStats(false);
+  useEffect(() => {
+  const fetchDashboard = async () => {
+    try {
+      const res = await fetch('http://localhost:5000/api/vimpact');
+      const data = await res.json();
+
+      // Update state with fetched values
+      setImpactStats(data.stats);
+      setTempStats(data.stats);
+      setTopVolunteers(
+        data.topVolunteers.map((v: any) => ({
+          ...v,
+          id: v._id,
+          joinDate: v.joinDate.split('T')[0]
+        }))
+      );
+    } catch (err) {
+      console.error('Failed to load dashboard data:', err);
+    }
   };
+
+  fetchDashboard();
+}, []);
+
+
+
+  const handleStatsUpdate = async () => {
+  try {
+    const res = await fetch('http://localhost:5000/api/vimpact/stats', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(tempStats)
+    });
+
+    const updatedStats = await res.json();
+    setImpactStats(updatedStats);
+    setEditingStats(false);
+  } catch (err) {
+    console.error('Error updating stats:', err);
+  }
+};
+
 
   const handleStatsCancelEdit = () => {
     setTempStats(impactStats);
     setEditingStats(false);
   };
 
-  const handleVolunteerUpdate = (id: string, updatedVolunteer: Partial<TopVolunteer>) => {
-    setTopVolunteers(prev => 
-      prev.map(vol => 
-        vol.id === id ? { ...vol, ...updatedVolunteer } : vol
-      )
+  const handleVolunteerUpdate = async (id: string, updatedVolunteer: Partial<TopVolunteer>) => {
+  try {
+    const res = await fetch(`http://localhost:5000/api/vimpact/volunteers/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(updatedVolunteer)
+    });
+
+    const updated = await res.json();
+    setTopVolunteers(prev =>
+      prev.map(vol => vol.id === id ? { ...vol, ...updated, id: updated._id } : vol)
     );
     setEditingVolunteer(null);
-  };
+  } catch (err) {
+    console.error('Error updating volunteer:', err);
+  }
+};
 
-  const handleAddVolunteer = () => {
-    if (newVolunteer.name && newVolunteer.hours && newVolunteer.badge && newVolunteer.email) {
-      const volunteer: TopVolunteer = {
-        id: Date.now().toString(),
-        name: newVolunteer.name,
-        hours: newVolunteer.hours,
-        badge: newVolunteer.badge,
-        email: newVolunteer.email,
-        image: '/avatars/default-volunteer.jpg',
-        status: 'active',
-        joinDate: new Date().toISOString().split('T')[0]
-      };
-      setTopVolunteers(prev => [...prev, volunteer]);
+
+  const handleAddVolunteer = async () => {
+  if (newVolunteer.name && newVolunteer.hours && newVolunteer.badge && newVolunteer.email) {
+    try {
+      const res = await fetch('http://localhost:5000/api/vimpact/volunteers', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(newVolunteer)
+      });
+
+      const addedVolunteer = await res.json();
+      setTopVolunteers(prev => [...prev, {
+        ...addedVolunteer,
+        id: addedVolunteer._id,
+        joinDate: addedVolunteer.joinDate.split('T')[0]
+      }]);
+
       setNewVolunteer({});
       setShowAddVolunteer(false);
+    } catch (err) {
+      console.error('Error adding volunteer:', err);
     }
-  };
+  }
+};
 
-  const handleDeleteVolunteer = (id: string) => {
+
+  const handleDeleteVolunteer = async (id: string) => {
+  try {
+    await fetch(`http://localhost:5000/api/vimpact/volunteers/${id}`, {
+      method: 'DELETE'
+    });
+
     setTopVolunteers(prev => prev.filter(vol => vol.id !== id));
-  };
+  } catch (err) {
+    console.error('Error deleting volunteer:', err);
+  }
+};
+
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -327,42 +391,7 @@ export default function AdminImpactTrackerPage() {
         </div>
       </div>
 
-      {/* Impact Goals Tracking */}
-      <div className="bg-white rounded-lg shadow-sm mb-8">
-        <div className="px-6 py-4 border-b border-gray-200">
-          <h2 className="text-xl font-semibold text-gray-900">Impact Goals & Targets</h2>
-        </div>
-        <div className="p-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {goals.map((goal) => (
-              <div key={goal.id} className="bg-gray-50 rounded-lg p-4">
-                <div className="flex justify-between items-start mb-3">
-                  <h3 className="font-semibold text-gray-800">{goal.metric}</h3>
-                  <span className={`px-2 py-1 text-xs font-medium rounded-full ${getStatusColor(goal.status)}`}>
-                    {goal.status.replace('-', ' ')}
-                  </span>
-                </div>
-                <div className="mb-3">
-                  <div className="flex justify-between text-sm text-gray-600 mb-1">
-                    <span>{goal.currentValue.toLocaleString()}</span>
-                    <span>{goal.targetValue.toLocaleString()}</span>
-                  </div>
-                  <div className="w-full bg-gray-200 rounded-full h-2">
-                    <div 
-                      className={`h-2 rounded-full ${goal.status === 'on-track' ? 'bg-green-500' : goal.status === 'behind' ? 'bg-red-500' : 'bg-blue-500'}`}
-                      style={{ width: `${calculateProgress(goal.currentValue, goal.targetValue)}%` }}
-                    ></div>
-                  </div>
-                </div>
-                <div className="flex justify-between items-center text-sm text-gray-600">
-                  <span>Deadline: {new Date(goal.deadline).toLocaleDateString()}</span>
-                  <span>{Math.round(calculateProgress(goal.currentValue, goal.targetValue))}%</span>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
+      
 
       {/* Top Volunteers Management */}
       <div className="bg-white rounded-lg shadow-sm">

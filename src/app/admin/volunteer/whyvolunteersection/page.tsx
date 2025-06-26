@@ -20,7 +20,7 @@ import {
 } from 'lucide-react';
 
 interface BenefitCard {
-  id: string;
+  _id: string;
   title: string;
   description: string;
   icon: string;
@@ -40,61 +40,12 @@ interface SectionSettings {
 }
 
 export default function AdminWhyVolunteerPage() {
-  const [benefitCards, setBenefitCards] = useState<BenefitCard[]>([
-    {
-      id: '1',
-      title: 'Make an Impact',
-      description: 'Your time and skills directly change lives and create lasting positive change in communities.',
-      icon: 'Heart',
-      iconColor: 'text-red-500',
-      bgColor: 'bg-red-100',
-      order: 1,
-      isActive: true
-    },
-    {
-      id: '2',
-      title: 'Meet Like-Minded People',
-      description: 'Connect with a passionate community of changemakers who share your values and vision.',
-      icon: 'Users',
-      iconColor: 'text-blue-500',
-      bgColor: 'bg-blue-100',
-      order: 2,
-      isActive: true
-    },
-    {
-      id: '3',
-      title: 'Gain Experience & Skills',
-      description: 'Learn, grow, and develop valuable leadership skills that benefit both your personal and professional life.',
-      icon: 'Award',
-      iconColor: 'text-green-500',
-      bgColor: 'bg-green-100',
-      order: 3,
-      isActive: true
-    },
-    {
-      id: '4',
-      title: 'Travel & Explore',
-      description: 'Take advantage of opportunities to volunteer worldwide and immerse yourself in new cultures and communities.',
-      icon: 'Globe',
-      iconColor: 'text-amber-500',
-      bgColor: 'bg-amber-100',
-      order: 4,
-      isActive: true
-    }
-  ]);
-
-  const [sectionSettings, setSectionSettings] = useState<SectionSettings>({
-    title: 'Why Become a Volunteer?',
-    subtitle: 'Be the change you wish to see in the world! Join a passionate community of changemakers dedicated to helping those in need. Whether you have a few hours or a lifetime to give, your time can create an impact.',
-    isVisible: true,
-    backgroundColor: 'bg-white',
-    textAlignment: 'center',
-    animationEnabled: true
-  });
-
+  const [benefitCards, setBenefitCards] = useState<BenefitCard[]>([]);
+  const [sectionSettings, setSectionSettings] = useState<SectionSettings | null>(null);
   const [editingCard, setEditingCard] = useState<BenefitCard | null>(null);
   const [isAddingNew, setIsAddingNew] = useState(false);
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
+  const [isLoading, setIsLoading] = useState(true);
 
   const iconOptions = [
     { name: 'Heart', component: Heart },
@@ -114,19 +65,74 @@ export default function AdminWhyVolunteerPage() {
     { name: 'Emerald', iconColor: 'text-emerald-500', bgColor: 'bg-emerald-100' }
   ];
 
+  const API_URL = 'http://localhost:5000/api/vWhy';
+
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        setIsLoading(true);
+        const res = await fetch(API_URL);
+        const data = await res.json();
+        setBenefitCards(data.benefitCards || []);
+        setSectionSettings(data.sectionSettings || {
+          title: 'Why Volunteer?',
+          subtitle: 'Discover the amazing benefits of volunteering',
+          isVisible: true,
+          backgroundColor: 'bg-gray-50',
+          textAlignment: 'center',
+          animationEnabled: true
+        });
+      } catch (err) {
+        console.error('Error fetching data:', err);
+        // Set default values on error
+        setSectionSettings({
+          title: 'Why Volunteer?',
+          subtitle: 'Discover the amazing benefits of volunteering',
+          isVisible: true,
+          backgroundColor: 'bg-gray-50',
+          textAlignment: 'center',
+          animationEnabled: true
+        });
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchData();
+  }, []);
+
   const handleSaveChanges = async () => {
+    if (!sectionSettings) return;
     setSaveStatus('saving');
-    
-    // Simulate API call
-    setTimeout(() => {
-      setSaveStatus('saved');
+
+    try {
+      const res = await fetch(API_URL, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          benefitCards,
+          sectionSettings,
+        }),
+      });
+
+      if (res.ok) {
+        setSaveStatus('saved');
+      } else {
+        setSaveStatus('error');
+      }
+    } catch (err) {
+      console.error('Error saving:', err);
+      setSaveStatus('error');
+    } finally {
       setTimeout(() => setSaveStatus('idle'), 2000);
-    }, 1000);
+    }
   };
 
   const handleAddCard = () => {
     const newCard: BenefitCard = {
-      id: Date.now().toString(),
+      _id: Date.now().toString(),
       title: 'New Benefit',
       description: 'Description of the new benefit',
       icon: 'Heart',
@@ -147,21 +153,21 @@ export default function AdminWhyVolunteerPage() {
   const handleSaveCard = (updatedCard: BenefitCard) => {
     setBenefitCards(prev => 
       prev.map(card => 
-        card.id === updatedCard.id ? updatedCard : card
+        card._id === updatedCard._id ? updatedCard : card
       )
     );
     setEditingCard(null);
     setIsAddingNew(false);
   };
 
-  const handleDeleteCard = (id: string) => {
-    setBenefitCards(prev => prev.filter(card => card.id !== id));
+  const handleDeleteCard = (_id: string) => {
+    setBenefitCards(prev => prev.filter(card => card._id !== _id));
   };
 
-  const handleToggleVisibility = (id: string) => {
+  const handleToggleVisibility = (_id: string) => {
     setBenefitCards(prev => 
       prev.map(card => 
-        card.id === id ? { ...card, isActive: !card.isActive } : card
+        card._id === _id ? { ...card, isActive: !card.isActive } : card
       )
     );
   };
@@ -170,6 +176,29 @@ export default function AdminWhyVolunteerPage() {
     const iconOption = iconOptions.find(option => option.name === iconName);
     return iconOption ? iconOption.component : Heart;
   };
+
+  // Show loading state while data is being fetched
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <RefreshCw className="h-8 w-8 animate-spin mx-auto mb-4 text-blue-600" />
+          <p className="text-gray-600">Loading admin panel...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Don't render if sectionSettings is still null
+  if (!sectionSettings) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <p className="text-red-600">Error loading section settings</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50 p-6">
@@ -219,7 +248,7 @@ export default function AdminWhyVolunteerPage() {
               <input
                 type="text"
                 value={sectionSettings.title}
-                onChange={(e) => setSectionSettings(prev => ({ ...prev, title: e.target.value }))}
+                onChange={(e) => handleSectionChange('title', e.target.value)}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
               />
             </div>
@@ -228,7 +257,7 @@ export default function AdminWhyVolunteerPage() {
                 <input
                   type="checkbox"
                   checked={sectionSettings.isVisible}
-                  onChange={(e) => setSectionSettings(prev => ({ ...prev, isVisible: e.target.checked }))}
+                  onChange={(e) => handleSectionToggle('isVisible', e.target.checked)}
                   className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                 />
                 <span className="ml-2 text-sm text-gray-700">Section Visible</span>
@@ -237,7 +266,7 @@ export default function AdminWhyVolunteerPage() {
                 <input
                   type="checkbox"
                   checked={sectionSettings.animationEnabled}
-                  onChange={(e) => setSectionSettings(prev => ({ ...prev, animationEnabled: e.target.checked }))}
+                  onChange={(e) => handleSectionToggle('animationEnabled', e.target.checked)}
                   className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                 />
                 <span className="ml-2 text-sm text-gray-700">Enable Animations</span>
@@ -249,7 +278,7 @@ export default function AdminWhyVolunteerPage() {
             <label className="block text-sm font-medium text-gray-700 mb-2">Section Subtitle</label>
             <textarea
               value={sectionSettings.subtitle}
-              onChange={(e) => setSectionSettings(prev => ({ ...prev, subtitle: e.target.value }))}
+              onChange={(e) => handleSectionChange('subtitle', e.target.value)}
               rows={3}
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
             />
@@ -260,14 +289,39 @@ export default function AdminWhyVolunteerPage() {
       {/* Benefit Cards Management */}
       <div className="bg-white rounded-lg shadow-sm mb-8">
         <div className="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
-          <h2 className="text-xl font-semibold text-gray-900">Benefit Cards</h2>
-          <button
-            onClick={handleAddCard}
-            className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 flex items-center space-x-2"
-          >
-            <Plus className="h-4 w-4" />
-            <span>Add Benefit</span>
-          </button>
+          <div>
+            <h2 className="text-xl font-semibold text-gray-900">Benefit Cards</h2>
+            <p className="text-sm text-gray-500 mt-1">
+              {benefitCards.filter(card => card.isActive).length} of {benefitCards.length} cards visible
+            </p>
+          </div>
+          <div className="flex space-x-3">
+            <button
+              onClick={() => {
+                setBenefitCards(prev => prev.map(card => ({ ...card, isActive: true })));
+              }}
+              className="px-3 py-1.5 text-sm bg-green-100 text-green-700 rounded-md hover:bg-green-200 flex items-center space-x-1"
+            >
+              <Eye className="h-3 w-3" />
+              <span>Show All</span>
+            </button>
+            <button
+              onClick={() => {
+                setBenefitCards(prev => prev.map(card => ({ ...card, isActive: false })));
+              }}
+              className="px-3 py-1.5 text-sm bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 flex items-center space-x-1"
+            >
+              <EyeOff className="h-3 w-3" />
+              <span>Hide All</span>
+            </button>
+            <button
+              onClick={handleAddCard}
+              className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 flex items-center space-x-2"
+            >
+              <Plus className="h-4 w-4" />
+              <span>Add Benefit</span>
+            </button>
+          </div>
         </div>
         
         <div className="p-6">
@@ -275,10 +329,20 @@ export default function AdminWhyVolunteerPage() {
             {benefitCards.sort((a, b) => a.order - b.order).map((card) => {
               const IconComponent = getIconComponent(card.icon);
               return (
-                <div key={card.id} className="border border-gray-200 rounded-lg p-4 relative">
+                <div key={card._id} className="border border-gray-200 rounded-lg p-4 relative">
                   {!card.isActive && (
-                    <div className="absolute inset-0 bg-gray-500 bg-opacity-20 rounded-lg flex items-center justify-center">
-                      <span className="text-gray-600 font-medium">Hidden</span>
+                    <div className="absolute inset-0 bg-gray-500 bg-opacity-50 rounded-lg flex flex-col items-center justify-center z-10">
+                      <EyeOff className="h-6 w-6 text-gray-600 mb-2" />
+                      <span className="text-gray-700 font-medium text-sm">Hidden</span>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleToggleVisibility(card._id);
+                        }}
+                        className="mt-2 px-3 py-1 bg-blue-600 text-white text-xs rounded-md hover:bg-blue-700"
+                      >
+                        Show Card
+                      </button>
                     </div>
                   )}
                   
@@ -288,20 +352,38 @@ export default function AdminWhyVolunteerPage() {
                     </div>
                     <div className="flex space-x-1">
                       <button
-                        onClick={() => handleToggleVisibility(card.id)}
-                        className="p-1 text-gray-400 hover:text-gray-600"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleToggleVisibility(card._id);
+                        }}
+                        className={`p-2 rounded transition-all duration-200 ${
+                          card.isActive 
+                            ? 'text-green-600 bg-green-50 hover:bg-green-100 border border-green-200' 
+                            : 'text-gray-500 bg-gray-50 hover:bg-gray-100 border border-gray-200'
+                        }`}
+                        title={card.isActive ? 'Hide card' : 'Show card'}
                       >
                         {card.isActive ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
                       </button>
                       <button
-                        onClick={() => handleEditCard(card)}
-                        className="p-1 text-gray-400 hover:text-blue-600"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleEditCard(card);
+                        }}
+                        className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded border border-transparent hover:border-blue-200 transition-all duration-200"
+                        title="Edit card"
                       >
                         <Edit className="h-4 w-4" />
                       </button>
                       <button
-                        onClick={() => handleDeleteCard(card.id)}
-                        className="p-1 text-gray-400 hover:text-red-600"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (confirm('Are you sure you want to delete this card?')) {
+                            handleDeleteCard(card._id);
+                          }
+                        }}
+                        className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded border border-transparent hover:border-red-200 transition-all duration-200"
+                        title="Delete card"
                       >
                         <Trash2 className="h-4 w-4" />
                       </button>
@@ -310,7 +392,16 @@ export default function AdminWhyVolunteerPage() {
                   
                   <h3 className="font-semibold text-gray-900 mb-2">{card.title}</h3>
                   <p className="text-sm text-gray-600 mb-3">{card.description}</p>
-                  <div className="text-xs text-gray-500">Order: {card.order}</div>
+                  <div className="flex justify-between items-center text-xs text-gray-500">
+                    <span>Order: {card.order}</span>
+                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                      card.isActive 
+                        ? 'bg-green-100 text-green-800' 
+                        : 'bg-gray-100 text-gray-800'
+                    }`}>
+                      {card.isActive ? 'Visible' : 'Hidden'}
+                    </span>
+                  </div>
                 </div>
               );
             })}
@@ -321,7 +412,7 @@ export default function AdminWhyVolunteerPage() {
       {/* Edit Card Modal */}
       {editingCard && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-full max-w-md mx-4">
+          <div className="bg-white rounded-lg p-6 w-full max-w-md mx-4 max-h-[90vh] overflow-y-auto">
             <h3 className="text-lg font-semibold text-gray-900 mb-4">
               {isAddingNew ? 'Add New Benefit' : 'Edit Benefit'}
             </h3>
@@ -332,7 +423,7 @@ export default function AdminWhyVolunteerPage() {
                 <input
                   type="text"
                   value={editingCard.title}
-                  onChange={(e) => setEditingCard(prev => prev ? { ...prev, title: e.target.value } : null)}
+                  onChange={(e) => handleEditCardChange('title', e.target.value)}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
                 />
               </div>
@@ -341,7 +432,7 @@ export default function AdminWhyVolunteerPage() {
                 <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
                 <textarea
                   value={editingCard.description}
-                  onChange={(e) => setEditingCard(prev => prev ? { ...prev, description: e.target.value } : null)}
+                  onChange={(e) => handleEditCardChange('description', e.target.value)}
                   rows={3}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
                 />
@@ -352,7 +443,7 @@ export default function AdminWhyVolunteerPage() {
                   <label className="block text-sm font-medium text-gray-700 mb-1">Icon</label>
                   <select
                     value={editingCard.icon}
-                    onChange={(e) => setEditingCard(prev => prev ? { ...prev, icon: e.target.value } : null)}
+                    onChange={(e) => handleEditCardChange('icon', e.target.value)}
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
                   >
                     {iconOptions.map(option => (
@@ -365,14 +456,7 @@ export default function AdminWhyVolunteerPage() {
                   <label className="block text-sm font-medium text-gray-700 mb-1">Color</label>
                   <select
                     value={colorOptions.findIndex(color => color.iconColor === editingCard.iconColor)}
-                    onChange={(e) => {
-                      const selectedColor = colorOptions[parseInt(e.target.value)];
-                      setEditingCard(prev => prev ? { 
-                        ...prev, 
-                        iconColor: selectedColor.iconColor,
-                        bgColor: selectedColor.bgColor 
-                      } : null);
-                    }}
+                    onChange={(e) => handleColorChange(parseInt(e.target.value))}
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
                   >
                     {colorOptions.map((color, index) => (
@@ -387,9 +471,23 @@ export default function AdminWhyVolunteerPage() {
                 <input
                   type="number"
                   value={editingCard.order}
-                  onChange={(e) => setEditingCard(prev => prev ? { ...prev, order: parseInt(e.target.value) } : null)}
+                  onChange={(e) => handleEditCardChange('order', parseInt(e.target.value) || 1)}
+                  min="1"
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
                 />
+              </div>
+
+              <div className="flex items-center">
+                <input
+                  type="checkbox"
+                  id="cardActive"
+                  checked={editingCard.isActive}
+                  onChange={(e) => handleEditCardChange('isActive', e.target.checked)}
+                  className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                />
+                <label htmlFor="cardActive" className="ml-2 text-sm text-gray-700">
+                  Card is visible
+                </label>
               </div>
             </div>
             
@@ -404,7 +502,7 @@ export default function AdminWhyVolunteerPage() {
                 Cancel
               </button>
               <button
-                onClick={() => handleSaveCard(editingCard)}
+                onClick={() => editingCard && handleSaveCard(editingCard)}
                 className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
               >
                 Save
@@ -418,34 +516,42 @@ export default function AdminWhyVolunteerPage() {
       <div className="bg-white rounded-lg shadow-sm">
         <div className="px-6 py-4 border-b border-gray-200">
           <h2 className="text-xl font-semibold text-gray-900">Live Preview</h2>
+          <p className="text-sm text-gray-500 mt-1">Only visible cards are shown in preview</p>
         </div>
         <div className="p-6">
-          <div className={`py-12 ${sectionSettings.backgroundColor}`}>
-            <div className="container mx-auto px-4">
-              <div className={`text-${sectionSettings.textAlignment} mb-12`}>
-                <h2 className="text-3xl md:text-4xl font-bold text-gray-800 mb-4">{sectionSettings.title}</h2>
-                <p className="text-lg text-gray-600 max-w-3xl mx-auto">{sectionSettings.subtitle}</p>
-              </div>
-              
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                {benefitCards
-                  .filter(card => card.isActive)
-                  .sort((a, b) => a.order - b.order)
-                  .map((card) => {
-                    const IconComponent = getIconComponent(card.icon);
-                    return (
-                      <div key={card.id} className="bg-white rounded-xl p-6 shadow-lg border border-gray-100">
-                        <div className={`w-12 h-12 ${card.bgColor} rounded-full flex items-center justify-center mb-4 mx-auto`}>
-                          <IconComponent size={24} className={card.iconColor} />
+          {sectionSettings.isVisible ? (
+            <div className={`py-12 ${sectionSettings.backgroundColor}`}>
+              <div className="container mx-auto px-4">
+                <div className={`text-${sectionSettings.textAlignment} mb-12`}>
+                  <h2 className="text-3xl md:text-4xl font-bold text-gray-800 mb-4">{sectionSettings.title}</h2>
+                  <p className="text-lg text-gray-600 max-w-3xl mx-auto">{sectionSettings.subtitle}</p>
+                </div>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                  {benefitCards
+                    .filter(card => card.isActive)
+                    .sort((a, b) => a.order - b.order)
+                    .map((card) => {
+                      const IconComponent = getIconComponent(card.icon);
+                      return (
+                        <div key={card._id} className="bg-white rounded-xl p-6 shadow-lg border border-gray-100">
+                          <div className={`w-12 h-12 ${card.bgColor} rounded-full flex items-center justify-center mb-4 mx-auto`}>
+                            <IconComponent size={24} className={card.iconColor} />
+                          </div>
+                          <h3 className="text-lg font-bold text-gray-800 mb-3 text-center">{card.title}</h3>
+                          <p className="text-gray-600 text-center text-sm">{card.description}</p>
                         </div>
-                        <h3 className="text-lg font-bold text-gray-800 mb-3 text-center">{card.title}</h3>
-                        <p className="text-gray-600 text-center text-sm">{card.description}</p>
-                      </div>
-                    );
-                  })}
+                      );
+                    })}
+                </div>
               </div>
             </div>
-          </div>
+          ) : (
+            <div className="text-center py-12 text-gray-500">
+              <EyeOff className="h-12 w-12 mx-auto mb-4" />
+              <p>Section is currently hidden</p>
+            </div>
+          )}
         </div>
       </div>
     </div>

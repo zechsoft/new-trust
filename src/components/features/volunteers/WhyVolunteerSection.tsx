@@ -1,19 +1,43 @@
 'use client'
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { motion } from 'framer-motion';
 import { gsap } from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import Image from 'next/image';
-import { Heart, Users, Award, Globe } from 'lucide-react';
+import * as LucideIcons from 'lucide-react';
 
 const WhyVolunteerSection = () => {
   const sectionRef = useRef<HTMLElement>(null);
+  const [volunteerData, setVolunteerData] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  // Fetch data from database
+  useEffect(() => {
+    const fetchVolunteerData = async () => {
+      try {
+        const response = await fetch('http://localhost:5000/api/vWhy');
+        if (!response.ok) {
+          throw new Error('Failed to fetch volunteer data');
+        }
+        const data = await response.json();
+        setVolunteerData(data);
+      } catch (err) {
+        console.error('Error fetching volunteer data:', err);
+        setError(err.message);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchVolunteerData();
+  }, []);
 
   useEffect(() => {
     gsap.registerPlugin(ScrollTrigger);
 
-    if (sectionRef.current) {
+    if (sectionRef.current && volunteerData?.sectionSettings?.animationEnabled) {
       gsap.from('.benefit-card', {
         y: 50,
         opacity: 0,
@@ -31,7 +55,7 @@ const WhyVolunteerSection = () => {
       // Clean up ScrollTrigger
       ScrollTrigger.getAll().forEach(trigger => trigger.kill());
     };
-  }, []);
+  }, [volunteerData]);
 
   const benefitCardVariants = {
     hover: {
@@ -49,91 +73,103 @@ const WhyVolunteerSection = () => {
     }
   };
 
+  // Function to get Lucide icon component by name
+  const getIconComponent = (iconName) => {
+    const IconComponent = LucideIcons[iconName];
+    return IconComponent || LucideIcons.Heart; // Fallback to Heart icon
+  };
+
+  // Loading state
+  if (loading) {
+    return (
+      <section className="py-20 bg-white">
+        <div className="container mx-auto px-4">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900 mx-auto"></div>
+            <p className="mt-4 text-gray-600">Loading...</p>
+          </div>
+        </div>
+      </section>
+    );
+  }
+
+  // Error state
+  if (error) {
+    return (
+      <section className="py-20 bg-white">
+        <div className="container mx-auto px-4">
+          <div className="text-center">
+            <p className="text-red-600">Error loading volunteer section: {error}</p>
+          </div>
+        </div>
+      </section>
+    );
+  }
+
+  // Don't render if section is not visible
+  if (!volunteerData?.sectionSettings?.isVisible) {
+    return null;
+  }
+
+  const { sectionSettings, benefitCards } = volunteerData;
+  const activeCards = benefitCards?.filter(card => card.isActive)?.sort((a, b) => a.order - b.order) || [];
+
   return (
-    <section ref={sectionRef} className="py-20 bg-white">
+    <section 
+      ref={sectionRef} 
+      className={`py-20 ${sectionSettings.backgroundColor || 'bg-white'}`}
+    >
       <div className="container mx-auto px-4">
         <motion.div 
-          className="text-center mb-16"
+          className={`mb-16 text-${sectionSettings.textAlignment || 'center'}`}
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
           transition={{ duration: 0.6 }}
         >
-          <h2 className="text-3xl md:text-5xl font-bold text-gray-800 mb-4">Why Become a Volunteer?</h2>
+          <h2 className="text-3xl md:text-5xl font-bold text-gray-800 mb-4">
+            {sectionSettings.title || 'Why Become a Volunteer?'}
+          </h2>
           <p className="text-xl text-gray-600 max-w-3xl mx-auto">
-            Be the change you wish to see in the world! Join a passionate community of changemakers dedicated to helping those in need. Whether you have a few hours or a lifetime to give, your time can create an impact.
+            {sectionSettings.subtitle || 'Be the change you wish to see in the world! Join a passionate community of changemakers dedicated to helping those in need.'}
           </p>
         </motion.div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
-          {/* Make an Impact */}
-          <motion.div 
-            className="benefit-card bg-white rounded-xl p-8 shadow-lg border border-gray-100"
-            variants={benefitCardVariants}
-            whileHover="hover"
-          >
-            <motion.div 
-              className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mb-6 mx-auto"
-              variants={iconAnimationVariants}
-              whileHover="hover"
-            >
-              <Heart size={32} className="text-red-500" />
-            </motion.div>
-            <h3 className="text-2xl font-bold text-gray-800 mb-4 text-center">Make an Impact</h3>
-            <p className="text-gray-600 text-center">Your time and skills directly change lives and create lasting positive change in communities.</p>
-          </motion.div>
-
-          {/* Meet Like-Minded People */}
-          <motion.div 
-            className="benefit-card bg-white rounded-xl p-8 shadow-lg border border-gray-100"
-            variants={benefitCardVariants}
-            whileHover="hover"
-          >
-            <motion.div 
-              className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mb-6 mx-auto"
-              variants={iconAnimationVariants}
-              whileHover="hover"
-            >
-              <Users size={32} className="text-blue-500" />
-            </motion.div>
-            <h3 className="text-2xl font-bold text-gray-800 mb-4 text-center">Meet Like-Minded People</h3>
-            <p className="text-gray-600 text-center">Connect with a passionate community of changemakers who share your values and vision.</p>
-          </motion.div>
-
-          {/* Gain Experience & Skills */}
-          <motion.div 
-            className="benefit-card bg-white rounded-xl p-8 shadow-lg border border-gray-100"
-            variants={benefitCardVariants}
-            whileHover="hover"
-          >
-            <motion.div 
-              className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mb-6 mx-auto"
-              variants={iconAnimationVariants}
-              whileHover="hover"
-            >
-              <Award size={32} className="text-green-500" />
-            </motion.div>
-            <h3 className="text-2xl font-bold text-gray-800 mb-4 text-center">Gain Experience & Skills</h3>
-            <p className="text-gray-600 text-center">Learn, grow, and develop valuable leadership skills that benefit both your personal and professional life.</p>
-          </motion.div>
-
-          {/* Travel & Explore */}
-          <motion.div 
-            className="benefit-card bg-white rounded-xl p-8 shadow-lg border border-gray-100"
-            variants={benefitCardVariants}
-            whileHover="hover"
-          >
-            <motion.div 
-              className="w-16 h-16 bg-amber-100 rounded-full flex items-center justify-center mb-6 mx-auto"
-              variants={iconAnimationVariants}
-              whileHover="hover"
-            >
-              <Globe size={32} className="text-amber-500" />
-            </motion.div>
-            <h3 className="text-2xl font-bold text-gray-800 mb-4 text-center">Travel & Explore</h3>
-            <p className="text-gray-600 text-center">Take advantage of opportunities to volunteer worldwide and immerse yourself in new cultures and communities.</p>
-          </motion.div>
+        <div className={`grid grid-cols-1 md:grid-cols-2 ${activeCards.length >= 4 ? 'lg:grid-cols-4' : `lg:grid-cols-${activeCards.length}`} gap-8`}>
+          {activeCards.map((card, index) => {
+            const IconComponent = getIconComponent(card.icon);
+            
+            return (
+              <motion.div 
+                key={index}
+                className="benefit-card bg-white rounded-xl p-8 shadow-lg border border-gray-100"
+                variants={sectionSettings.animationEnabled ? benefitCardVariants : {}}
+                whileHover={sectionSettings.animationEnabled ? "hover" : undefined}
+              >
+                <motion.div 
+                  className={`w-16 h-16 ${card.bgColor || 'bg-red-100'} rounded-full flex items-center justify-center mb-6 mx-auto`}
+                  variants={sectionSettings.animationEnabled ? iconAnimationVariants : {}}
+                  whileHover={sectionSettings.animationEnabled ? "hover" : undefined}
+                >
+                  <IconComponent size={32} className={card.iconColor || 'text-red-500'} />
+                </motion.div>
+                <h3 className="text-2xl font-bold text-gray-800 mb-4 text-center">
+                  {card.title}
+                </h3>
+                <p className="text-gray-600 text-center">
+                  {card.description}
+                </p>
+              </motion.div>
+            );
+          })}
         </div>
+
+        {/* Show message if no active cards */}
+        {activeCards.length === 0 && (
+          <div className="text-center text-gray-600">
+            <p>No volunteer benefits configured yet.</p>
+          </div>
+        )}
       </div>
     </section>
   );

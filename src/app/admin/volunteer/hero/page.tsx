@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
+import axios from 'axios';
 import { 
   Save, 
   Upload, 
@@ -55,41 +56,106 @@ export default function AdminHeroManagement() {
     enableVideoMute: true
   });
 
+  const API_BASE = 'http://localhost:5000/api/vhero'; // Change to your backend URL
+
   const [isPreviewMode, setIsPreviewMode] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [videoPreview, setVideoPreview] = useState<string | null>(null);
   const [videoPlaying, setVideoPlaying] = useState(false);
+  const videoRef = useRef<HTMLVideoElement>(null);
+
+  useEffect(() => {
+    const fetchHero = async () => {
+      try {
+        const response = await axios.get(API_BASE);
+        const data = response.data;
+        
+        // Ensure overlayOpacity is a valid number
+        if (data.overlayOpacity === undefined || isNaN(data.overlayOpacity)) {
+          data.overlayOpacity = 50;
+        }
+        
+        setHeroData(data);
+        setVideoPreview(data.videoUrl);
+      } catch (error) {
+        console.error('Error fetching hero data:', error);
+      }
+    };
+
+    fetchHero();
+  }, []);
 
   const handleInputChange = (field: keyof HeroData, value: any) => {
-    setHeroData(prev => ({
-      ...prev,
-      [field]: value
-    }));
+    setHeroData(prev => {
+      const newData = {
+        ...prev,
+        [field]: value
+      };
+      
+      // Special handling for overlayOpacity to prevent NaN
+      if (field === 'overlayOpacity') {
+        const numValue = parseInt(value);
+        newData.overlayOpacity = isNaN(numValue) ? 50 : numValue;
+      }
+      
+      return newData;
+    });
   };
 
-  const handleVideoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleVideoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      const videoUrl = URL.createObjectURL(file);
-      setVideoPreview(videoUrl);
-      setHeroData(prev => ({
-        ...prev,
-        videoUrl: `/videos/${file.name}` // This would be the final path after upload
-      }));
+      const previewUrl = URL.createObjectURL(file);
+      setVideoPreview(previewUrl);
+
+      const formData = new FormData();
+      formData.append('video', file);
+
+      try {
+        const res = await axios.post(`${API_BASE}/upload-video`, formData, {
+          headers: { 'Content-Type': 'multipart/form-data' },
+        });
+
+        const uploadedUrl = res.data?.url;
+        if (!uploadedUrl) {
+          throw new Error('No video URL returned');
+        }
+
+        setHeroData(prev => ({
+          ...prev,
+          videoUrl: uploadedUrl,
+        }));
+      } catch (error) {
+        console.error('Video upload failed:', error);
+        alert('Video upload failed');
+      }
     }
   };
 
   const handleSave = async () => {
     setIsSaving(true);
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 2000));
+    try {
+      await axios.put(API_BASE, heroData);
+      alert('Hero section updated successfully!');
+    } catch (error) {
+      console.error('Error saving hero data:', error);
+      alert('Failed to save hero section.');
+    }
     setIsSaving(false);
-    alert('Hero section updated successfully!');
   };
 
   const toggleVideoPreview = () => {
-    setVideoPlaying(!videoPlaying);
+    if (videoRef.current) {
+      if (videoPlaying) {
+        videoRef.current.pause();
+      } else {
+        videoRef.current.play();
+      }
+    }
   };
+
+  // Ensure overlayOpacity is always a valid number for rendering
+  const safeOverlayOpacity = isNaN(heroData.overlayOpacity) ? 50 : heroData.overlayOpacity;
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -117,7 +183,7 @@ export default function AdminHeroManagement() {
                   </label>
                   <input
                     type="text"
-                    value={heroData.title}
+                    value={heroData.title || ''}
                     onChange={(e) => handleInputChange('title', e.target.value)}
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
                     placeholder="Enter hero title"
@@ -129,7 +195,7 @@ export default function AdminHeroManagement() {
                     Quote/Subtitle
                   </label>
                   <textarea
-                    value={heroData.quote}
+                    value={heroData.quote || ''}
                     onChange={(e) => handleInputChange('quote', e.target.value)}
                     rows={3}
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
@@ -144,7 +210,7 @@ export default function AdminHeroManagement() {
                     </label>
                     <input
                       type="text"
-                      value={heroData.buttonText}
+                      value={heroData.buttonText || ''}
                       onChange={(e) => handleInputChange('buttonText', e.target.value)}
                       className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
                     />
@@ -155,7 +221,7 @@ export default function AdminHeroManagement() {
                     </label>
                     <input
                       type="text"
-                      value={heroData.buttonLink}
+                      value={heroData.buttonLink || ''}
                       onChange={(e) => handleInputChange('buttonLink', e.target.value)}
                       className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
                     />
@@ -192,7 +258,7 @@ export default function AdminHeroManagement() {
                       <span>Upload Video</span>
                     </label>
                     <span className="text-sm text-gray-500">
-                      {heroData.videoUrl.split('/').pop()}
+                      {heroData.videoUrl?.split('/').pop() || 'No video selected'}
                     </span>
                   </div>
                 </div>
@@ -201,7 +267,7 @@ export default function AdminHeroManagement() {
                   <label className="flex items-center space-x-2">
                     <input
                       type="checkbox"
-                      checked={heroData.enableVideoAutoplay}
+                      checked={heroData.enableVideoAutoplay || false}
                       onChange={(e) => handleInputChange('enableVideoAutoplay', e.target.checked)}
                       className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                     />
@@ -210,7 +276,7 @@ export default function AdminHeroManagement() {
                   <label className="flex items-center space-x-2">
                     <input
                       type="checkbox"
-                      checked={heroData.enableVideoLoop}
+                      checked={heroData.enableVideoLoop || false}
                       onChange={(e) => handleInputChange('enableVideoLoop', e.target.checked)}
                       className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                     />
@@ -219,7 +285,7 @@ export default function AdminHeroManagement() {
                   <label className="flex items-center space-x-2">
                     <input
                       type="checkbox"
-                      checked={heroData.enableVideoMute}
+                      checked={heroData.enableVideoMute || false}
                       onChange={(e) => handleInputChange('enableVideoMute', e.target.checked)}
                       className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                     />
@@ -239,13 +305,13 @@ export default function AdminHeroManagement() {
               <div className="space-y-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Overlay Opacity ({heroData.overlayOpacity}%)
+                    Overlay Opacity ({safeOverlayOpacity}%)
                   </label>
                   <input
                     type="range"
                     min="0"
                     max="100"
-                    value={heroData.overlayOpacity}
+                    value={safeOverlayOpacity}
                     onChange={(e) => handleInputChange('overlayOpacity', parseInt(e.target.value))}
                     className="w-full"
                   />
@@ -258,7 +324,7 @@ export default function AdminHeroManagement() {
                     </label>
                     <input
                       type="color"
-                      value={heroData.textColor}
+                      value={heroData.textColor || '#ffffff'}
                       onChange={(e) => handleInputChange('textColor', e.target.value)}
                       className="w-full h-10 rounded border border-gray-300"
                     />
@@ -269,7 +335,7 @@ export default function AdminHeroManagement() {
                     </label>
                     <input
                       type="color"
-                      value={heroData.buttonColor}
+                      value={heroData.buttonColor || '#7c3aed'}
                       onChange={(e) => handleInputChange('buttonColor', e.target.value)}
                       className="w-full h-10 rounded border border-gray-300"
                     />
@@ -289,7 +355,7 @@ export default function AdminHeroManagement() {
                 <label className="flex items-center space-x-2">
                   <input
                     type="checkbox"
-                    checked={heroData.enableTypewriter}
+                    checked={heroData.enableTypewriter || false}
                     onChange={(e) => handleInputChange('enableTypewriter', e.target.checked)}
                     className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                   />
@@ -305,18 +371,18 @@ export default function AdminHeroManagement() {
                       type="range"
                       min="20"
                       max="100"
-                      value={heroData.typewriterSpeed}
+                      value={heroData.typewriterSpeed || 45}
                       onChange={(e) => handleInputChange('typewriterSpeed', parseInt(e.target.value))}
                       className="w-full"
                     />
-                    <span className="text-sm text-gray-500">{heroData.typewriterSpeed}ms</span>
+                    <span className="text-sm text-gray-500">{heroData.typewriterSpeed || 45}ms</span>
                   </div>
                 )}
 
                 <label className="flex items-center space-x-2">
                   <input
                     type="checkbox"
-                    checked={heroData.enableScrollIndicator}
+                    checked={heroData.enableScrollIndicator || false}
                     onChange={(e) => handleInputChange('enableScrollIndicator', e.target.checked)}
                     className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                   />
@@ -356,6 +422,7 @@ export default function AdminHeroManagement() {
                 <div className="absolute inset-0">
                   {videoPreview ? (
                     <video
+                      ref={videoRef}
                       src={videoPreview}
                       className="w-full h-full object-cover"
                       autoPlay={heroData.enableVideoAutoplay}
@@ -371,7 +438,7 @@ export default function AdminHeroManagement() {
                   )}
                   <div 
                     className="absolute inset-0 bg-black"
-                    style={{ opacity: heroData.overlayOpacity / 100 }}
+                    style={{ opacity: safeOverlayOpacity / 100 }}
                   ></div>
                 </div>
 
@@ -379,24 +446,24 @@ export default function AdminHeroManagement() {
                 <div className="relative z-10 h-full flex flex-col items-center justify-center text-center p-6">
                   <h1 
                     className="text-2xl md:text-4xl font-bold mb-4"
-                    style={{ color: heroData.textColor }}
+                    style={{ color: heroData.textColor || '#ffffff' }}
                   >
-                    {heroData.title}
+                    {heroData.title || 'Title'}
                   </h1>
                   <p 
                     className="text-sm md:text-base mb-6 italic"
-                    style={{ color: heroData.textColor }}
+                    style={{ color: heroData.textColor || '#ffffff' }}
                   >
-                    {heroData.quote}
+                    {heroData.quote || 'Quote'}
                   </p>
                   <button
                     style={{ 
-                      backgroundColor: heroData.buttonColor,
-                      color: heroData.textColor 
+                      backgroundColor: heroData.buttonColor || '#7c3aed',
+                      color: heroData.textColor || '#ffffff'
                     }}
                     className="px-6 py-2 font-bold rounded-full transition-all duration-300 shadow-lg"
                   >
-                    {heroData.buttonText}
+                    {heroData.buttonText || 'Button'}
                   </button>
 
                   {heroData.enableScrollIndicator && (
@@ -431,15 +498,15 @@ export default function AdminHeroManagement() {
               <div className="space-y-2 text-sm">
                 <div className="flex justify-between">
                   <span className="text-gray-600">Title:</span>
-                  <span className="text-gray-900 font-medium">{heroData.title}</span>
+                  <span className="text-gray-900 font-medium">{heroData.title || 'N/A'}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-gray-600">Button Text:</span>
-                  <span className="text-gray-900 font-medium">{heroData.buttonText}</span>
+                  <span className="text-gray-900 font-medium">{heroData.buttonText || 'N/A'}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-gray-600">Overlay Opacity:</span>
-                  <span className="text-gray-900 font-medium">{heroData.overlayOpacity}%</span>
+                  <span className="text-gray-900 font-medium">{safeOverlayOpacity}%</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-gray-600">Typewriter Effect:</span>
@@ -460,4 +527,4 @@ export default function AdminHeroManagement() {
       </div>
     </div>
   );
-} 
+}

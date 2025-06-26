@@ -6,95 +6,80 @@ import Image from 'next/image';
 
 // Define types for volunteer roles
 type VolunteerRole = {
-  id: number;
+  _id: string;
   title: string;
   description: string;
   category: string;
   icon: string;
   commitment: string;
   skills: string[];
+  isActive: boolean;
+  applicantsCount: number;
+  createdDate: string;
+  lastUpdated: string;
 };
 
 export default function VolunteerRolesSection() {
   const [selectedCategory, setSelectedCategory] = useState<string>('All');
   const [selectedRole, setSelectedRole] = useState<VolunteerRole | null>(null);
+  const [volunteerRoles, setVolunteerRoles] = useState<VolunteerRole[]>([]);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [error, setError] = useState<string | null>(null);
+  const [failedImages, setFailedImages] = useState<Set<string>>(new Set());
   const modalRef = useRef<HTMLDivElement>(null);
 
-  // Sample volunteer roles data
-  const volunteerRoles: VolunteerRole[] = [
-    {
-      id: 1,
-      title: 'Teaching Assistant',
-      description: 'Help educate children in underserved communities. Provide support with reading, mathematics, and other educational activities.',
-      category: 'Teaching',
-      icon: '/icons/teaching.svg',
-      commitment: '4-8 hours weekly',
-      skills: ['Patience', 'Communication', 'Basic academic knowledge']
-    },
-    {
-      id: 2,
-      title: 'Medical Support',
-      description: 'Assist healthcare professionals in providing basic medical services to communities in need.',
-      category: 'Medical',
-      icon: '/icons/medical.svg',
-      commitment: '8-12 hours weekly',
-      skills: ['Medical background', 'Empathy', 'Organization']
-    },
-    {
-      id: 3,
-      title: 'Fundraising Coordinator',
-      description: 'Organize fundraising events and campaigns to support our various initiatives around the world.',
-      category: 'Fundraising',
-      icon: '/icons/fundraising.svg',
-      commitment: '5-10 hours weekly',
-      skills: ['Event planning', 'Communication', 'Marketing']
-    },
-    {
-      id: 4,
-      title: 'Event Organizer',
-      description: 'Plan and execute community events, workshops, and awareness campaigns.',
-      category: 'Events',
-      icon: '/icons/events.svg',
-      commitment: '10-15 hours monthly',
-      skills: ['Organization', 'Leadership', 'Creative thinking']
-    },
-    {
-      id: 5,
-      title: 'Environmental Advocate',
-      description: 'Participate in tree planting, clean-up drives, and environmental education initiatives.',
-      category: 'Environment',
-      icon: '/icons/environment.svg',
-      commitment: '8-12 hours monthly',
-      skills: ['Environmental knowledge', 'Physical stamina', 'Passion for nature']
-    },
-    {
-      id: 6,
-      title: 'Social Media Manager',
-      description: 'Help manage our social media presence and create engaging content to promote our cause.',
-      category: 'Marketing',
-      icon: '/icons/social-media.svg',
-      commitment: '5-8 hours weekly',
-      skills: ['Digital marketing', 'Content creation', 'Social media expertise']
-    },
-    {
-      id: 7,
-      title: 'Community Outreach',
-      description: 'Connect with local communities to assess needs and coordinate support efforts.',
-      category: 'Outreach',
-      icon: '/icons/community.svg',
-      commitment: '8-10 hours weekly',
-      skills: ['Communication', 'Empathy', 'Cultural awareness']
-    },
-    {
-      id: 8,
-      title: 'Technical Support',
-      description: 'Provide IT assistance, website maintenance, and technical troubleshooting.',
-      category: 'Technical',
-      icon: '/icons/technical.svg',
-      commitment: '5-10 hours weekly',
-      skills: ['IT knowledge', 'Problem-solving', 'Technical aptitude']
-    }
-  ];
+  // Default icon mapping for categories with inline SVG fallback
+  const defaultIcons: { [key: string]: string } = {
+    'Teaching': '/icons/teaching.svg',
+    'Medical': '/icons/medical.svg',
+    'Fundraising': '/icons/fundraising.svg',
+    'Events': '/icons/events.svg',
+    'Environment': '/icons/environment.svg',
+    'Marketing': '/icons/social-media.svg',
+    'Outreach': '/icons/community.svg',
+    'Technical': '/icons/technical.svg',
+    // Use inline SVG as ultimate fallback to prevent 404 loops
+    'default': 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSJub25lIiBzdHJva2U9ImN1cnJlbnRDb2xvciIgc3Ryb2tlLXdpZHRoPSIyIiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiPjxjaXJjbGUgY3g9IjEyIiBjeT0iMTIiIHI9IjEwIi8+PHBhdGggZD0ibTkgMTIgMiAyIDQtNCIvPjwvc3ZnPg=='
+  };
+
+  // Fetch volunteer roles from database
+  useEffect(() => {
+    const fetchVolunteerRoles = async () => {
+      try {
+        setLoading(true);
+        const response = await fetch('http://localhost:5000/api/vrole');
+        
+        if (!response.ok) {
+          throw new Error('Failed to fetch volunteer roles');
+        }
+        
+        const data = await response.json();
+        
+        // Filter only active roles and fix problematic icons
+        const activeRoles = data
+          .filter((role: VolunteerRole) => role.isActive)
+          .map((role: VolunteerRole) => ({
+            ...role,
+            icon: role.icon && 
+                  role.icon !== '/icons/default.svg' && 
+                  role.icon !== '/icons/volunteer.svg' && // Block volunteer.svg
+                  !role.icon.includes('volunteer.svg') // Block any variant of volunteer.svg
+              ? role.icon 
+              : defaultIcons[role.category] || defaultIcons.default
+          }));
+        
+        setVolunteerRoles(activeRoles);
+        setError(null);
+      } catch (err) {
+        console.error('Error fetching volunteer roles:', err);
+        setError('Failed to load volunteer roles. Please try again later.');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchVolunteerRoles();
+  }, []);
 
   // Get unique categories for filter
   const categories = ['All', ...Array.from(new Set(volunteerRoles.map(role => role.category)))];
@@ -118,6 +103,69 @@ export default function VolunteerRolesSection() {
     };
   }, []);
 
+  // Handle image error with smart fallback to prevent infinite loops
+  const handleImageError = (e: React.SyntheticEvent<HTMLImageElement>, originalSrc: string) => {
+    const target = e.currentTarget;
+    
+    // Prevent infinite loops by tracking failed images
+    if (failedImages.has(originalSrc)) {
+      return; // Already tried to fix this image, don't try again
+    }
+    
+    // Add to failed images set
+    setFailedImages(prev => new Set([...prev, originalSrc]));
+    
+    // Try category-specific icon first, then fallback to default
+    const role = volunteerRoles.find(r => r.icon === originalSrc);
+    if (role && defaultIcons[role.category] && defaultIcons[role.category] !== originalSrc) {
+      target.src = defaultIcons[role.category];
+    } else {
+      // Use inline SVG as final fallback
+      target.src = defaultIcons.default;
+    }
+  };
+
+  // Get the appropriate icon source for a role
+  const getIconSrc = (role: VolunteerRole): string => {
+    if (failedImages.has(role.icon)) {
+      return defaultIcons[role.category] || defaultIcons.default;
+    }
+    return role.icon;
+  };
+
+  if (loading) {
+    return (
+      <section id="volunteer-roles" className="py-20 bg-white">
+        <div className="container mx-auto px-4">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-purple-600 mx-auto"></div>
+            <p className="mt-4 text-gray-600">Loading volunteer opportunities...</p>
+          </div>
+        </div>
+      </section>
+    );
+  }
+
+  if (error) {
+    return (
+      <section id="volunteer-roles" className="py-20 bg-white">
+        <div className="container mx-auto px-4">
+          <div className="text-center">
+            <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded max-w-md mx-auto">
+              <p>{error}</p>
+            </div>
+            <button 
+              onClick={() => window.location.reload()} 
+              className="mt-4 px-6 py-2 bg-purple-600 text-white rounded-full hover:bg-purple-700 transition-colors"
+            >
+              Retry
+            </button>
+          </div>
+        </div>
+      </section>
+    );
+  }
+
   return (
     <section id="volunteer-roles" className="py-20 bg-white">
       <div className="container mx-auto px-4">
@@ -135,29 +183,39 @@ export default function VolunteerRolesSection() {
         </motion.div>
 
         {/* Category Filters */}
-        <div className="flex flex-wrap justify-center gap-4 mb-12">
-          {categories.map((category) => (
-            <motion.button
-              key={category}
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              onClick={() => setSelectedCategory(category)}
-              className={`px-6 py-2 rounded-full text-sm font-medium transition-all duration-300 ${
-                selectedCategory === category
-                  ? 'bg-purple-600 text-white shadow-md'
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-              }`}
-            >
-              {category}
-            </motion.button>
-          ))}
-        </div>
+        {categories.length > 1 && (
+          <div className="flex flex-wrap justify-center gap-4 mb-12">
+            {categories.map((category) => (
+              <motion.button
+                key={category}
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                onClick={() => setSelectedCategory(category)}
+                className={`px-6 py-2 rounded-full text-sm font-medium transition-all duration-300 ${
+                  selectedCategory === category
+                    ? 'bg-purple-600 text-white shadow-md'
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                }`}
+              >
+                {category}
+              </motion.button>
+            ))}
+          </div>
+        )}
+
+        {/* No roles message */}
+        {filteredRoles.length === 0 && (
+          <div className="text-center py-12">
+            <p className="text-gray-600 text-lg">No volunteer roles available at the moment.</p>
+            <p className="text-gray-500 mt-2">Please check back later for new opportunities.</p>
+          </div>
+        )}
 
         {/* Roles Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           {filteredRoles.map((role) => (
             <motion.div
-              key={role.id}
+              key={role._id}
               initial={{ opacity: 0, y: 20 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
@@ -172,19 +230,32 @@ export default function VolunteerRolesSection() {
               <div className="p-6 h-full flex flex-col">
                 <div className="w-16 h-16 bg-purple-100 rounded-full flex items-center justify-center mb-4 group-hover:bg-purple-200 transition-colors duration-300">
                   <Image 
-                    src={role.icon} 
+                    src={getIconSrc(role)} 
                     alt={role.title} 
                     width={32} 
                     height={32}
                     className="text-purple-600"
+                    onError={(e) => handleImageError(e, role.icon)}
                   />
                 </div>
-                <h3 className="text-xl font-bold text-gray-800 mb-2 group-hover:text-purple-600 transition-colors duration-300">{role.title}</h3>
-                <p className="text-gray-600 mb-4 flex-grow">{role.description.substring(0, 100)}...</p>
+                <h3 className="text-xl font-bold text-gray-800 mb-2 group-hover:text-purple-600 transition-colors duration-300">
+                  {role.title}
+                </h3>
+                <p className="text-gray-600 mb-4 flex-grow">
+                  {role.description.length > 100 
+                    ? `${role.description.substring(0, 100)}...` 
+                    : role.description
+                  }
+                </p>
                 <div className="flex justify-between items-center mt-auto">
                   <span className="text-sm font-medium text-purple-600">{role.category}</span>
-                  <span className="text-sm text-gray-500">{role.commitment}</span>
+                  <span className="text-sm text-gray-500">{role.commitment || 'Flexible'}</span>
                 </div>
+                {role.applicantsCount > 0 && (
+                  <div className="mt-2 text-xs text-gray-500">
+                    {role.applicantsCount} applicant{role.applicantsCount !== 1 ? 's' : ''}
+                  </div>
+                )}
               </div>
             </motion.div>
           ))}
@@ -205,16 +276,17 @@ export default function VolunteerRolesSection() {
                 animate={{ scale: 1, opacity: 1 }}
                 exit={{ scale: 0.9, opacity: 0 }}
                 transition={{ type: "spring", damping: 25 }}
-                className="bg-white rounded-2xl p-6 md:p-8 max-w-lg w-full shadow-2xl"
+                className="bg-white rounded-2xl p-6 md:p-8 max-w-lg w-full shadow-2xl max-h-[90vh] overflow-y-auto"
               >
                 <div className="flex justify-between items-start mb-6">
                   <div className="flex items-center">
                     <div className="w-12 h-12 bg-purple-100 rounded-full flex items-center justify-center mr-4">
                       <Image 
-                        src={selectedRole.icon} 
+                        src={getIconSrc(selectedRole)} 
                         alt={selectedRole.title} 
                         width={24} 
                         height={24}
+                        onError={(e) => handleImageError(e, selectedRole.icon)}
                       />
                     </div>
                     <div>
@@ -237,21 +309,34 @@ export default function VolunteerRolesSection() {
                   <p className="text-gray-600">{selectedRole.description}</p>
                 </div>
 
-                <div className="mb-6">
-                  <h4 className="text-lg font-medium text-gray-700 mb-2">Time Commitment</h4>
-                  <p className="text-gray-600">{selectedRole.commitment}</p>
-                </div>
-
-                <div className="mb-8">
-                  <h4 className="text-lg font-medium text-gray-700 mb-2">Required Skills</h4>
-                  <div className="flex flex-wrap gap-2">
-                    {selectedRole.skills.map((skill, index) => (
-                      <span key={index} className="bg-purple-100 text-purple-800 px-3 py-1 rounded-full text-sm">
-                        {skill}
-                      </span>
-                    ))}
+                {selectedRole.commitment && (
+                  <div className="mb-6">
+                    <h4 className="text-lg font-medium text-gray-700 mb-2">Time Commitment</h4>
+                    <p className="text-gray-600">{selectedRole.commitment}</p>
                   </div>
-                </div>
+                )}
+
+                {selectedRole.skills && selectedRole.skills.length > 0 && (
+                  <div className="mb-6">
+                    <h4 className="text-lg font-medium text-gray-700 mb-2">Required Skills</h4>
+                    <div className="flex flex-wrap gap-2">
+                      {selectedRole.skills.map((skill, index) => (
+                        <span key={index} className="bg-purple-100 text-purple-800 px-3 py-1 rounded-full text-sm">
+                          {skill}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {selectedRole.applicantsCount > 0 && (
+                  <div className="mb-6">
+                    <h4 className="text-lg font-medium text-gray-700 mb-2">Interest Level</h4>
+                    <p className="text-gray-600">
+                      {selectedRole.applicantsCount} volunteer{selectedRole.applicantsCount !== 1 ? 's have' : ' has'} already applied for this role
+                    </p>
+                  </div>
+                )}
 
                 <div className="flex justify-center">
                   <motion.button

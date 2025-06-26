@@ -7,86 +7,155 @@ import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import Image from 'next/image';
 
 interface FAQItem {
+  _id: string;
   question: string;
   answer: string;
   gif?: string;
+  category: string;
+  isActive: boolean;
+  order: number;
+  createdDate: string;
+  lastModified: string;
+  views: number;
 }
 
 const FAQSection = () => {
   const [activeIndex, setActiveIndex] = useState<number | null>(null);
+  const [faqs, setFaqs] = useState<FAQItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const sectionRef = useRef<HTMLDivElement>(null);
 
+  // Fetch FAQ data from database
   useEffect(() => {
-    gsap.registerPlugin(ScrollTrigger);
-
-    if (sectionRef.current) {
-      gsap.from('.faq-header', {
-        y: 30,
-        opacity: 0,
-        duration: 0.8,
-        scrollTrigger: {
-          trigger: sectionRef.current,
-          start: 'top 80%',
-          toggleActions: 'play none none none'
+    const fetchFAQs = async () => {
+      try {
+        setLoading(true);
+        const response = await fetch('http://localhost:5000/api/faq');
+        
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
         }
-      });
+        
+        const data = await response.json();
+        
+        // Filter active FAQs and sort by order
+        const activeFaqs = data
+          .filter((faq: FAQItem) => faq.isActive)
+          .sort((a: FAQItem, b: FAQItem) => a.order - b.order);
+        
+        setFaqs(activeFaqs);
+      } catch (err) {
+        console.error('Error fetching FAQs:', err);
+        setError('Failed to load FAQs. Please try again later.');
+      } finally {
+        setLoading(false);
+      }
+    };
 
-      gsap.from('.faq-item', {
-        y: 50,
-        opacity: 0,
-        stagger: 0.15,
-        duration: 0.6,
-        scrollTrigger: {
-          trigger: '.faq-list',
-          start: 'top 85%',
-          toggleActions: 'play none none none'
-        }
-      });
+    fetchFAQs();
+  }, []);
+
+  // GSAP animations
+  useEffect(() => {
+    if (!loading && faqs.length > 0) {
+      gsap.registerPlugin(ScrollTrigger);
+
+      if (sectionRef.current) {
+        gsap.from('.faq-header', {
+          y: 30,
+          opacity: 0,
+          duration: 0.8,
+          scrollTrigger: {
+            trigger: sectionRef.current,
+            start: 'top 80%',
+            toggleActions: 'play none none none'
+          }
+        });
+
+        gsap.from('.faq-item', {
+          y: 50,
+          opacity: 0,
+          stagger: 0.15,
+          duration: 0.6,
+          scrollTrigger: {
+            trigger: '.faq-list',
+            start: 'top 85%',
+            toggleActions: 'play none none none'
+          }
+        });
+      }
     }
 
     return () => {
       // Clean up ScrollTrigger
       ScrollTrigger.getAll().forEach(trigger => trigger.kill());
     };
-  }, []);
+  }, [loading, faqs]);
 
-  const toggleFAQ = (index: number) => {
+  const toggleFAQ = async (index: number, faqId: string) => {
     setActiveIndex(activeIndex === index ? null : index);
+    
+    // Track view count when FAQ is opened
+    if (activeIndex !== index) {
+      try {
+        await fetch(`/api/faq/${faqId}/view`, {
+          method: 'POST',
+        });
+      } catch (err) {
+        console.error('Error tracking FAQ view:', err);
+      }
+    }
   };
 
-  // FAQ data with questions, answers and optional GIFs
-  const faqs: FAQItem[] = [
-    {
-      question: "How much time do I need to commit as a volunteer?",
-      answer: "We offer flexible volunteering opportunities! You can commit as little as 2 hours per week or join for specific events. Many of our volunteers contribute 4-8 hours monthly, but we appreciate any time you can give. We also have one-time opportunities and ongoing positions to fit your schedule.",
-      gif: "/images/gifs/time-commitment.gif"
-    },
-    {
-      question: "Do I need any special skills or training to volunteer?",
-      answer: "No special skills are required for many volunteer positions! We provide all necessary training. We have roles suited for all skill levels, and if you have specific expertise (medical, teaching, etc.), we'll match you with opportunities where your skills can make the greatest impact.",
-      gif: "/images/gifs/skills-training.gif"
-    },
-    {
-      question: "Can I volunteer remotely or do I need to be in-person?",
-      answer: "We offer both remote and in-person volunteer opportunities! Remote options include virtual mentoring, digital content creation, translation services, and fundraising support. In-person volunteers help with community events, direct service, and on-site projects.",
-      gif: "/images/gifs/remote-volunteer.gif"
-    },
-    {
-      question: "Will I receive any benefits as a volunteer?",
-      answer: "Absolutely! Beyond the satisfaction of making a difference, our volunteers receive: training and skill development, networking opportunities, references for employment, certificates of service, access to exclusive events, and potential internship or job opportunities within our network of partners.",
-      gif: "/images/gifs/volunteer-benefits.gif"
-    },
-    {
-      question: "How do I track my volunteer hours?",
-      answer: "We provide a convenient digital volunteer portal where you can log your hours, view upcoming opportunities, connect with team leaders, and track your impact. The system is accessible via web or mobile app, making it easy to maintain your volunteer record.",
-      gif: "/images/gifs/track-hours.gif"
-    },
-    {
-      question: "Can I volunteer as part of a group or with my company?",
-      answer: "Yes! We welcome group volunteering from companies, schools, religious organizations, and social clubs. We can arrange special projects for teams and customize experiences based on your group's interests and skills. Contact our volunteer coordinator for group arrangements.",
-      gif: "/images/gifs/group-volunteer.gif"
-    }
-  ];
+  // Loading state
+  if (loading) {
+    return (
+      <section className="py-20 bg-gray-50">
+        <div className="container mx-auto px-4">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600 mx-auto mb-4"></div>
+            <p className="text-gray-600">Loading FAQs...</p>
+          </div>
+        </div>
+      </section>
+    );
+  }
+
+  // Error state
+  if (error) {
+    return (
+      <section className="py-20 bg-gray-50">
+        <div className="container mx-auto px-4">
+          <div className="text-center">
+            <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4 max-w-md mx-auto">
+              {error}
+            </div>
+            <button 
+              onClick={() => window.location.reload()} 
+              className="bg-purple-600 text-white px-4 py-2 rounded hover:bg-purple-700 transition-colors"
+            >
+              Retry
+            </button>
+          </div>
+        </div>
+      </section>
+    );
+  }
+
+  // Empty state
+  if (faqs.length === 0) {
+    return (
+      <section className="py-20 bg-gray-50">
+        <div className="container mx-auto px-4">
+          <div className="text-center">
+            <h2 className="text-4xl font-bold text-gray-800 mb-4">Frequently Asked Questions</h2>
+            <p className="text-gray-600">No FAQs available at the moment.</p>
+          </div>
+        </div>
+      </section>
+    );
+  }
 
   return (
     <section ref={sectionRef} className="py-20 bg-gray-50">
@@ -109,17 +178,25 @@ const FAQSection = () => {
           <div className="faq-list space-y-4">
             {faqs.map((faq, index) => (
               <div 
-                key={index} 
+                key={faq._id} 
                 className={`faq-item bg-white rounded-xl shadow-md overflow-hidden transition-all duration-300 ${activeIndex === index ? 'shadow-lg' : ''}`}
               >
                 <button
                   className="w-full px-6 py-5 flex justify-between items-center text-left focus:outline-none"
-                  onClick={() => toggleFAQ(index)}
+                  onClick={() => toggleFAQ(index, faq._id)}
                 >
-                  <h3 className="text-xl font-semibold text-gray-800">{faq.question}</h3>
+                  <div className="flex-1">
+                    <h3 className="text-xl font-semibold text-gray-800">{faq.question}</h3>
+                    {faq.category && (
+                      <span className="inline-block mt-1 px-2 py-1 bg-purple-100 text-purple-600 text-xs rounded-full">
+                        {faq.category}
+                      </span>
+                    )}
+                  </div>
                   <motion.div
                     animate={{ rotate: activeIndex === index ? 180 : 0 }}
                     transition={{ duration: 0.3 }}
+                    className="ml-4 flex-shrink-0"
                   >
                     <svg 
                       xmlns="http://www.w3.org/2000/svg" 
@@ -157,6 +234,14 @@ const FAQSection = () => {
                             />
                           </div>
                         )}
+                        
+                        {/* FAQ metadata */}
+                        <div className="mt-4 text-xs text-gray-400 flex justify-between items-center">
+                          <span>Views: {faq.views}</span>
+                          {faq.lastModified && (
+                            <span>Last updated: {new Date(faq.lastModified).toLocaleDateString()}</span>
+                          )}
+                        </div>
                       </div>
                     </motion.div>
                   )}

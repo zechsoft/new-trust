@@ -1,9 +1,11 @@
+  
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { gsap } from 'gsap';
 import dynamic from 'next/dynamic';
+import axios from 'axios';
 
 // Icons
 import { 
@@ -28,75 +30,108 @@ import {
   Pause,
   Volume2,
   VolumeX,
-  RotateCcw
+  RotateCcw,
+  X,
+  CheckCircle,
+  AlertCircle
 } from 'lucide-react';
+
+// Default configuration structure
+const defaultConfig = {
+  title: 'Welcome to Our Event',
+  highlightText: 'Amazing Experience',
+  typewriterSequences: ['Join us for an incredible journey', 'Experience something extraordinary', 'Create lasting memories'],
+  buttons: {
+    primary: {
+      text: 'Register Now',
+      link: '#register'
+    },
+    secondary: {
+      text: 'Learn More',
+      link: '#about'
+    }
+  },
+  videoUrl: '',
+  videoSettings: {
+    autoplay: true,
+    muted: true,
+    loop: true
+  },
+  gradientOverlay: {
+    from: 'purple-900/80',
+    to: 'blue-900/60'
+  },
+  parallaxIntensity: 0.5,
+  animationTimings: {
+    titleDelay: 0.5,
+    typewriterDelay: 1.0,
+    countdownDelay: 1.5,
+    buttonsDelay: 2.0
+  },
+  nextEvent: {
+    name: 'Upcoming Event',
+    date: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(), // 7 days from now
+    location: 'Event Venue'
+  }
+};
 
 // Mock API functions (replace with actual API calls)
 const fetchHeroBannerConfig = async () => {
-  // This would be replaced with actual API call
-  return {
-    id: 'hero-banner-1',
-    title: 'Join Our Events',
-    highlightText: 'Events',
-    typewriterSequences: [
-      'Be part of something bigger.',
-      'Join our mission to create change.',
-      'Transform lives together.'
-    ],
-    videoUrl: '/videos/events-hero.mp4',
-    videoSettings: {
-      autoplay: true,
-      muted: true,
-      loop: true
-    },
-    gradientOverlay: {
-      from: 'purple-900/80',
-      to: 'indigo-900/80'
-    },
-    nextEvent: {
-      name: 'Charity Marathon',
-      date: '2024-02-15T10:00:00Z',
-      location: 'Central Park, NYC'
-    },
-    buttons: {
-      primary: {
-        text: 'Browse Events',
-        link: '#events',
-        color: 'purple-600'
-      },
-      secondary: {
-        text: 'Host an Event',
-        link: '/host-event',
-        style: 'outline'
-      }
-    },
-    parallaxIntensity: 0.3,
-    animationTimings: {
-      titleDelay: 0,
-      typewriterDelay: 0.2,
-      countdownDelay: 0.4,
-      buttonsDelay: 0.6
-    }
-  };
+  try {
+    const response = await axios.get('http://localhost:5000/api/eventHero');
+    // Merge with default config to ensure all properties exist
+    return { ...defaultConfig, ...response.data };
+  } catch (error) {
+    console.warn('Failed to fetch config from API, using default config');
+    return defaultConfig;
+  }
 };
 
 const updateHeroBannerConfig = async (config) => {
-  // This would be replaced with actual API call
-  console.log('Updating hero banner config:', config);
-  return config;
+  const response = await axios.put('http://localhost:5000/api/eventHero', config);
+  return response.data;
+};
+
+const uploadVideo = async (file) => {
+  const formData = new FormData();
+  formData.append('video', file);
+
+  try {
+    const response = await axios.post('http://localhost:5000/api/eventHero/upload-video', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data'
+      },
+      onUploadProgress: (progressEvent) => {
+        const percent = Math.round((progressEvent.loaded * 100) / progressEvent.total);
+        console.log(`Upload Progress: ${percent}%`);
+        // Optional: Update UI with progress
+      }
+    });
+
+    return response.data; // Should include { url, filename, size }
+  } catch (err) {
+    throw new Error(err?.response?.data?.error || 'Video upload failed');
+  }
 };
 
 export default function AdminHeroBannerPage() {
-  const [config, setConfig] = useState(null);
+  const [config, setConfig] = useState(defaultConfig);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setSaving] = useState(false);
   const [activeTab, setActiveTab] = useState('content');
   const [previewMode, setPreviewMode] = useState('desktop');
   const [isPreviewPlaying, setIsPreviewPlaying] = useState(false);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  const [uploadState, setUploadState] = useState({
+    isUploading: false,
+    progress: 0,
+    error: null,
+    success: false
+  });
 
   const previewRef = useRef(null);
   const videoRef = useRef(null);
+  const fileInputRef = useRef(null);
 
   // Load initial configuration
   useEffect(() => {
@@ -107,6 +142,8 @@ export default function AdminHeroBannerPage() {
         setConfig(data);
       } catch (error) {
         console.error('Error loading hero banner config:', error);
+        // Use default config if API fails
+        setConfig(defaultConfig);
       } finally {
         setIsLoading(false);
       }
@@ -115,7 +152,7 @@ export default function AdminHeroBannerPage() {
     loadConfig();
   }, []);
 
-  // Update configuration
+  // Update configuration with safe property access
   const updateConfig = (path, value) => {
     setConfig(prev => {
       const newConfig = { ...prev };
@@ -133,6 +170,108 @@ export default function AdminHeroBannerPage() {
     setHasUnsavedChanges(true);
   };
 
+  // Safe property access helper
+  const getConfigValue = (path, defaultValue = '') => {
+    const keys = path.split('.');
+    let current = config;
+    
+    for (const key of keys) {
+      if (current && current[key] !== undefined) {
+        current = current[key];
+      } else {
+        return defaultValue;
+      }
+    }
+    
+    return current;
+  };
+
+  // Handle video upload
+  const handleVideoUpload = async (file) => {
+    if (!file) return;
+
+    // Validate file type
+    const allowedTypes = ['video/mp4', 'video/webm', 'video/ogg'];
+    if (!allowedTypes.includes(file.type)) {
+      setUploadState({
+        isUploading: false,
+        progress: 0,
+        error: 'Please select a valid video file (MP4, WebM, or OGG)',
+        success: false
+      });
+      return;
+    }
+
+    // Validate file size (50MB limit)
+    const maxSize = 50 * 1024 * 1024; // 50MB
+    if (file.size > maxSize) {
+      setUploadState({
+        isUploading: false,
+        progress: 0,
+        error: 'File size must be less than 50MB',
+        success: false
+      });
+      return;
+    }
+
+    setUploadState({
+      isUploading: true,
+      progress: 0,
+      error: null,
+      success: false
+    });
+
+    try {
+      // Simulate upload progress
+      const progressInterval = setInterval(() => {
+        setUploadState(prev => ({
+          ...prev,
+          progress: Math.min(prev.progress + 10, 90)
+        }));
+      }, 200);
+
+      const result = await uploadVideo(file);
+      
+      clearInterval(progressInterval);
+      
+      // Update video URL in config
+      updateConfig('videoUrl', result.url);
+      
+      setUploadState({
+        isUploading: false,
+        progress: 100,
+        error: null,
+        success: true
+      });
+
+      // Clear success message after 3 seconds
+      setTimeout(() => {
+        setUploadState(prev => ({ ...prev, success: false, progress: 0 }));
+      }, 3000);
+
+    } catch (error) {
+      setUploadState({
+        isUploading: false,
+        progress: 0,
+        error: error.message || 'Upload failed. Please try again.',
+        success: false
+      });
+    }
+  };
+
+  // Handle file input change
+  const handleFileInputChange = (event) => {
+    const file = event.target.files[0];
+    if (file) {
+      handleVideoUpload(file);
+    }
+  };
+
+  // Clear upload error
+  const clearUploadError = () => {
+    setUploadState(prev => ({ ...prev, error: null }));
+  };
+
   // Save configuration
   const handleSave = async () => {
     setSaving(true);
@@ -148,30 +287,34 @@ export default function AdminHeroBannerPage() {
 
   // Add new typewriter sequence
   const addTypewriterSequence = () => {
-    const newSequences = [...config.typewriterSequences, 'New message...'];
+    const sequences = getConfigValue('typewriterSequences', []);
+    const newSequences = [...sequences, 'New message...'];
     updateConfig('typewriterSequences', newSequences);
   };
 
   // Remove typewriter sequence
   const removeTypewriterSequence = (index) => {
-    const newSequences = config.typewriterSequences.filter((_, i) => i !== index);
+    const sequences = getConfigValue('typewriterSequences', []);
+    const newSequences = sequences.filter((_, i) => i !== index);
     updateConfig('typewriterSequences', newSequences);
   };
 
   // Update typewriter sequence
   const updateTypewriterSequence = (index, value) => {
-    const newSequences = [...config.typewriterSequences];
+    const sequences = getConfigValue('typewriterSequences', []);
+    const newSequences = [...sequences];
     newSequences[index] = value;
     updateConfig('typewriterSequences', newSequences);
   };
 
   // Calculate countdown
   const calculateCountdown = () => {
-    if (!config?.nextEvent?.date) return { days: 0, hours: 0, minutes: 0, seconds: 0 };
+    const eventDate = getConfigValue('nextEvent.date');
+    if (!eventDate) return { days: 0, hours: 0, minutes: 0, seconds: 0 };
     
     const now = new Date();
-    const eventDate = new Date(config.nextEvent.date);
-    const diff = eventDate - now;
+    const event = new Date(eventDate);
+    const diff = event - now;
     
     if (diff <= 0) return { days: 0, hours: 0, minutes: 0, seconds: 0 };
     
@@ -192,7 +335,7 @@ export default function AdminHeroBannerPage() {
     }, 1000);
 
     return () => clearInterval(interval);
-  }, [config?.nextEvent?.date]);
+  }, [getConfigValue('nextEvent.date')]);
 
   if (isLoading) {
     return (
@@ -205,16 +348,6 @@ export default function AdminHeroBannerPage() {
     );
   }
 
-  if (!config) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <p className="text-gray-600">Failed to load configuration</p>
-        </div>
-      </div>
-    );
-  }
-
   const tabs = [
     { id: 'content', label: 'Content', icon: Type },
     { id: 'media', label: 'Media', icon: Video },
@@ -222,8 +355,7 @@ export default function AdminHeroBannerPage() {
     { id: 'countdown', label: 'Countdown', icon: Clock },
     { id: 'settings', label: 'Settings', icon: Settings }
   ];
-
-  return (
+   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
       <div className="bg-white shadow-sm border-b">
@@ -390,14 +522,102 @@ export default function AdminHeroBannerPage() {
                   <div className="space-y-6">
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Background Video URL
+                        Background Video
                       </label>
-                      <input
-                        type="text"
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                        value={config.videoUrl}
-                        onChange={(e) => updateConfig('videoUrl', e.target.value)}
-                      />
+                      
+                      {/* Video Upload Section */}
+                      <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 mb-4">
+                        <div className="text-center">
+                          <Video size={48} className="mx-auto text-gray-400 mb-4" />
+                          <div className="space-y-2">
+                            <p className="text-sm text-gray-600">
+                              Upload a new video or enter a URL below
+                            </p>
+                            <div className="flex justify-center">
+                              <button
+                                onClick={() => fileInputRef.current?.click()}
+                                disabled={uploadState.isUploading}
+                                className="bg-purple-600 hover:bg-purple-700 disabled:bg-purple-400 text-white px-4 py-2 rounded-lg text-sm font-medium flex items-center space-x-2"
+                              >
+                                <Upload size={16} />
+                                <span>Choose Video File</span>
+                              </button>
+                            </div>
+                            <p className="text-xs text-gray-500">
+                              Supports MP4, WebM, OGG up to 50MB
+                            </p>
+                          </div>
+                        </div>
+                        
+                        <input
+                          ref={fileInputRef}
+                          type="file"
+                          accept="video/*"
+                          onChange={handleFileInputChange}
+                          className="hidden"
+                        />
+                      </div>
+
+                      {/* Upload Progress */}
+                      {uploadState.isUploading && (
+                        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
+                          <div className="flex items-center space-x-3">
+                            <div className="animate-spin w-5 h-5 border-2 border-blue-600 border-t-transparent rounded-full"></div>
+                            <div className="flex-1">
+                              <p className="text-sm font-medium text-blue-900">Uploading video...</p>
+                              <div className="w-full bg-blue-200 rounded-full h-2 mt-2">
+                                <div 
+                                  className="bg-blue-600 h-2 rounded-full transition-all duration-300"
+                                  style={{ width: `${uploadState.progress}%` }}
+                                ></div>
+                              </div>
+                              <p className="text-xs text-blue-700 mt-1">{uploadState.progress}% complete</p>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Upload Success */}
+                      {uploadState.success && (
+                        <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-4">
+                          <div className="flex items-center space-x-2">
+                            <CheckCircle size={20} className="text-green-600" />
+                            <p className="text-sm font-medium text-green-900">Video uploaded successfully!</p>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Upload Error */}
+                      {uploadState.error && (
+                        <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-4">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center space-x-2">
+                              <AlertCircle size={20} className="text-red-600" />
+                              <p className="text-sm font-medium text-red-900">{uploadState.error}</p>
+                            </div>
+                            <button
+                              onClick={clearUploadError}
+                              className="text-red-600 hover:text-red-800"
+                            >
+                              <X size={16} />
+                            </button>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Manual URL Input */}
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Or enter video URL manually
+                        </label>
+                        <input
+                          type="text"
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                          value={config.videoUrl}
+                          onChange={(e) => updateConfig('videoUrl', e.target.value)}
+                          placeholder="https://example.com/video.mp4"
+                        />
+                      </div>
                     </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -463,6 +683,7 @@ export default function AdminHeroBannerPage() {
                     </div>
                   </div>
                 )}
+
 
                 {/* Design Tab */}
                 {activeTab === 'design' && (

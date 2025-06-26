@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { 
@@ -22,7 +22,9 @@ import {
   Award,
   MapPin,
   Camera,
-  X
+  X,
+  ImageIcon,
+  FileUp
 } from 'lucide-react';
 
 interface TestimonialStats {
@@ -35,7 +37,7 @@ interface TestimonialStats {
 }
 
 interface Testimonial {
-  id: string;
+  _id: string;
   name: string;
   email: string;
   role: string;
@@ -134,6 +136,12 @@ export default function AdminTestimonialsPage() {
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [editingTestimonial, setEditingTestimonial] = useState<Testimonial | null>(null);
 
+  // Image upload states
+  const [imagePreview, setImagePreview] = useState<string>('');
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
   // Form state for add/edit testimonial
   const [formData, setFormData] = useState({
     name: '',
@@ -163,6 +171,104 @@ export default function AdminTestimonialsPage() {
       category: 'Education',
       verified: false
     });
+    setImagePreview('');
+    setUploadProgress(0);
+  };
+
+  const API_BASE = 'http://localhost:5000/api/vtest';
+
+  useEffect(() => {
+  const fetchTestimonials = async () => {
+    try {
+      const res = await fetch(API_BASE);
+      const data = await res.json();
+      setTestimonials(data);
+    } catch (err) {
+      console.error('Failed to fetch testimonials:', err);
+    }
+  };
+  fetchTestimonials();
+}, []);
+
+
+  // Image upload handler
+  const handleImageUpload = async (file: File) => {
+  if (!file) return;
+
+  if (!file.type.startsWith('image/')) {
+    alert('Please select a valid image file');
+    return;
+  }
+
+  if (file.size > 5 * 1024 * 1024) {
+    alert('Image size should be less than 5MB');
+    return;
+  }
+
+  setIsUploading(true);
+  setUploadProgress(0);
+
+  // Create preview
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    setImagePreview(e.target?.result as string);
+  };
+  reader.readAsDataURL(file);
+
+  try {
+    const formData = new FormData();
+    formData.append('image', file);
+
+    const res = await fetch(`${API_BASE}/upload-image`, {
+      method: 'POST',
+      body: formData
+    });
+
+    const data = await res.json();
+
+    if (res.ok) {
+      setUploadProgress(100);
+      setIsUploading(false);
+      handleFormChange('image', data.url); // Cloudinary image URL
+    } else {
+      throw new Error(data.message || 'Upload failed');
+    }
+  } catch (err) {
+    console.error('Image upload error:', err);
+    alert('Image upload failed. Please try again.');
+    setIsUploading(false);
+  }
+};
+
+
+  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      handleImageUpload(file);
+    }
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    const files = e.dataTransfer.files;
+    if (files.length > 0) {
+      handleImageUpload(files[0]);
+    }
+  };
+
+  const removeImage = () => {
+    setImagePreview('');
+    handleFormChange('image', '');
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
   };
 
   const handleAddTestimonial = () => {
@@ -184,66 +290,108 @@ export default function AdminTestimonialsPage() {
       category: testimonial.category,
       verified: testimonial.verified
     });
+    setImagePreview(testimonial.image);
     setIsEditModalOpen(true);
   };
 
-  const handleSaveTestimonial = () => {
+  const handleSaveTestimonial = async () => {
+  try {
     if (isEditModalOpen && editingTestimonial) {
-      // Update existing testimonial
-      setTestimonials(prev => 
-        prev.map(testimonial => 
-          testimonial.id === editingTestimonial.id 
-            ? { ...testimonial, ...formData }
-            : testimonial
+      // PUT request to update
+      await fetch(`${API_BASE}/${editingTestimonial._id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(formData)
+      });
+
+      setTestimonials(prev =>
+        prev.map(t =>
+          t._id === editingTestimonial._id ? { ...t, ...formData } : t
         )
       );
       setIsEditModalOpen(false);
       setEditingTestimonial(null);
     } else {
-      // Add new testimonial
-      const newTestimonial: Testimonial = {
-        id: (testimonials.length + 1).toString(),
+      // POST request to add new
+      const newTestimonial = {
         ...formData,
         status: 'pending',
         submittedDate: new Date().toISOString().split('T')[0]
       };
-      setTestimonials(prev => [...prev, newTestimonial]);
+
+      const res = await fetch(API_BASE, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(newTestimonial)
+      });
+
+      const saved = await res.json();
+      setTestimonials(prev => [...prev, saved]);
       setIsAddModalOpen(false);
     }
     resetForm();
-  };
+  } catch (error) {
+    console.error('Failed to save testimonial:', error);
+  }
+};
+
 
   const handleFormChange = (field: string, value: any) => {
     setFormData(prev => ({ ...prev, [field]: value }));
   };
 
-  const handleStatusChange = (id: string, newStatus: Testimonial['status']) => {
-    setTestimonials(prev => 
-      prev.map(testimonial => 
-        testimonial.id === id 
-          ? { 
-              ...testimonial, 
-              status: newStatus,
-              publishedDate: newStatus === 'published' || newStatus === 'featured' 
-                ? new Date().toISOString().split('T')[0] 
-                : testimonial.publishedDate
-            }
-          : testimonial
+  const handleStatusChange = async (_id: string, newStatus: Testimonial['status']) => {
+  try {
+    const publishedDate = ['published', 'featured'].includes(newStatus)
+      ? new Date().toISOString().split('T')[0]
+      : undefined;
+
+    await fetch(`${API_BASE}/${_id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status: newStatus, publishedDate })
+    });
+
+    setTestimonials(prev =>
+      prev.map(t =>
+        t._id === _id
+          ? { ...t, status: newStatus, publishedDate }
+          : t
       )
     );
-  };
+  } catch (err) {
+    console.error('Failed to update status:', err);
+  }
+};
 
-  const handleDelete = (id: string) => {
-    setTestimonials(prev => prev.filter(testimonial => testimonial.id !== id));
-  };
 
-  const handleVerify = (id: string) => {
-    setTestimonials(prev => 
-      prev.map(testimonial => 
-        testimonial.id === id ? { ...testimonial, verified: !testimonial.verified } : testimonial
-      )
+  const handleDelete = async (_id: string) => {
+  try {
+    await fetch(`${API_BASE}/${_id}`, {
+      method: 'DELETE'
+    });
+    setTestimonials(prev => prev.filter(t => t._id !== _id));
+  } catch (error) {
+    console.error('Failed to delete testimonial:', error);
+  }
+};
+
+
+  const handleVerify = async (_id: string) => {
+  try {
+    const res = await fetch(`${API_BASE}/verify/${_id}`, {
+      method: 'PATCH'
+    });
+    const updated = await res.json();
+
+    setTestimonials(prev =>
+      prev.map(t => (t._id === _id ? updated : t))
     );
-  };
+  } catch (err) {
+    console.error('Failed to verify testimonial:', err);
+  }
+};
+
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -441,7 +589,7 @@ export default function AdminTestimonialsPage() {
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
               {filteredTestimonials.map((testimonial) => (
-                <tr key={testimonial.id} className="hover:bg-gray-50">
+                <tr key={testimonial._id} className="hover:bg-gray-50">
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="flex items-center">
                       <div className="h-10 w-10 rounded-full overflow-hidden bg-gray-200 flex-shrink-0">
@@ -512,7 +660,7 @@ export default function AdminTestimonialsPage() {
                         <Edit className="h-4 w-4" />
                       </button>
                       <button 
-                        onClick={() => handleVerify(testimonial.id)}
+                        onClick={() => handleVerify(testimonial._id)}
                         className={`${testimonial.verified ? 'text-green-600' : 'text-gray-400'} hover:text-green-900`}
                         title="Toggle Verification"
                       >
@@ -521,14 +669,14 @@ export default function AdminTestimonialsPage() {
                       {testimonial.status === 'pending' && (
                         <>
                           <button 
-                            onClick={() => handleStatusChange(testimonial.id, 'published')}
+                            onClick={() => handleStatusChange(testimonial._id, 'published')}
                             className="text-green-600 hover:text-green-900"
                             title="Publish"
                           >
                             <CheckCircle className="h-4 w-4" />
                           </button>
                           <button 
-                            onClick={() => handleStatusChange(testimonial.id, 'featured')}
+                            onClick={() => handleStatusChange(testimonial._id, 'featured')}
                             className="text-purple-600 hover:text-purple-900"
                             title="Feature"
                           >
@@ -537,7 +685,7 @@ export default function AdminTestimonialsPage() {
                         </>
                       )}
                       <button 
-                        onClick={() => handleDelete(testimonial.id)}
+                        onClick={() => handleDelete(testimonial._id)}
                         className="text-red-600 hover:text-red-900"
                         title="Delete"
                       >
@@ -555,7 +703,7 @@ export default function AdminTestimonialsPage() {
       {/* Add/Edit Testimonial Modal */}
       {(isAddModalOpen || isEditModalOpen) && (
         <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-lg max-w-2xl w-full max-h-screen overflow-y-auto">
+          <div className="bg-white rounded-lg max-w-4xl w-full max-h-screen overflow-y-auto">
             <div className="flex justify-between items-center p-6 border-b">
               <h3 className="text-lg font-semibold">
                 {isEditModalOpen ? 'Edit Testimonial' : 'Add New Testimonial'}
@@ -574,153 +722,240 @@ export default function AdminTestimonialsPage() {
             </div>
             
             <div className="p-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                {/* Left Column - Image Upload */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Name</label>
-                  <input
-                    type="text"
-                    value={formData.name}
-                    onChange={(e) => handleFormChange('name', e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
-                    placeholder="Enter volunteer name"
-                  />
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Profile Image</label>
+                  
+                  {/* Image Upload Area */}
+                  <div className="mb-6">
+                    {imagePreview || formData.image ? (
+                      <div className="relative">
+                        <div className="w-full h-64 rounded-lg overflow-hidden bg-gray-100 border-2 border-dashed border-gray-300">
+                          <Image
+                            src={imagePreview || formData.image}
+                            alt="Preview"
+                            width={400}
+                            height={256}
+                            className="w-full h-full object-cover"
+                          />
+                        </div>
+                        <button
+                          onClick={removeImage}
+                          className="absolute top-2 right-2 bg-red-500 text-white rounded-full p-2 hover:bg-red-600 transition-colors"
+                          title="Remove image"
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
+                      </div>
+                    ) : (
+                      <div
+                        className="w-full h-64 rounded-lg border-2 border-dashed border-gray-300 flex flex-col items-center justify-center cursor-pointer hover:border-blue-400 transition-colors"
+                        onDragOver={handleDragOver}
+                        onDrop={handleDrop}
+                        onClick={() => fileInputRef.current?.click()}
+                      >
+                        <ImageIcon className="w-12 h-12 text-gray-400 mb-4" />
+                        <p className="text-gray-600 text-center mb-2">
+                          Click to upload or drag and drop
+                        </p>
+                        <p className="text-gray-400 text-sm">
+                          PNG, JPG, GIF up to 5MB
+                        </p>
+                      </div>
+                    )}
+                    
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept="image/*"
+                      onChange={handleFileSelect}
+                      className="hidden"
+                    />
+                    
+                    {isUploading && (
+                      <div className="mt-4">
+                        <div className="flex items-center justify-between text-sm text-gray-600 mb-2">
+                          <span>Uploading...</span>
+                          <span>{uploadProgress}%</span>
+                        </div>
+                        <div className="w-full bg-gray-200 rounded-full h-2">
+                          <div 
+                            className="bg-blue-600 h-2 rounded-full transition-all duration-300"
+                            style={{ width: `${uploadProgress}%` }}
+                          />
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Alternative URL Input */}
+                  <div className="mb-6">
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Or enter image URL</label>
+                    <input
+                      type="url"
+                      value={formData.image}
+                      onChange={(e) => handleFormChange('image', e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                      placeholder="https://example.com/image.jpg"
+                    />
+                  </div>
                 </div>
-                
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Email</label>
-                  <input
-                    type="email"
-                    value={formData.email}
-                    onChange={(e) => handleFormChange('email', e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
-                    placeholder="Enter email address"
-                  />
-                </div>
-                
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Role</label>
-                  <input
-                    type="text"
-                    value={formData.role}
-                    onChange={(e) => handleFormChange('role', e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
-                    placeholder="e.g., Teaching Volunteer"
-                  />
-                </div>
-                
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Location</label>
-                  <input
-                    type="text"
-                    value={formData.location}
-                    onChange={(e) => handleFormChange('location', e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
-                    placeholder="e.g., Kenya"
-                  />
-                </div>
-                
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Image URL</label>
-                  <input
-                    type="url"
-                    value={formData.image}
-                    onChange={(e) => handleFormChange('image', e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
-                    placeholder="Enter image URL"
-                  />
-                </div>
-                
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Category</label>
-                  <select
-                    value={formData.category}
-                    onChange={(e) => handleFormChange('category', e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
-                  >
-                    {categories.map(category => (
-                      <option key={category} value={category}>{category}</option>
-                    ))}
-                  </select>
-                </div>
-                
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Rating</label>
-                  <select
-                    value={formData.rating}
-                    onChange={(e) => handleFormChange('rating', parseInt(e.target.value))}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
-                  >
-                    {[1, 2, 3, 4, 5].map(rating => (
-                      <option key={rating} value={rating}>{rating} Star{rating > 1 ? 's' : ''}</option>
-                    ))}
-                  </select>
-                </div>
-                
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Years Since Volunteering</label>
-                  <input
-                    type="number"
-                    min="0"
-                    max="50"
-                    value={formData.yearsSince}
-                    onChange={(e) => handleFormChange('yearsSince', parseInt(e.target.value))}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
-                  />
+
+                {/* Right Column - Form Fields */}
+                <div className="space-y-6">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Name *</label>
+                      <input
+                        type="text"
+                        required
+                        value={formData.name}
+                        onChange={(e) => handleFormChange('name', e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                        placeholder="Volunteer's full name"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Email *</label>
+                      <input
+                        type="email"
+                        required
+                        value={formData.email}
+                        onChange={(e) => handleFormChange('email', e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                        placeholder="volunteer@email.com"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Role *</label>
+                      <input
+                        type="text"
+                        required
+                        value={formData.role}
+                        onChange={(e) => handleFormChange('role', e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                        placeholder="e.g., Teaching Volunteer"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Location *</label>
+                      <input
+                        type="text"
+                        required
+                        value={formData.location}
+                        onChange={(e) => handleFormChange('location', e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                        placeholder="e.g., Kenya"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Category *</label>
+                    <select
+                      value={formData.category}
+                      onChange={(e) => handleFormChange('category', e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                    >
+                      {categories.map(category => (
+                        <option key={category} value={category}>
+                          {category}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Rating *</label>
+                      <select
+                        value={formData.rating}
+                        onChange={(e) => handleFormChange('rating', parseInt(e.target.value))}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                      >
+                        <option value={5}>5 Stars</option>
+                        <option value={4}>4 Stars</option>
+                        <option value={3}>3 Stars</option>
+                        <option value={2}>2 Stars</option>
+                        <option value={1}>1 Star</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Years Since Volunteering</label>
+                      <input
+                        type="number"
+                        min="0"
+                        max="10"
+                        value={formData.yearsSince}
+                        onChange={(e) => handleFormChange('yearsSince', parseInt(e.target.value))}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Testimonial Quote *</label>
+                    <textarea
+                      required
+                      rows={6}
+                      value={formData.quote}
+                      onChange={(e) => handleFormChange('quote', e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                      placeholder="Share your volunteering experience..."
+                    />
+                    <p className="text-sm text-gray-500 mt-2">
+                      {formData.quote.length}/500 characters
+                    </p>
+                  </div>
+
+                  <div className="flex items-center">
+                    <input
+                      type="checkbox"
+                      id="verified"
+                      checked={formData.verified}
+                      onChange={(e) => handleFormChange('verified', e.target.checked)}
+                      className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                    />
+                    <label htmlFor="verified" className="ml-2 block text-sm text-gray-900">
+                      Mark as verified
+                    </label>
+                  </div>
                 </div>
               </div>
-              
-              <div className="mt-6">
-                <label className="block text-sm font-medium text-gray-700 mb-2">Testimonial Quote</label>
-                <textarea
-                  value={formData.quote}
-                  onChange={(e) => handleFormChange('quote', e.target.value)}
-                  rows={4}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
-                  placeholder="Enter the testimonial quote..."
-                />
-              </div>
-              
-              <div className="mt-6 flex items-center">
-                <input
-                  type="checkbox"
-                  id="verified"
-                  checked={formData.verified}
-                  onChange={(e) => handleFormChange('verified', e.target.checked)}
-                  className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                />
-                <label htmlFor="verified" className="ml-2 block text-sm text-gray-900">
-                  Mark as verified
-                </label>
-              </div>
-              
-              <div className="mt-8 flex justify-end space-x-3">
-                <button
-                  onClick={() => {
-                    setIsAddModalOpen(false);
-                    setIsEditModalOpen(false);
-                    setEditingTestimonial(null);
-                    resetForm();
-                  }}
-                  className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={handleSaveTestimonial}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
-                >
-                  {isEditModalOpen ? 'Update Testimonial' : 'Add Testimonial'}
-                </button>
-              </div>
+            </div>
+
+            <div className="px-6 py-4 bg-gray-50 flex justify-end space-x-3">
+              <button
+                onClick={() => {
+                  setIsAddModalOpen(false);
+                  setIsEditModalOpen(false);
+                  setEditingTestimonial(null);
+                  resetForm();
+                }}
+                className="px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSaveTestimonial}
+                className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+              >
+                {isEditModalOpen ? 'Update Testimonial' : 'Save Testimonial'}
+              </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* Testimonial Detail Modal */}
+      {/* View Testimonial Modal */}
       {selectedTestimonial && (
         <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-lg max-w-4xl w-full max-h-screen overflow-y-auto">
+          <div className="bg-white rounded-lg max-w-2xl w-full max-h-screen overflow-y-auto">
             <div className="flex justify-between items-center p-6 border-b">
               <h3 className="text-lg font-semibold">Testimonial Details</h3>
               <button 
@@ -732,134 +967,96 @@ export default function AdminTestimonialsPage() {
             </div>
             
             <div className="p-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
-                  <div className="mb-6">
-                    <div className="w-32 h-32 rounded-lg overflow-hidden bg-gray-200 mb-4">
-                      <Image
-                        src={selectedTestimonial.image}
-                        alt={selectedTestimonial.name}
-                        width={128}
-                        height={128}
-                        className="object-cover w-full h-full"
-                      />
-                    </div>
-                    <h4 className="text-xl font-semibold flex items-center">
-                      {selectedTestimonial.name}
-                      {selectedTestimonial.verified && (
-                        <CheckCircle className="h-5 w-5 text-green-500 ml-2" />
-                      )}
-                    </h4>
-                    <p className="text-gray-600">{selectedTestimonial.email}</p>
-                  </div>
-                  
-                  <div className="space-y-4">
-                    <div>
-                      <label className="text-sm font-medium text-gray-700">Role</label>
-                      <p className="text-gray-900">{selectedTestimonial.role}</p>
-                    </div>
-                    <div>
-                      <label className="text-sm font-medium text-gray-700">Location</label>
-                      <p className="text-gray-900">{selectedTestimonial.location}</p>
-                    </div>
-                    <div>
-                      <label className="text-sm font-medium text-gray-700">Category</label>
-                      <p className="text-gray-900">{selectedTestimonial.category}</p>
-                    </div>
-                    <div>
-                      <label className="text-sm font-medium text-gray-700">Years Volunteering</label>
-                      <p className="text-gray-900">{selectedTestimonial.yearsSince} years</p>
-                    </div>
-                    <div>
-                      <label className="text-sm font-medium text-gray-700">Rating</label>
-                      <div className="flex items-center">
-                        {[...Array(5)].map((_, i) => (
-                          <Star
-                            key={i}
-                            className={`h-5 w-5 ${
-                              i < selectedTestimonial.rating ? 'text-yellow-400 fill-current' : 'text-gray-300'
-                            }`}
-                          />
-                        ))}
-                        <span className="ml-2">{selectedTestimonial.rating}/5</span>
-                      </div>
-                    </div>
-                  </div>
+              <div className="flex items-center space-x-4 mb-6">
+                <div className="h-16 w-16 rounded-full overflow-hidden bg-gray-200">
+                  <Image
+                    src={selectedTestimonial.image}
+                    alt={selectedTestimonial.name}
+                    width={64}
+                    height={64}
+                    className="object-cover"
+                  />
                 </div>
-                
                 <div>
-                  <div className="mb-6">
-                    <label className="text-sm font-medium text-gray-700">Testimonial</label>
-                    <div className="mt-2 p-4 bg-gray-50 rounded-lg">
-                      <p className="text-gray-900 italic">"{selectedTestimonial.quote}"</p>
-                    </div>
-                  </div>
-                  
-                  <div className="space-y-4">
-                    <div>
-                      <label className="text-sm font-medium text-gray-700">Status</label>
-                      <div className="mt-1">
-                        <span className={`inline-flex px-3 py-1 text-sm font-semibold rounded-full ${getStatusColor(selectedTestimonial.status)}`}>
-                          {selectedTestimonial.status}
-                        </span>
-                      </div>
-                    </div>
-                    <div>
-                      <label className="text-sm font-medium text-gray-700">Submitted Date</label>
-                      <p className="text-gray-900">{new Date(selectedTestimonial.submittedDate).toLocaleDateString()}</p>
-                    </div>
-                    {selectedTestimonial.publishedDate && (
-                      <div>
-                        <label className="text-sm font-medium text-gray-700">Published Date</label>
-                        <p className="text-gray-900">{new Date(selectedTestimonial.publishedDate).toLocaleDateString()}</p>
-                      </div>
+                  <div className="flex items-center">
+                    <h4 className="text-xl font-semibold text-gray-900">{selectedTestimonial.name}</h4>
+                    {selectedTestimonial.verified && (
+                      <CheckCircle className="h-5 w-5 text-green-500 ml-2" />
                     )}
                   </div>
-                  
-                  <div className="mt-6 flex space-x-3">
-                    {selectedTestimonial.status === 'pending' && (
-                      <>
-                        <button 
-                          onClick={() => {
-                            handleStatusChange(selectedTestimonial.id, 'published');
-                            setSelectedTestimonial(null);
-                          }}
-                          className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700"
-                        >
-                          Publish
-                        </button>
-                        <button 
-                          onClick={() => {
-                            handleStatusChange(selectedTestimonial.id, 'featured');
-                            setSelectedTestimonial(null);
-                          }}
-                          className="px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700"
-                        >
-                          Feature
-                        </button>
-                        <button 
-                          onClick={() => {
-                            handleStatusChange(selectedTestimonial.id, 'rejected');
-                            setSelectedTestimonial(null);
-                          }}
-                          className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700"
-                        >
-                          Reject
-                        </button>
-                      </>
-                    )}
-                    <button 
-                      onClick={() => {
-                        setSelectedTestimonial(null);
-                        handleEditTestimonial(selectedTestimonial);
-                      }}
-                      className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
-                    >
-                      Edit
-                    </button>
-                  </div>
+                  <p className="text-gray-600">{selectedTestimonial.email}</p>
+                  <p className="text-sm text-gray-500">{selectedTestimonial.role} • {selectedTestimonial.location}</p>
                 </div>
               </div>
+
+              <div className="grid grid-cols-2 gap-4 mb-6">
+                <div>
+                  <p className="text-sm font-medium text-gray-700">Rating</p>
+                  <div className="flex items-center">
+                    {[...Array(5)].map((_, i) => (
+                      <Star
+                        key={i}
+                        className={`h-4 w-4 ${
+                          i < selectedTestimonial.rating ? 'text-yellow-400 fill-current' : 'text-gray-300'
+                        }`}
+                      />
+                    ))}
+                    <span className="ml-2 text-sm text-gray-600">{selectedTestimonial.rating}/5</span>
+                  </div>
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-gray-700">Category</p>
+                  <p className="text-sm text-gray-900">{selectedTestimonial.category}</p>
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-gray-700">Status</p>
+                  <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(selectedTestimonial.status)}`}>
+                    {selectedTestimonial.status}
+                  </span>
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-gray-700">Years Since</p>
+                  <p className="text-sm text-gray-900">{selectedTestimonial.yearsSince} years ago</p>
+                </div>
+              </div>
+
+              <div className="mb-6">
+                <p className="text-sm font-medium text-gray-700 mb-2">Testimonial</p>
+                <blockquote className="text-gray-900 italic border-l-4 border-blue-500 pl-4">
+                  "{selectedTestimonial.quote}"
+                </blockquote>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4 text-sm">
+                <div>
+                  <p className="font-medium text-gray-700">Submitted Date</p>
+                  <p className="text-gray-900">{new Date(selectedTestimonial.submittedDate).toLocaleDateString()}</p>
+                </div>
+                {selectedTestimonial.publishedDate && (
+                  <div>
+                    <p className="font-medium text-gray-700">Published Date</p>
+                    <p className="text-gray-900">{new Date(selectedTestimonial.publishedDate).toLocaleDateString()}</p>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="px-6 py-4 bg-gray-50 flex justify-end space-x-3">
+              <button
+                onClick={() => setSelectedTestimonial(null)}
+                className="px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
+              >
+                Close
+              </button>
+              <button
+                onClick={() => {
+                  handleEditTestimonial(selectedTestimonial);
+                  setSelectedTestimonial(null);
+                }}
+                className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+              >
+                Edit Testimonial
+              </button>
             </div>
           </div>
         </div>

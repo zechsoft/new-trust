@@ -17,17 +17,13 @@ import {
   X,
   AlertCircle,
   CheckCircle,
-  FileText,
-  Image as ImageIcon,
-  Move,
-  Copy
+  FileText
 } from 'lucide-react';
 
 interface FAQItem {
-  id: string;
+  _id: string;
   question: string;
   answer: string;
-  gif?: string;
   category: string;
   isActive: boolean;
   order: number;
@@ -47,74 +43,81 @@ interface FAQStats {
 
 export default function AdminFAQPage() {
   const [stats, setStats] = useState<FAQStats>({
-    totalFAQs: 12,
-    activeFAQs: 10,
-    inactiveFAQs: 2,
-    totalViews: 1250,
-    categoriesCount: 4,
-    lastUpdated: '2024-01-15'
+    totalFAQs: 0,
+    activeFAQs: 0,
+    inactiveFAQs: 0,
+    totalViews: 0,
+    categoriesCount: 0,
+    lastUpdated: new Date().toISOString().split('T')[0]
   });
 
-  const [faqs, setFaqs] = useState<FAQItem[]>([
-    {
-      id: '1',
-      question: 'How much time do I need to commit as a volunteer?',
-      answer: 'We offer flexible volunteering opportunities! You can commit as little as 2 hours per week or join for specific events. Many of our volunteers contribute 4-8 hours monthly, but we appreciate any time you can give.',
-      gif: '/images/gifs/time-commitment.gif',
-      category: 'Time Commitment',
-      isActive: true,
-      order: 1,
-      createdDate: '2024-01-10',
-      lastModified: '2024-01-12',
-      views: 245
-    },
-    {
-      id: '2',
-      question: 'Do I need any special skills or training to volunteer?',
-      answer: 'No special skills are required for many volunteer positions! We provide all necessary training. We have roles suited for all skill levels, and if you have specific expertise, we\'ll match you accordingly.',
-      gif: '/images/gifs/skills-training.gif',
-      category: 'Requirements',
-      isActive: true,
-      order: 2,
-      createdDate: '2024-01-10',
-      lastModified: '2024-01-11',
-      views: 198
-    },
-    {
-      id: '3',
-      question: 'Can I volunteer remotely or do I need to be in-person?',
-      answer: 'We offer both remote and in-person volunteer opportunities! Remote options include virtual mentoring, digital content creation, translation services, and fundraising support.',
-      gif: '/images/gifs/remote-volunteer.gif',
-      category: 'Work Location',
-      isActive: true,
-      order: 3,
-      createdDate: '2024-01-09',
-      lastModified: '2024-01-13',
-      views: 167
-    }
-  ]);
-
+  const [faqs, setFaqs] = useState<FAQItem[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterCategory, setFilterCategory] = useState('all');
   const [filterStatus, setFilterStatus] = useState('all');
+  const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingFAQ, setEditingFAQ] = useState<FAQItem | null>(null);
   const [formData, setFormData] = useState({
     question: '',
     answer: '',
-    gif: '',
     category: '',
     isActive: true
   });
 
   const categories = ['Time Commitment', 'Requirements', 'Work Location', 'Benefits', 'Training', 'General'];
+  const API_URL = 'http://localhost:5000/api/faq';
+
+  // Calculate stats from faqs data
+  const calculateStats = (faqsData: FAQItem[]) => {
+    const totalFAQs = faqsData.length;
+    const activeFAQs = faqsData.filter(faq => faq.isActive).length;
+    const inactiveFAQs = totalFAQs - activeFAQs;
+    const totalViews = faqsData.reduce((sum, faq) => sum + (faq.views || 0), 0);
+    const categoriesCount = new Set(faqsData.map(faq => faq.category)).size;
+    const lastUpdated = faqsData.length > 0 
+      ? faqsData.reduce((latest, faq) => 
+          new Date(faq.lastModified) > new Date(latest) ? faq.lastModified : latest, 
+          faqsData[0].lastModified
+        )
+      : new Date().toISOString().split('T')[0];
+
+    setStats({
+      totalFAQs,
+      activeFAQs,
+      inactiveFAQs,
+      totalViews,
+      categoriesCount,
+      lastUpdated
+    });
+  };
+
+  const fetchFAQs = async () => {
+    try {
+      setLoading(true);
+      const res = await fetch(API_URL);
+      if (!res.ok) {
+        throw new Error(`HTTP error! status: ${res.status}`);
+      }
+      const data = await res.json();
+      setFaqs(data);
+      calculateStats(data);
+    } catch (error) {
+      console.error('Error fetching FAQs:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchFAQs();
+  }, []);
 
   const handleAddFAQ = () => {
     setEditingFAQ(null);
     setFormData({
       question: '',
       answer: '',
-      gif: '',
       category: '',
       isActive: true
     });
@@ -126,50 +129,72 @@ export default function AdminFAQPage() {
     setFormData({
       question: faq.question,
       answer: faq.answer,
-      gif: faq.gif || '',
       category: faq.category,
       isActive: faq.isActive
     });
     setIsModalOpen(true);
   };
 
-  const handleSaveFAQ = () => {
-    if (editingFAQ) {
-      // Update existing FAQ
-      setFaqs(prev => prev.map(faq => 
-        faq.id === editingFAQ.id 
-          ? { 
-              ...faq, 
-              ...formData, 
-              lastModified: new Date().toISOString().split('T')[0] 
-            }
-          : faq
-      ));
-    } else {
-      // Add new FAQ
-      const newFAQ: FAQItem = {
-        id: Date.now().toString(),
-        ...formData,
-        order: faqs.length + 1,
-        createdDate: new Date().toISOString().split('T')[0],
-        lastModified: new Date().toISOString().split('T')[0],
-        views: 0
-      };
-      setFaqs(prev => [...prev, newFAQ]);
+  const handleSaveFAQ = async () => {
+    try {
+      if (editingFAQ) {
+        // Update existing FAQ
+        const res = await fetch(`${API_URL}/${editingFAQ._id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(formData)
+        });
+        if (!res.ok) {
+          throw new Error(`HTTP error! status: ${res.status}`);
+        }
+      } else {
+        // Create new FAQ
+        const res = await fetch(API_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(formData)
+        });
+        if (!res.ok) {
+          throw new Error(`HTTP error! status: ${res.status}`);
+        }
+      }
+      
+      setIsModalOpen(false);
+      await fetchFAQs();
+    } catch (error) {
+      console.error('Error saving FAQ:', error);
+      alert('Failed to save FAQ. Please try again.');
     }
-    setIsModalOpen(false);
   };
 
-  const handleDeleteFAQ = (id: string) => {
+  const handleDeleteFAQ = async (id: string) => {
     if (confirm('Are you sure you want to delete this FAQ?')) {
-      setFaqs(prev => prev.filter(faq => faq.id !== id));
+      try {
+        const res = await fetch(`${API_URL}/${id}`, { 
+          method: 'DELETE' 
+        });
+        if (!res.ok) {
+          throw new Error(`HTTP error! status: ${res.status}`);
+        }
+        await fetchFAQs();
+      } catch (error) {
+        console.error('Error deleting FAQ:', error);
+      }
     }
   };
 
-  const handleToggleStatus = (id: string) => {
-    setFaqs(prev => prev.map(faq => 
-      faq.id === id ? { ...faq, isActive: !faq.isActive } : faq
-    ));
+  const handleToggleStatus = async (id: string) => {
+    try {
+      const res = await fetch(`${API_URL}/${id}/status`, { 
+        method: 'PATCH' 
+      });
+      if (!res.ok) {
+        throw new Error(`HTTP error! status: ${res.status}`);
+      }
+      await fetchFAQs();
+    } catch (error) {
+      console.error('Error toggling FAQ status:', error);
+    }
   };
 
   const filteredFAQs = faqs.filter(faq => {
@@ -185,6 +210,17 @@ export default function AdminFAQPage() {
   const getStatusColor = (isActive: boolean) => {
     return isActive ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800';
   };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 p-6 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600">Loading FAQs...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50 p-6">
@@ -358,17 +394,11 @@ export default function AdminFAQPage() {
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
               {filteredFAQs.map((faq) => (
-                <tr key={faq.id}>
+                <tr key={faq._id}>
                   <td className="px-6 py-4">
                     <div className="text-sm font-medium text-gray-900 line-clamp-2 max-w-md">
                       {faq.question}
                     </div>
-                    {faq.gif && (
-                      <div className="flex items-center mt-1">
-                        <ImageIcon className="h-3 w-3 text-gray-400 mr-1" />
-                        <span className="text-xs text-gray-500">Has GIF</span>
-                      </div>
-                    )}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                     <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded-full text-xs">
@@ -394,13 +424,13 @@ export default function AdminFAQPage() {
                       <Edit className="h-4 w-4" />
                     </button>
                     <button 
-                      onClick={() => handleToggleStatus(faq.id)}
+                      onClick={() => handleToggleStatus(faq._id)}
                       className={faq.isActive ? "text-gray-600 hover:text-gray-900" : "text-green-600 hover:text-green-900"}
                     >
                       {faq.isActive ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                     </button>
                     <button 
-                      onClick={() => handleDeleteFAQ(faq.id)}
+                      onClick={() => handleDeleteFAQ(faq._id)}
                       className="text-red-600 hover:text-red-900"
                     >
                       <Trash2 className="h-4 w-4" />
@@ -453,17 +483,6 @@ export default function AdminFAQPage() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">GIF URL (Optional)</label>
-                <input
-                  type="url"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
-                  value={formData.gif}
-                  onChange={(e) => setFormData({...formData, gif: e.target.value})}
-                  placeholder="https://example.com/image.gif"
-                />
-              </div>
-
-              <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Category *</label>
                 <select
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
@@ -500,7 +519,7 @@ export default function AdminFAQPage() {
               </button>
               <button
                 onClick={handleSaveFAQ}
-                className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 flex items-center space-x-2"
+                className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 flex items-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed"
                 disabled={!formData.question || !formData.answer || !formData.category}
               >
                 <Save className="h-4 w-4" />

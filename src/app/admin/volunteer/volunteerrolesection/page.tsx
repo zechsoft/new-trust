@@ -1,6 +1,8 @@
 'use client'
 
 import { useState, useRef } from 'react';
+import { useEffect } from 'react';
+import axios from 'axios'; // or from '@/api/axios' if using custom instance
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Plus,
@@ -16,12 +18,20 @@ import {
   Clock,
   Award,
   AlertCircle,
-  CheckCircle
+  CheckCircle,
+  GraduationCap,
+  Heart,
+  DollarSign,
+  Calendar,
+  Leaf,
+  Megaphone,
+  MessageCircle,
+  Code
 } from 'lucide-react';
 
 // Define types for volunteer roles
 type VolunteerRole = {
-  id: number;
+  _id: string; // Changed from id to _id to match MongoDB
   title: string;
   description: string;
   category: string;
@@ -44,88 +54,27 @@ type RoleFormData = {
   isActive: boolean;
 };
 
+// Icon mapping for categories
+const categoryIcons = {
+  'Teaching': GraduationCap,
+  'Medical': Heart,
+  'Fundraising': DollarSign,
+  'Events': Calendar,
+  'Environment': Leaf,
+  'Marketing': Megaphone,
+  'Outreach': MessageCircle,
+  'Technical': Code,
+  'default': Users
+};
+
+// Function to get icon component for category
+const getCategoryIcon = (category: string) => {
+  return categoryIcons[category as keyof typeof categoryIcons] || categoryIcons.default;
+};
+
 export default function AdminVolunteerRolesPage() {
   // Sample volunteer roles data with admin fields
-  const [volunteerRoles, setVolunteerRoles] = useState<VolunteerRole[]>([
-    {
-      id: 1,
-      title: 'Teaching Assistant',
-      description: 'Help educate children in underserved communities. Provide support with reading, mathematics, and other educational activities.',
-      category: 'Teaching',
-      icon: '/icons/teaching.svg',
-      commitment: '4-8 hours weekly',
-      skills: ['Patience', 'Communication', 'Basic academic knowledge'],
-      isActive: true,
-      applicantsCount: 24,
-      createdDate: '2024-01-10',
-      lastUpdated: '2024-01-15'
-    },
-    {
-      id: 2,
-      title: 'Medical Support',
-      description: 'Assist healthcare professionals in providing basic medical services to communities in need.',
-      category: 'Medical',
-      icon: '/icons/medical.svg',
-      commitment: '8-12 hours weekly',
-      skills: ['Medical background', 'Empathy', 'Organization'],
-      isActive: true,
-      applicantsCount: 12,
-      createdDate: '2024-01-08',
-      lastUpdated: '2024-01-12'
-    },
-    {
-      id: 3,
-      title: 'Fundraising Coordinator',
-      description: 'Organize fundraising events and campaigns to support our various initiatives around the world.',
-      category: 'Fundraising',
-      icon: '/icons/fundraising.svg',
-      commitment: '5-10 hours weekly',
-      skills: ['Event planning', 'Communication', 'Marketing'],
-      isActive: true,
-      applicantsCount: 18,
-      createdDate: '2024-01-05',
-      lastUpdated: '2024-01-10'
-    },
-    {
-      id: 4,
-      title: 'Event Organizer',
-      description: 'Plan and execute community events, workshops, and awareness campaigns.',
-      category: 'Events',
-      icon: '/icons/events.svg',
-      commitment: '10-15 hours monthly',
-      skills: ['Organization', 'Leadership', 'Creative thinking'],
-      isActive: false,
-      applicantsCount: 8,
-      createdDate: '2023-12-20',
-      lastUpdated: '2024-01-05'
-    },
-    {
-      id: 5,
-      title: 'Environmental Advocate',
-      description: 'Participate in tree planting, clean-up drives, and environmental education initiatives.',
-      category: 'Environment',
-      icon: '/icons/environment.svg',
-      commitment: '8-12 hours monthly',
-      skills: ['Environmental knowledge', 'Physical stamina', 'Passion for nature'],
-      isActive: true,
-      applicantsCount: 31,
-      createdDate: '2023-12-15',
-      lastUpdated: '2024-01-08'
-    },
-    {
-      id: 6,
-      title: 'Social Media Manager',
-      description: 'Help manage our social media presence and create engaging content to promote our cause.',
-      category: 'Marketing',
-      icon: '/icons/social-media.svg',
-      commitment: '5-8 hours weekly',
-      skills: ['Digital marketing', 'Content creation', 'Social media expertise'],
-      isActive: true,
-      applicantsCount: 15,
-      createdDate: '2023-12-10',
-      lastUpdated: '2024-01-12'
-    }
-  ]);
+  const [volunteerRoles, setVolunteerRoles] = useState<VolunteerRole[]>([]);
 
   const [searchTerm, setSearchTerm] = useState('');
   const [filterCategory, setFilterCategory] = useState('All');
@@ -134,12 +83,13 @@ export default function AdminVolunteerRolesPage() {
   const [editingRole, setEditingRole] = useState<VolunteerRole | null>(null);
   const [viewingRole, setViewingRole] = useState<VolunteerRole | null>(null);
   const modalRef = useRef<HTMLDivElement>(null);
+  const [loading, setLoading] = useState(true);
 
   const [formData, setFormData] = useState<RoleFormData>({
     title: '',
     description: '',
     category: '',
-    icon: '/icons/default.svg',
+    icon: 'Users', // Changed to use Lucide icon name
     commitment: '',
     skills: [],
     isActive: true
@@ -167,8 +117,23 @@ export default function AdminVolunteerRolesPage() {
     totalRoles: volunteerRoles.length,
     activeRoles: volunteerRoles.filter(role => role.isActive).length,
     totalApplicants: volunteerRoles.reduce((sum, role) => sum + role.applicantsCount, 0),
-    avgApplicants: Math.round(volunteerRoles.reduce((sum, role) => sum + role.applicantsCount, 0) / volunteerRoles.length)
+    avgApplicants: Math.round(volunteerRoles.reduce((sum, role) => sum + role.applicantsCount, 0) / volunteerRoles.length) || 0
   };
+
+  useEffect(() => {
+    const fetchRoles = async () => {
+      try {
+        const response = await axios.get('http://localhost:5000/api/vrole');
+        setVolunteerRoles(response.data);
+      } catch (err) {
+        console.error('Failed to fetch roles:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchRoles();
+  }, []);
 
   const handleAddRole = () => {
     setEditingRole(null);
@@ -176,7 +141,7 @@ export default function AdminVolunteerRolesPage() {
       title: '',
       description: '',
       category: '',
-      icon: '/icons/default.svg',
+      icon: 'Users', // Changed to use Lucide icon name
       commitment: '',
       skills: [],
       isActive: true
@@ -198,53 +163,68 @@ export default function AdminVolunteerRolesPage() {
     setShowModal(true);
   };
 
-  const handleDeleteRole = (id: number) => {
+  // Fixed: Use _id instead of id, and ensure role._id exists
+  const handleDeleteRole = async (roleId: string) => {
+    if (!roleId) {
+      console.error('Role ID is missing');
+      return;
+    }
+    
     if (confirm('Are you sure you want to delete this role?')) {
-      setVolunteerRoles(prev => prev.filter(role => role.id !== id));
+      try {
+        await axios.delete(`http://localhost:5000/api/vrole/${roleId}`);
+        setVolunteerRoles(prev => prev.filter(role => role._id !== roleId));
+      } catch (err) {
+        console.error('Delete failed:', err);
+        alert('Failed to delete role. Please try again.');
+      }
     }
   };
 
-  const handleToggleStatus = (id: number) => {
-    setVolunteerRoles(prev => 
-      prev.map(role => 
-        role.id === id ? { ...role, isActive: !role.isActive, lastUpdated: new Date().toISOString().split('T')[0] } : role
-      )
-    );
+  // Fixed: Use _id instead of id, and ensure role._id exists
+  const handleToggleStatus = async (roleId: string) => {
+    if (!roleId) {
+      console.error('Role ID is missing');
+      return;
+    }
+    
+    try {
+      const res = await axios.patch(`http://localhost:5000/api/vrole/${roleId}/toggle`);
+      setVolunteerRoles(prev =>
+        prev.map(role => role._id === roleId ? res.data : role)
+      );
+    } catch (err) {
+      console.error('Status toggle failed:', err);
+      alert('Failed to toggle status. Please try again.');
+    }
   };
 
-  const handleSaveRole = () => {
+  const handleSaveRole = async () => {
     if (!formData.title || !formData.description || !formData.category) {
       alert('Please fill in all required fields');
       return;
     }
 
-    if (editingRole) {
-      // Update existing role
-      setVolunteerRoles(prev => 
-        prev.map(role => 
-          role.id === editingRole.id 
-            ? { 
-                ...role, 
-                ...formData, 
-                lastUpdated: new Date().toISOString().split('T')[0] 
-              }
-            : role
-        )
-      );
-    } else {
-      // Add new role
-      const newRole: VolunteerRole = {
-        id: Math.max(...volunteerRoles.map(r => r.id)) + 1,
-        ...formData,
-        applicantsCount: 0,
-        createdDate: new Date().toISOString().split('T')[0],
-        lastUpdated: new Date().toISOString().split('T')[0]
-      };
-      setVolunteerRoles(prev => [...prev, newRole]);
+    try {
+      if (editingRole) {
+        // Fixed: Use consistent endpoint pattern /api/vrole instead of /api/volunteer-roles
+        const res = await axios.put(
+          `http://localhost:5000/api/vrole/${editingRole._id}`,
+          formData
+        );
+        setVolunteerRoles(prev =>
+          prev.map(role => role._id === editingRole._id ? res.data : role)
+        );
+      } else {
+        const res = await axios.post('http://localhost:5000/api/vrole', formData);
+        setVolunteerRoles(prev => [...prev, res.data]);
+      }
+      setShowModal(false);
+      setEditingRole(null);
+    } catch (err) {
+      console.error('Save role failed:', err);
+      alert('Failed to save role. Please try again.');
     }
-
-    setShowModal(false);
-    setEditingRole(null);
   };
 
   const handleAddSkill = () => {
@@ -263,6 +243,8 @@ export default function AdminVolunteerRolesPage() {
       skills: prev.skills.filter(skill => skill !== skillToRemove)
     }));
   };
+
+  if (loading) return <div className="text-center p-4">Loading roles...</div>;
 
   return (
     <div className="min-h-screen bg-gray-50 p-6">
@@ -444,7 +426,7 @@ export default function AdminVolunteerRolesPage() {
                     <Edit className="h-4 w-4" />
                   </button>
                   <button 
-                    onClick={() => handleDeleteRole(role.id)}
+                    onClick={() => handleDeleteRole(role._id)}
                     className="text-red-600 hover:text-red-800"
                     title="Delete Role"
                   >
@@ -452,7 +434,7 @@ export default function AdminVolunteerRolesPage() {
                   </button>
                 </div>
                 <button 
-                  onClick={() => handleToggleStatus(role.id)}
+                  onClick={() => handleToggleStatus(role._id)}
                   className={`px-3 py-1 text-xs font-medium rounded-full transition-colors ${
                     role.isActive 
                       ? 'bg-red-100 text-red-700 hover:bg-red-200' 
