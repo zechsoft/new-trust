@@ -191,7 +191,74 @@ export default function CaseTrackerAdmin() {
       ipAddress: '117.240.45.67'
     }
   ];
+ // Export functionality
+  const handleExportCases = () => {
+    const selectedCaseData = mockCases.filter(caseItem => 
+      selectedCases.includes(caseItem.id)
+    );
+    
+    const csvHeader = "Case Number,Title,Court,Status,Petitioner,Respondent,Judge,Created At,Updated At\n";
+    const csvContent = selectedCaseData.map(caseItem => 
+      `"${caseItem.caseNumber}","${caseItem.title}","${caseItem.court}","${caseItem.status}","${caseItem.petitioner}","${caseItem.respondent}","${caseItem.judge}","${caseItem.createdAt}","${caseItem.updatedAt}"`
+    ).join('\n');
+    
+    const csvData = csvHeader + csvContent;
+    const blob = new Blob([csvData], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    
+    if (link.download !== undefined) {
+      const url = URL.createObjectURL(blob);
+      link.setAttribute('href', url);
+      link.setAttribute('download', `cases_export_${new Date().toISOString().split('T')[0]}.csv`);
+      link.style.visibility = 'hidden';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    }
+  };
 
+  // Delete functionality
+  const handleDeleteCases = () => {
+    if (window.confirm(`Are you sure you want to delete ${selectedCases.length} selected cases? This action cannot be undone.`)) {
+      // In a real app, you would make an API call here
+      alert(`${selectedCases.length} cases have been deleted successfully.`);
+      setSelectedCases([]);
+    }
+  };
+
+  // Analytics data calculations
+  const getAnalyticsData = () => {
+    const statusCounts = mockCases.reduce((acc, caseItem) => {
+      acc[caseItem.status] = (acc[caseItem.status] || 0) + 1;
+      return acc;
+    }, {});
+
+    const courtCounts = mockCases.reduce((acc, caseItem) => {
+      const court = caseItem.court.split(',')[0]; // Get main court name
+      acc[court] = (acc[court] || 0) + 1;
+      return acc;
+    }, {});
+
+    const userActivityData = mockUsers.map(user => ({
+      name: user.name.split(' ')[0], // First name only
+      cases: user.casesAssigned,
+      role: user.role
+    }));
+
+    // Mock monthly data for new cases
+    const monthlyData = [
+      { month: 'Jan', cases: 12 },
+      { month: 'Feb', cases: 19 },
+      { month: 'Mar', cases: 8 },
+      { month: 'Apr', cases: 15 },
+      { month: 'May', cases: 23 },
+      { month: 'Jun', cases: 18 }
+    ];
+
+    return { statusCounts, courtCounts, userActivityData, monthlyData };
+  };
+
+  const analyticsData = getAnalyticsData();
   const filteredCases = mockCases.filter(caseItem => {
     const matchesSearch = caseItem.caseNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
       caseItem.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -444,15 +511,21 @@ export default function CaseTrackerAdmin() {
                       {selectedCases.length > 0 ? `${selectedCases.length} selected` : `${filteredCases.length} cases`}
                     </span>
                   </div>
-                  {selectedCases.length > 0 && (
+                   {selectedCases.length > 0 && (
                     <div className="flex space-x-3">
-                      <button className="inline-flex items-center px-3 py-1.5 border border-gray-300 shadow-sm text-xs font-medium rounded text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+                      <button 
+                        onClick={handleExportCases}
+                        className="inline-flex items-center px-3 py-1.5 border border-gray-300 shadow-sm text-xs font-medium rounded text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                      >
                         <Download className="mr-1 h-3 w-3" />
-                        Export
+                        Export ({selectedCases.length})
                       </button>
-                      <button className="inline-flex items-center px-3 py-1.5 border border-gray-300 shadow-sm text-xs font-medium rounded text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+                      <button 
+                        onClick={handleDeleteCases}
+                        className="inline-flex items-center px-3 py-1.5 border border-gray-300 shadow-sm text-xs font-medium rounded text-red-700 bg-white hover:bg-red-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
+                      >
                         <Trash2 className="mr-1 h-3 w-3" />
-                        Delete
+                        Delete ({selectedCases.length})
                       </button>
                     </div>
                   )}
@@ -649,43 +722,187 @@ export default function CaseTrackerAdmin() {
           {/* Analytics Tab */}
           {activeTab === 'analytics' && (
             <div className="space-y-6">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              {/* Key Metrics Cards */}
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
                 <div className="bg-white p-6 rounded-lg shadow">
-                  <h3 className="text-lg font-medium text-gray-900 mb-4">Case Status Distribution</h3>
-                  <div className="h-64 bg-gray-50 rounded-md flex items-center justify-center">
-                    <p className="text-gray-500">Pie Chart Placeholder</p>
+                  <div className="flex items-center">
+                    <div className="flex-shrink-0">
+                      <FileText className="h-8 w-8 text-indigo-600" />
+                    </div>
+                    <div className="ml-5 w-0 flex-1">
+                      <dl>
+                        <dt className="text-sm font-medium text-gray-500 truncate">Total Cases</dt>
+                        <dd className="text-lg font-medium text-gray-900">{mockCases.length}</dd>
+                      </dl>
+                    </div>
                   </div>
                 </div>
                 <div className="bg-white p-6 rounded-lg shadow">
-                  <h3 className="text-lg font-medium text-gray-900 mb-4">New Cases Over Time</h3>
-                  <div className="h-64 bg-gray-50 rounded-md flex items-center justify-center">
-                    <p className="text-gray-500">Line Chart Placeholder</p>
+                  <div className="flex items-center">
+                    <div className="flex-shrink-0">
+                      <Users className="h-8 w-8 text-green-600" />
+                    </div>
+                    <div className="ml-5 w-0 flex-1">
+                      <dl>
+                        <dt className="text-sm font-medium text-gray-500 truncate">Active Users</dt>
+                        <dd className="text-lg font-medium text-gray-900">{mockUsers.length}</dd>
+                      </dl>
+                    </div>
                   </div>
                 </div>
                 <div className="bg-white p-6 rounded-lg shadow">
-                  <h3 className="text-lg font-medium text-gray-900 mb-4">User Activity</h3>
-                  <div className="h-64 bg-gray-50 rounded-md flex items-center justify-center">
-                    <p className="text-gray-500">Bar Chart Placeholder</p>
+                  <div className="flex items-center">
+                    <div className="flex-shrink-0">
+                      <BarChart2 className="h-8 w-8 text-yellow-600" />
+                    </div>
+                    <div className="ml-5 w-0 flex-1">
+                      <dl>
+                        <dt className="text-sm font-medium text-gray-500 truncate">Pending Cases</dt>
+                        <dd className="text-lg font-medium text-gray-900">{analyticsData.statusCounts.pending || 0}</dd>
+                      </dl>
+                    </div>
+                  </div>
+                </div>
+                <div className="bg-white p-6 rounded-lg shadow">
+                  <div className="flex items-center">
+                    <div className="flex-shrink-0">
+                      <Check className="h-8 w-8 text-blue-600" />
+                    </div>
+                    <div className="ml-5 w-0 flex-1">
+                      <dl>
+                        <dt className="text-sm font-medium text-gray-500 truncate">Closed Cases</dt>
+                        <dd className="text-lg font-medium text-gray-900">{analyticsData.statusCounts.closed || 0}</dd>
+                      </dl>
+                    </div>
                   </div>
                 </div>
               </div>
 
+              {/* Charts Section */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <div className="bg-white p-6 rounded-lg shadow">
+                  <h3 className="text-lg font-medium text-gray-900 mb-4">Case Status Distribution</h3>
+                  <div className="space-y-4">
+                    {Object.entries(analyticsData.statusCounts).map(([status, count]) => (
+                      <div key={status} className="flex items-center justify-between">
+                        <div className="flex items-center">
+                          <div className={`w-3 h-3 rounded-full mr-3 ${
+                            status === 'active' ? 'bg-green-500' :
+                            status === 'pending' ? 'bg-yellow-500' :
+                            status === 'closed' ? 'bg-blue-500' : 'bg-gray-500'
+                          }`}></div>
+                          <span className="text-sm font-medium text-gray-900 capitalize">{status}</span>
+                        </div>
+                        <div className="flex items-center">
+                          <div className="w-32 bg-gray-200 rounded-full h-2 mr-3">
+                            <div 
+                              className={`h-2 rounded-full ${
+                                status === 'active' ? 'bg-green-500' :
+                                status === 'pending' ? 'bg-yellow-500' :
+                                status === 'closed' ? 'bg-blue-500' : 'bg-gray-500'
+                              }`}
+                              style={{ width: `${(count / mockCases.length) * 100}%` }}
+                            ></div>
+                          </div>
+                          <span className="text-sm text-gray-500 w-8">{count}</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="bg-white p-6 rounded-lg shadow">
+                  <h3 className="text-lg font-medium text-gray-900 mb-4">New Cases Over Time</h3>
+                  <div className="h-64 flex items-end justify-between space-x-2">
+                    {analyticsData.monthlyData.map((data, index) => (
+                      <div key={index} className="flex flex-col items-center flex-1">
+                        <div 
+                          className="bg-indigo-500 w-full rounded-t"
+                          style={{ height: `${(data.cases / 25) * 100}%`, minHeight: '4px' }}
+                        ></div>
+                        <span className="text-xs text-gray-500 mt-2">{data.month}</span>
+                        <span className="text-xs font-medium text-gray-700">{data.cases}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              {/* Court Distribution & User Activity */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <div className="bg-white p-6 rounded-lg shadow">
+                  <h3 className="text-lg font-medium text-gray-900 mb-4">Cases by Court</h3>
+                  <div className="space-y-3">
+                    {Object.entries(analyticsData.courtCounts).map(([court, count]) => (
+                      <div key={court} className="flex justify-between items-center">
+                        <span className="text-sm text-gray-600 truncate">{court}</span>
+                        <span className="text-sm font-medium text-gray-900">{count}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="bg-white p-6 rounded-lg shadow">
+                  <h3 className="text-lg font-medium text-gray-900 mb-4">User Activity</h3>
+                  <div className="space-y-3">
+                    {analyticsData.userActivityData.map((user, index) => (
+                      <div key={index} className="flex items-center justify-between">
+                        <div className="flex items-center">
+                          <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-medium ${
+                            user.role === 'admin' ? 'bg-purple-100 text-purple-700' :
+                            user.role === 'lawyer' ? 'bg-blue-100 text-blue-700' :
+                            user.role === 'clerk' ? 'bg-teal-100 text-teal-700' :
+                            'bg-gray-100 text-gray-700'
+                          }`}>
+                            {user.name.charAt(0)}
+                          </div>
+                          <span className="ml-3 text-sm text-gray-900">{user.name}</span>
+                        </div>
+                        <span className="text-sm font-medium text-gray-900">{user.cases} cases</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              {/* Recent Activity Log */}
               <div className="bg-white shadow overflow-hidden sm:rounded-lg">
                 <div className="px-4 py-5 sm:px-6 border-b border-gray-200">
                   <h3 className="text-lg leading-6 font-medium text-gray-900">Recent Activity</h3>
+                  <p className="mt-1 max-w-2xl text-sm text-gray-500">
+                    Latest system activities and user actions
+                  </p>
                 </div>
                 <div className="px-4 py-5 sm:p-6">
-                  <div className="space-y-4">
-                    {mockActivityLogs.map((log) => (
-                      <div key={log.id} className="border-l-4 border-indigo-200 pl-4 py-2">
-                        <div className="flex justify-between">
-                          <p className="text-sm font-medium text-gray-900">{log.user}</p>
-                          <p className="text-sm text-gray-500">{log.timestamp}</p>
-                        </div>
-                        <p className="text-sm text-gray-600">{log.action}</p>
-                        <p className="text-xs text-gray-400 mt-1">IP: {log.ipAddress}</p>
-                      </div>
-                    ))}
+                  <div className="flow-root">
+                    <ul className="-mb-8">
+                      {mockActivityLogs.map((log, index) => (
+                        <li key={log.id}>
+                          <div className="relative pb-8">
+                            {index !== mockActivityLogs.length - 1 ? (
+                              <span className="absolute top-4 left-4 -ml-px h-full w-0.5 bg-gray-200" aria-hidden="true"></span>
+                            ) : null}
+                            <div className="relative flex space-x-3">
+                              <div>
+                                <span className="h-8 w-8 rounded-full bg-indigo-500 flex items-center justify-center ring-8 ring-white">
+                                  <FileText className="h-4 w-4 text-white" />
+                                </span>
+                              </div>
+                              <div className="min-w-0 flex-1 pt-1.5 flex justify-between space-x-4">
+                                <div>
+                                  <p className="text-sm text-gray-500">
+                                    <span className="font-medium text-gray-900">{log.user}</span> {log.action}
+                                  </p>
+                                </div>
+                                <div className="text-right text-sm whitespace-nowrap text-gray-500">
+                                  <time>{log.timestamp}</time>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        </li>
+                      ))}
+                    </ul>
                   </div>
                 </div>
               </div>

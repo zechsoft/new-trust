@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { 
-  Upload, 
   Play, 
   Pause, 
   Volume2, 
@@ -64,43 +63,14 @@ interface AudioSettings {
 }
 
 export default function AdminGalleryAudio() {
-  const [audioTracks, setAudioTracks] = useState<AudioTrack[]>([
-    {
-      id: '1',
-      name: 'Gallery Background Music',
-      url: '/audio/gallery-bg.mp3',
-      duration: 180,
-      size: '3.2 MB',
-      type: 'background',
-      isDefault: true
-    },
-    {
-      id: '2',
-      name: 'Hover Effect Sound',
-      url: '/audio/hover-effect.mp3',
-      duration: 1,
-      size: '24 KB',
-      type: 'effect',
-      isDefault: false
-    },
-    {
-      id: '3',
-      name: 'Click Sound',
-      url: '/audio/click-sound.mp3',
-      duration: 0.5,
-      size: '18 KB',
-      type: 'effect',
-      isDefault: false
-    }
-  ]);
-
+  const [audioTracks, setAudioTracks] = useState<AudioTrack[]>([]);
   const [settings, setSettings] = useState<AudioSettings>({
     globalMuted: false,
     globalAutoPlay: true,
     globalVolume: 0.7,
     backgroundMusic: {
       enabled: true,
-      track: '1',
+      track: '',
       volume: 0.5,
       fadeIn: true,
       fadeOut: true,
@@ -109,8 +79,8 @@ export default function AdminGalleryAudio() {
     soundEffects: {
       enabled: true,
       volume: 0.8,
-      hoverSound: '2',
-      clickSound: '3',
+      hoverSound: '',
+      clickSound: '',
       transitionSound: ''
     },
     controlsVisibility: {
@@ -128,11 +98,104 @@ export default function AdminGalleryAudio() {
   const [isSaving, setIsSaving] = useState(false);
   const audioRef = useRef<HTMLAudioElement>(null);
 
+  const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
+
+  const fetchAudioTracks = async () => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/audio/tracks`);
+      const data = await response.json();
+      if (data.success) {
+        setAudioTracks(data.data);
+      }
+    } catch (error) {
+      console.error('Error fetching audio tracks:', error);
+    }
+  };
+
+  const fetchAudioSettings = async () => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/audio/settings`);
+      const data = await response.json();
+      if (data.success) {
+        setSettings(data.data);
+      }
+    } catch (error) {
+      console.error('Error fetching audio settings:', error);
+    }
+  };
+
+  const handleFileUpload = async (file: File, type: 'background' | 'effect') => {
+    try {
+      const formData = new FormData();
+      formData.append('audio', file);
+      formData.append('name', file.name.replace(/\.[^/.]+$/, ""));
+      formData.append('type', type);
+
+      const response = await fetch(`${API_BASE_URL}/audio/upload`, {
+        method: 'POST',
+        body: formData,
+      });
+
+      const data = await response.json();
+      
+      if (data.success) {
+        setAudioTracks(prev => [...prev, data.data]);
+        console.log('Audio uploaded successfully');
+      } else {
+        console.error('Upload failed:', data.message);
+      }
+    } catch (error) {
+      console.error('Error uploading audio:', error);
+    }
+  };
+
+  const handleDeleteTrack = async (trackId: string) => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/audio/tracks/${trackId}`, {
+        method: 'DELETE',
+      });
+
+      const data = await response.json();
+      
+      if (data.success) {
+        setAudioTracks(prev => prev.filter(track => track.id !== trackId));
+        if (currentTrack === trackId) {
+          handleStopTrack();
+        }
+        console.log('Audio deleted successfully');
+      } else {
+        console.error('Delete failed:', data.message);
+      }
+    } catch (error) {
+      console.error('Error deleting audio:', error);
+    }
+  };
+
   const handleSave = async () => {
     setIsSaving(true);
-    setTimeout(() => {
-      setIsSaving(false);
-    }, 1500);
+    try {
+      const response = await fetch(`${API_BASE_URL}/audio/settings`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(settings),
+      });
+
+      const data = await response.json();
+      
+      if (data.success) {
+        console.log('Settings saved successfully');
+      } else {
+        console.error('Save failed:', data.message);
+      }
+    } catch (error) {
+      console.error('Error saving settings:', error);
+    } finally {
+      setTimeout(() => {
+        setIsSaving(false);
+      }, 1500);
+    }
   };
 
   const handlePlayTrack = (trackId: string) => {
@@ -154,31 +217,16 @@ export default function AdminGalleryAudio() {
     }
   };
 
-  const handleFileUpload = (file: File, type: 'background' | 'effect') => {
-    const newTrack: AudioTrack = {
-      id: Date.now().toString(),
-      name: file.name.replace(/\.[^/.]+$/, ""),
-      url: URL.createObjectURL(file),
-      duration: 0, // Would be calculated from actual file
-      size: `${(file.size / 1024 / 1024).toFixed(1)} MB`,
-      type,
-      isDefault: false
-    };
-    setAudioTracks(prev => [...prev, newTrack]);
-  };
-
-  const handleDeleteTrack = (trackId: string) => {
-    setAudioTracks(prev => prev.filter(track => track.id !== trackId));
-    if (currentTrack === trackId) {
-      handleStopTrack();
-    }
-  };
-
   const formatDuration = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
     const secs = Math.floor(seconds % 60);
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
+
+  useEffect(() => {
+    fetchAudioTracks();
+    fetchAudioSettings();
+  }, []);
 
   return (
     <div className="p-6">
@@ -254,7 +302,10 @@ export default function AdminGalleryAudio() {
                           className="hidden"
                           onChange={(e) => {
                             const file = e.target.files?.[0];
-                            if (file) handleFileUpload(file, 'background');
+                            if (file) {
+                              handleFileUpload(file, 'background');
+                              e.target.value = ''; // Reset input
+                            }
                           }}
                         />
                         <Plus className="w-4 h-4" />
@@ -301,7 +352,10 @@ export default function AdminGalleryAudio() {
                           className="hidden"
                           onChange={(e) => {
                             const file = e.target.files?.[0];
-                            if (file) handleFileUpload(file, 'effect');
+                            if (file) {
+                              handleFileUpload(file, 'effect');
+                              e.target.value = ''; // Reset input
+                            }
                           }}
                         />
                         <Plus className="w-4 h-4" />

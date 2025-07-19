@@ -51,6 +51,60 @@ interface HeroSettings {
   muted: boolean;
 }
 
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
+
+// API Functions
+const galleryHeroAPI = {
+  // Fetch gallery hero settings
+  getSettings: async () => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/gallery-hero`);
+      const data = await response.json();
+      return data;
+    } catch (error) {
+      console.error('Error fetching gallery hero settings:', error);
+      throw error;
+    }
+  },
+
+  // Save gallery hero settings
+  saveSettings: async (settings: HeroSettings) => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/gallery-hero`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(settings)
+      });
+      const data = await response.json();
+      return data;
+    } catch (error) {
+      console.error('Error saving gallery hero settings:', error);
+      throw error;
+    }
+  },
+
+  // Upload media
+  uploadMedia: async (file: File, mediaType: string) => {
+    try {
+      const formData = new FormData();
+      formData.append('media', file);
+      formData.append('mediaType', mediaType);
+
+      const response = await fetch(`${API_BASE_URL}/gallery-hero/upload-media`, {
+        method: 'POST',
+        body: formData
+      });
+      const data = await response.json();
+      return data;
+    } catch (error) {
+      console.error('Error uploading media:', error);
+      throw error;
+    }
+  }
+};
+
 export default function AdminGalleryHero() {
   const [settings, setSettings] = useState<HeroSettings>({
     backgroundType: 'video',
@@ -87,13 +141,77 @@ export default function AdminGalleryHero() {
   const [isSaving, setIsSaving] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
 
+  useEffect(() => {
+    const loadSettings = async () => {
+      try {
+        const response = await galleryHeroAPI.getSettings();
+        if (response.success) {
+          setSettings(response.data);
+          console.log('✅ Gallery hero settings loaded:', response.data);
+        }
+      } catch (error) {
+        console.error('❌ Error loading settings:', error);
+        // Keep default settings if API fails
+      }
+    };
+
+    loadSettings();
+  }, []);
+
   const handleSave = async () => {
     setIsSaving(true);
-    // Simulate API call
-    setTimeout(() => {
+    try {
+      const response = await galleryHeroAPI.saveSettings(settings);
+      if (response.success) {
+        console.log('✅ Settings saved successfully');
+        alert('Settings saved successfully!');
+      } else {
+        throw new Error(response.message || 'Failed to save settings');
+      }
+    } catch (error) {
+      console.error('❌ Error saving settings:', error);
+      alert('Error saving settings. Please try again.');
+    } finally {
       setIsSaving(false);
-      // Show success message or handle error
-    }, 1500);
+    }
+  };
+
+  const handleFileUpload = async (type: 'video' | 'image', file: File) => {
+    try {
+      console.log(`📤 Uploading ${type}:`, file.name);
+      
+      // Show upload progress (optional)
+      const tempUrl = URL.createObjectURL(file);
+      if (type === 'video') {
+        setSettings(prev => ({ ...prev, videoUrl: tempUrl }));
+      } else {
+        setSettings(prev => ({ ...prev, imageUrl: tempUrl }));
+      }
+
+      // Upload to Cloudinary via backend
+      const response = await galleryHeroAPI.uploadMedia(file, type);
+      
+      if (response.success) {
+        console.log(`✅ ${type} uploaded successfully:`, response.url);
+        
+        // Update settings with Cloudinary URL
+        if (type === 'video') {
+          setSettings(prev => ({ ...prev, videoUrl: response.url }));
+        } else {
+          setSettings(prev => ({ ...prev, imageUrl: response.url }));
+        }
+        
+        // Clean up temp URL
+        URL.revokeObjectURL(tempUrl);
+        
+        alert(`${type} uploaded successfully!`);
+      } else {
+        throw new Error(response.message || 'Upload failed');
+      }
+    } catch (error) {
+      console.error(`❌ Error uploading ${type}:`, error);
+      alert(`Error uploading ${type}. Please try again.`);
+    }
   };
 
   const handleVideoControl = () => {
@@ -104,16 +222,6 @@ export default function AdminGalleryHero() {
         videoRef.current.play();
       }
       setIsPlaying(!isPlaying);
-    }
-  };
-
-  const handleFileUpload = (type: 'video' | 'image', file: File) => {
-    // Handle file upload logic here
-    const url = URL.createObjectURL(file);
-    if (type === 'video') {
-      setSettings(prev => ({ ...prev, videoUrl: url }));
-    } else {
-      setSettings(prev => ({ ...prev, imageUrl: url }));
     }
   };
 
@@ -265,10 +373,15 @@ export default function AdminGalleryHero() {
                       <label className="block text-sm font-medium text-gray-700 mb-2">
                         Video Upload
                       </label>
-                      <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-gray-400 transition-colors">
+                      <div 
+                        className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-gray-400 transition-colors cursor-pointer"
+                        onClick={() => document.getElementById('video-upload')?.click()}
+                      >
                         <VideoIcon className="w-8 h-8 text-gray-400 mx-auto mb-2" />
                         <p className="text-sm text-gray-600">Drop video here or click to upload</p>
+                        <p className="text-xs text-gray-500 mt-1">Supports MP4, MOV, AVI, MKV (Max 50MB)</p>
                         <input
+                          id="video-upload"
                           type="file"
                           accept="video/*"
                           className="hidden"
@@ -327,10 +440,15 @@ export default function AdminGalleryHero() {
                       <label className="block text-sm font-medium text-gray-700 mb-2">
                         Background Image
                       </label>
-                      <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-gray-400 transition-colors">
+                      <div 
+                        className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-gray-400 transition-colors cursor-pointer"
+                        onClick={() => document.getElementById('image-upload')?.click()}
+                      >
                         <ImageIcon className="w-8 h-8 text-gray-400 mx-auto mb-2" />
                         <p className="text-sm text-gray-600">Drop image here or click to upload</p>
+                        <p className="text-xs text-gray-500 mt-1">Supports JPG, PNG, WebP (Max 50MB)</p>
                         <input
+                          id="image-upload"
                           type="file"
                           accept="image/*"
                           className="hidden"

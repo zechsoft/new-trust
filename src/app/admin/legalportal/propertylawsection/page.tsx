@@ -79,6 +79,9 @@ export default function PropertyLawAdminPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<any>(null);
   const [searchTerm, setSearchTerm] = useState('');
+  const [previewItem, setPreviewItem] = useState<any>(null);
+  const [isPreviewOpen, setIsPreviewOpen] = useState(false);
+  const [formData, setFormData] = useState<any>({});
 
   // Sample data - in real app this would come from API
   const [legalTerms, setLegalTerms] = useState<LegalTerm[]>([
@@ -189,33 +192,157 @@ export default function PropertyLawAdminPage() {
     }
   ]);
 
+  const handleSave = (data: any) => {
+    const currentDate = new Date().toISOString().split('T')[0];
+    
+    if (activeTab === 'terms') {
+      if (editingItem) {
+        // Update existing term
+        setLegalTerms(prev => prev.map(term => 
+          term.id === editingItem.id 
+            ? { ...term, ...formData, updatedAt: currentDate }
+            : term
+        ));
+      } else {
+        // Add new term
+        const newTerm = {
+          id: Date.now().toString(),
+          ...formData,
+          createdAt: currentDate,
+          updatedAt: currentDate
+        };
+        setLegalTerms(prev => [...prev, newTerm]);
+      }
+    } else if (activeTab === 'inheritance') {
+      if (editingItem) {
+        setInheritanceRules(prev => prev.map(rule => 
+          rule.id === editingItem.id 
+            ? { ...rule, ...formData, updatedAt: currentDate }
+            : rule
+        ));
+      } else {
+        const newRule = {
+          id: Date.now().toString(),
+          ...formData,
+          createdAt: currentDate,
+          updatedAt: currentDate
+        };
+        setInheritanceRules(prev => [...prev, newRule]);
+      }
+    } else if (activeTab === 'documents') {
+      if (editingItem) {
+        setDocuments(prev => prev.map(doc => 
+          doc.id === editingItem.id 
+            ? { ...doc, ...formData, updatedAt: currentDate }
+            : doc
+        ));
+      } else {
+        const newDoc = {
+          id: Date.now().toString(),
+          downloadCount: 0,
+          ...formData,
+          createdAt: currentDate,
+          updatedAt: currentDate
+        };
+        setDocuments(prev => [...prev, newDoc]);
+      }
+    } else if (activeTab === 'farmers') {
+      if (editingItem) {
+        setFarmerRights(prev => prev.map(right => 
+          right.id === editingItem.id 
+            ? { ...right, ...formData, updatedAt: currentDate }
+            : right
+        ));
+      } else {
+        const newRight = {
+          id: Date.now().toString(),
+          ...formData,
+          createdAt: currentDate,
+          updatedAt: currentDate
+        };
+        setFarmerRights(prev => [...prev, newRight]);
+      }
+    }
+    
+    closeModal();
+  };
+
+  const handleDelete = (id: string, type: string) => {
+    if (window.confirm('Are you sure you want to delete this item?')) {
+      if (type === 'term') {
+        setLegalTerms(prev => prev.filter(term => term.id !== id));
+      } else if (type === 'inheritance') {
+        setInheritanceRules(prev => prev.filter(rule => rule.id !== id));
+      } else if (type === 'document') {
+        setDocuments(prev => prev.filter(doc => doc.id !== id));
+      } else if (type === 'farmer') {
+        setFarmerRights(prev => prev.filter(right => right.id !== id));
+      }
+    }
+  };
+
+  const toggleStatus = (id: string, type: string, currentStatus: string) => {
+    const newStatus = currentStatus === 'active' ? 'inactive' : 'active';
+    const currentDate = new Date().toISOString().split('T')[0];
+    
+    if (type === 'term') {
+      setLegalTerms(prev => prev.map(term => 
+        term.id === id 
+          ? { ...term, status: newStatus, updatedAt: currentDate }
+          : term
+      ));
+    } else if (type === 'inheritance') {
+      setInheritanceRules(prev => prev.map(rule => 
+        rule.id === id 
+          ? { ...rule, status: newStatus, updatedAt: currentDate }
+          : rule
+      ));
+    } else if (type === 'document') {
+      setDocuments(prev => prev.map(doc => 
+        doc.id === id 
+          ? { ...doc, status: newStatus, updatedAt: currentDate }
+          : doc
+      ));
+    } else if (type === 'farmer') {
+      setFarmerRights(prev => prev.map(right => 
+        right.id === id 
+          ? { ...right, status: newStatus, updatedAt: currentDate }
+          : right
+      ));
+    }
+  };
+
+  const openPreview = (item: any) => {
+    setPreviewItem(item);
+    setIsPreviewOpen(true);
+  };
+
+  const closePreview = () => {
+    setIsPreviewOpen(false);
+    setPreviewItem(null);
+  };
+
+  const handleInputChange = (field: string, value: any) => {
+    setFormData(prev => ({
+      ...prev,
+      [field]: value
+    }));
+  };
+
   const openModal = (type: string, item?: any) => {
     setEditingItem(item || null);
+    if (item) {
+      setFormData(item);
+    } else {
+      setFormData({ status: 'active' });
+    }
     setIsModalOpen(true);
   };
 
   const closeModal = () => {
     setIsModalOpen(false);
     setEditingItem(null);
-  };
-
-  const handleSave = (data: any) => {
-    // In real app, this would make API call
-    console.log('Saving:', data);
-    closeModal();
-  };
-
-  const handleDelete = (id: string, type: string) => {
-    if (window.confirm('Are you sure you want to delete this item?')) {
-      // In real app, this would make API call
-      console.log('Deleting:', id, type);
-    }
-  };
-
-  const toggleStatus = (id: string, type: string, currentStatus: string) => {
-    const newStatus = currentStatus === 'active' ? 'inactive' : 'active';
-    // In real app, this would make API call
-    console.log('Toggling status:', id, type, newStatus);
+    setFormData({});
   };
 
   const filteredTerms = legalTerms.filter(term => 
@@ -395,8 +522,8 @@ export default function PropertyLawAdminPage() {
                             <Edit className="w-4 h-4" />
                           </button>
                           <button
-                            onClick={() => toggleStatus(term.id, 'term', term.status)}
-                            className="p-1 text-gray-400 hover:text-yellow-600"
+                            onClick={() => openPreview(term)}
+                            className="p-1 text-gray-400 hover:text-blue-600"
                           >
                             <Eye className="w-4 h-4" />
                           </button>
@@ -479,10 +606,10 @@ export default function PropertyLawAdminPage() {
                         Edit
                       </button>
                       <button
-                        onClick={() => toggleStatus(rule.id, 'inheritance', rule.status)}
+                        onClick={() => openPreview(rule)}
                         className="px-3 py-2 bg-gray-50 text-gray-600 rounded-lg hover:bg-gray-100 text-sm"
                       >
-                        Toggle
+                        Preview
                       </button>
                       <button
                         onClick={() => handleDelete(rule.id, 'inheritance')}
@@ -561,8 +688,11 @@ export default function PropertyLawAdminPage() {
                       >
                         Edit
                       </button>
-                      <button className="px-3 py-2 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 text-sm">
-                        View
+                      <button 
+                        onClick={() => openPreview(doc)}
+                        className="px-3 py-2 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 text-sm"
+                      >
+                        Preview
                       </button>
                     </div>
                   </div>
@@ -636,10 +766,10 @@ export default function PropertyLawAdminPage() {
                         Edit
                       </button>
                       <button
-                        onClick={() => toggleStatus(right.id, 'farmer', right.status)}
+                        onClick={() => openPreview(right)}
                         className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 text-sm"
                       >
-                        Toggle Status
+                        Preview
                       </button>
                       <button
                         onClick={() => handleDelete(right.id, 'farmer')}
@@ -680,8 +810,8 @@ export default function PropertyLawAdminPage() {
                     </div>
                     <div className="text-2xl font-bold text-gray-900">{item.count.toLocaleString()}</div>
                   </div>
-
-                ))}              </div>
+                ))}
+              </div>
             </div>
             <div className="bg-white p-6 rounded-xl shadow-sm border">
               <h3 className="text-lg font-semibold text-gray-900 mb-4">Popular Content</h3>
@@ -757,7 +887,7 @@ export default function PropertyLawAdminPage() {
                     onClick={closeModal}
                     className="text-gray-500 hover:text-gray-700"
                   >
-                    ✕
+                    <X className="w-6 h-6" />
                   </button>
                 </div>
               </div>
@@ -770,7 +900,8 @@ export default function PropertyLawAdminPage() {
                         <label className="block text-sm font-medium text-gray-700 mb-2">Term</label>
                         <input
                           type="text"
-                          defaultValue={editingItem?.term || ''}
+                          value={formData.term || ''}
+                          onChange={(e) => handleInputChange('term', e.target.value)}
                           className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                           placeholder="Enter legal term"
                         />
@@ -778,7 +909,8 @@ export default function PropertyLawAdminPage() {
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-2">Definition</label>
                         <textarea
-                          defaultValue={editingItem?.definition || ''}
+                          value={formData.definition || ''}
+                          onChange={(e) => handleInputChange('definition', e.target.value)}
                           rows={3}
                           className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                           placeholder="Enter detailed definition"
@@ -787,7 +919,8 @@ export default function PropertyLawAdminPage() {
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-2">Example (Optional)</label>
                         <textarea
-                          defaultValue={editingItem?.example || ''}
+                          value={formData.example || ''}
+                          onChange={(e) => handleInputChange('example', e.target.value)}
                           rows={2}
                           className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                           placeholder="Enter example usage"
@@ -797,7 +930,8 @@ export default function PropertyLawAdminPage() {
                         <label className="block text-sm font-medium text-gray-700 mb-2">Category</label>
                         <input
                           type="text"
-                          defaultValue={editingItem?.category || ''}
+                          value={formData.category || ''}
+                          onChange={(e) => handleInputChange('category', e.target.value)}
                           className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                           placeholder="Enter category"
                         />
@@ -811,7 +945,8 @@ export default function PropertyLawAdminPage() {
                         <label className="block text-sm font-medium text-gray-700 mb-2">Religion</label>
                         <input
                           type="text"
-                          defaultValue={editingItem?.religion || ''}
+                          value={formData.religion || ''}
+                          onChange={(e) => handleInputChange('religion', e.target.value)}
                           className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                           placeholder="Enter religion"
                         />
@@ -819,7 +954,8 @@ export default function PropertyLawAdminPage() {
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-2">Male Heirs (comma separated)</label>
                         <textarea
-                          defaultValue={editingItem?.maleHeir?.join(', ') || ''}
+                          value={formData.maleHeir?.join(', ') || ''}
+                          onChange={(e) => handleInputChange('maleHeir', e.target.value.split(',').map(item => item.trim()))}
                           rows={2}
                           className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                           placeholder="Enter male heirs in order of priority"
@@ -828,7 +964,8 @@ export default function PropertyLawAdminPage() {
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-2">Female Heirs (comma separated)</label>
                         <textarea
-                          defaultValue={editingItem?.femaleHeir?.join(', ') || ''}
+                          value={formData.femaleHeir?.join(', ') || ''}
+                          onChange={(e) => handleInputChange('femaleHeir', e.target.value.split(',').map(item => item.trim()))}
                           rows={2}
                           className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                           placeholder="Enter female heirs in order of priority"
@@ -837,7 +974,8 @@ export default function PropertyLawAdminPage() {
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-2">Spouse Rights</label>
                         <textarea
-                          defaultValue={editingItem?.spouse || ''}
+                          value={formData.spouse || ''}
+                          onChange={(e) => handleInputChange('spouse', e.target.value)}
                           rows={2}
                           className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                           placeholder="Describe spouse inheritance rights"
@@ -852,7 +990,8 @@ export default function PropertyLawAdminPage() {
                         <label className="block text-sm font-medium text-gray-700 mb-2">Document Name</label>
                         <input
                           type="text"
-                          defaultValue={editingItem?.name || ''}
+                          value={formData.name || ''}
+                          onChange={(e) => handleInputChange('name', e.target.value)}
                           className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                           placeholder="Enter document name"
                         />
@@ -860,7 +999,8 @@ export default function PropertyLawAdminPage() {
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-2">Description</label>
                         <textarea
-                          defaultValue={editingItem?.description || ''}
+                          value={formData.description || ''}
+                          onChange={(e) => handleInputChange('description', e.target.value)}
                           rows={3}
                           className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                           placeholder="Enter document description"
@@ -870,7 +1010,8 @@ export default function PropertyLawAdminPage() {
                         <label className="block text-sm font-medium text-gray-700 mb-2">Use Case</label>
                         <input
                           type="text"
-                          defaultValue={editingItem?.useCase || ''}
+                          value={formData.useCase || ''}
+                          onChange={(e) => handleInputChange('useCase', e.target.value)}
                           className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                           placeholder="Enter when this document is used"
                         />
@@ -879,7 +1020,8 @@ export default function PropertyLawAdminPage() {
                         <label className="block text-sm font-medium text-gray-700 mb-2">Format</label>
                         <input
                           type="text"
-                          defaultValue={editingItem?.format || ''}
+                          value={formData.format || ''}
+                          onChange={(e) => handleInputChange('format', e.target.value)}
                           className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                           placeholder="Enter document format"
                         />
@@ -893,7 +1035,8 @@ export default function PropertyLawAdminPage() {
                         <label className="block text-sm font-medium text-gray-700 mb-2">Title</label>
                         <input
                           type="text"
-                          defaultValue={editingItem?.title || ''}
+                          value={formData.title || ''}
+                          onChange={(e) => handleInputChange('title', e.target.value)}
                           className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                           placeholder="Enter right title"
                         />
@@ -901,7 +1044,8 @@ export default function PropertyLawAdminPage() {
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-2">Description</label>
                         <textarea
-                          defaultValue={editingItem?.description || ''}
+                          value={formData.description || ''}
+                          onChange={(e) => handleInputChange('description', e.target.value)}
                           rows={3}
                           className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                           placeholder="Enter detailed description"
@@ -911,7 +1055,8 @@ export default function PropertyLawAdminPage() {
                         <label className="block text-sm font-medium text-gray-700 mb-2">Category</label>
                         <input
                           type="text"
-                          defaultValue={editingItem?.category || ''}
+                          value={formData.category || ''}
+                          onChange={(e) => handleInputChange('category', e.target.value)}
                           className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                           placeholder="Enter category"
                         />
@@ -919,7 +1064,8 @@ export default function PropertyLawAdminPage() {
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-2">Key Details (one per line)</label>
                         <textarea
-                          defaultValue={editingItem?.details?.join('\n') || ''}
+                          value={formData.details?.join('\n') || ''}
+                          onChange={(e) => handleInputChange('details', e.target.value.split('\n'))}
                           rows={4}
                           className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                           placeholder="Enter key details, one per line"
@@ -931,7 +1077,8 @@ export default function PropertyLawAdminPage() {
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">Status</label>
                     <select
-                      defaultValue={editingItem?.status || 'active'}
+                      value={formData.status || 'active'}
+                      onChange={(e) => handleInputChange('status', e.target.value)}
                       className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     >
                       <option value="active">Active</option>
@@ -949,13 +1096,156 @@ export default function PropertyLawAdminPage() {
                     </button>
                     <button
                       type="button"
-                      onClick={() => handleSave(editingItem)}
+                      onClick={() => handleSave(formData)}
                       className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
                     >
                       {editingItem ? 'Update' : 'Create'}
                     </button>
                   </div>
                 </form>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Preview Modal */}
+      <AnimatePresence>
+        {isPreviewOpen && previewItem && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50"
+          >
+            <motion.div
+              initial={{ scale: 0.9, y: 50 }}
+              animate={{ scale: 1, y: 0 }}
+              exit={{ scale: 0.9, y: 50 }}
+              className="bg-white rounded-xl w-full max-w-3xl max-h-[90vh] overflow-y-auto"
+            >
+              <div className="p-6 border-b">
+                <div className="flex justify-between items-center">
+                  <h3 className="text-xl font-bold text-gray-900">
+                    Preview: {previewItem.term || previewItem.religion || previewItem.name || previewItem.title}
+                  </h3>
+                  <button onClick={closePreview} className="text-gray-500 hover:text-gray-700">
+                    <X className="w-6 h-6" />
+                  </button>
+                </div>
+              </div>
+              
+              <div className="p-6">
+                {activeTab === 'terms' && (
+                  <div className="space-y-4">
+                    <div>
+                      <h4 className="font-semibold text-gray-700">Term:</h4>
+                      <p className="text-gray-900">{previewItem.term}</p>
+                    </div>
+                    <div>
+                      <h4 className="font-semibold text-gray-700">Definition:</h4>
+                      <p className="text-gray-900">{previewItem.definition}</p>
+                    </div>
+                    {previewItem.example && (
+                      <div>
+                        <h4 className="font-semibold text-gray-700">Example:</h4>
+                        <p className="text-gray-900">{previewItem.example}</p>
+                      </div>
+                    )}
+                    <div>
+                      <h4 className="font-semibold text-gray-700">Category:</h4>
+                      <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded-full text-sm">
+                        {previewItem.category}
+                      </span>
+                    </div>
+                  </div>
+                )}
+                
+                {activeTab === 'inheritance' && (
+                  <div className="space-y-4">
+                    <div>
+                      <h4 className="font-semibold text-gray-700">Religion:</h4>
+                      <p className="text-gray-900">{previewItem.religion}</p>
+                    </div>
+                    <div>
+                      <h4 className="font-semibold text-gray-700">Male Heirs:</h4>
+                      <ul className="list-disc list-inside text-gray-900">
+                        {previewItem.maleHeir?.map((heir: string, idx: number) => (
+                          <li key={idx}>{heir}</li>
+                        ))}
+                      </ul>
+                    </div>
+                    <div>
+                      <h4 className="font-semibold text-gray-700">Female Heirs:</h4>
+                      <ul className="list-disc list-inside text-gray-900">
+                        {previewItem.femaleHeir?.map((heir: string, idx: number) => (
+                          <li key={idx}>{heir}</li>
+                        ))}
+                      </ul>
+                    </div>
+                    <div>
+                      <h4 className="font-semibold text-gray-700">Spouse Rights:</h4>
+                      <p className="text-gray-900">{previewItem.spouse}</p>
+                    </div>
+                  </div>
+                )}
+                
+                {activeTab === 'documents' && (
+                  <div className="space-y-4">
+                    <div>
+                      <h4 className="font-semibold text-gray-700">Document Name:</h4>
+                      <p className="text-gray-900">{previewItem.name}</p>
+                    </div>
+                    <div>
+                      <h4 className="font-semibold text-gray-700">Description:</h4>
+                      <p className="text-gray-900">{previewItem.description}</p>
+                    </div>
+                    <div>
+                      <h4 className="font-semibold text-gray-700">Use Case:</h4>
+                      <p className="text-gray-900">{previewItem.useCase}</p>
+                    </div>
+                    <div>
+                      <h4 className="font-semibold text-gray-700">Format:</h4>
+                      <p className="text-gray-900">{previewItem.format}</p>
+                    </div>
+                    <div>
+                      <h4 className="font-semibold text-gray-700">Downloads:</h4>
+                      <p className="text-gray-900">{previewItem.downloadCount}</p>
+                    </div>
+                  </div>
+                )}
+                
+                {activeTab === 'farmers' && (
+                  <div className="space-y-4">
+                    <div>
+                      <h4 className="font-semibold text-gray-700">Title:</h4>
+                      <p className="text-gray-900">{previewItem.title}</p>
+                    </div>
+                    <div>
+                      <h4 className="font-semibold text-gray-700">Description:</h4>
+                      <p className="text-gray-900">{previewItem.description}</p>
+                    </div>
+                    <div>
+                      <h4 className="font-semibold text-gray-700">Category:</h4>
+                      <p className="text-gray-900">{previewItem.category}</p>
+                    </div>
+                    <div>
+                      <h4 className="font-semibold text-gray-700">Key Details:</h4>
+                      <ul className="list-disc list-inside text-gray-900">
+                        {previewItem.details?.map((detail: string, idx: number) => (
+                          <li key={idx}>{detail}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  </div>
+                )}
+                
+                <div className="mt-6 pt-4 border-t">
+                  <div className="flex justify-between text-sm text-gray-500">
+                    <span>Status: <span className={previewItem.status === 'active' ? 'text-green-600' : 'text-red-600'}>{previewItem.status}</span></span>
+                    <span>Last updated: {previewItem.updatedAt}</span>
+                  </div>
+                </div>
               </div>
             </motion.div>
           </motion.div>

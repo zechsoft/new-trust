@@ -180,6 +180,138 @@ export default function AdminLegalRightsSection() {
     }
   ]);
 
+  // 1. Updated Add Modal Form Submission Handler
+  const handleAddSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    const formData = new FormData(e.target as HTMLFormElement);
+    const data = Object.fromEntries(formData.entries());
+    
+    if (addModalType === 'right') {
+      const newRight: Right = {
+        id: (rights.length + 1).toString(),
+        title: data.title as string,
+        description: data.description as string,
+        category: data.category as string,
+        icon: getCategoryIcon(data.category as string),
+        details: (data.details as string).split('\n').filter(detail => detail.trim()),
+        status: 'active',
+        lastUpdated: new Date().toISOString().split('T')[0],
+        views: 0
+      };
+      setRights(prev => [...prev, newRight]);
+    } else if (addModalType === 'scheme') {
+      const newScheme: Scheme = {
+        id: (schemes.length + 1).toString(),
+        name: data.title as string,
+        description: data.description as string,
+        eligibility: (data.eligibility as string).split('\n').filter(item => item.trim()),
+        benefits: (data.benefits as string).split('\n').filter(item => item.trim()),
+        category: data.category as string,
+        applyLink: data.applyLink as string,
+        status: (data.status as 'active' | 'closed' | 'upcoming') || 'active',
+        lastUpdated: new Date().toISOString().split('T')[0],
+        applications: 0
+      };
+      setSchemes(prev => [...prev, newScheme]);
+    } else if (addModalType === 'resource') {
+      const newResource: Resource = {
+        id: (resources.length + 1).toString(),
+        title: data.title as string,
+        language: data.language as string,
+        size: '2.1 MB', // Default size
+        format: (data.format as string).toUpperCase(),
+        downloads: 0,
+        uploadDate: new Date().toISOString().split('T')[0],
+        status: 'active'
+      };
+      setResources(prev => [...prev, newResource]);
+    }
+    
+    setShowAddModal(false);
+  };
+
+  // 2. Updated Edit Modal Form Submission Handler
+  const handleEditSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    const formData = new FormData(e.target as HTMLFormElement);
+    const data = Object.fromEntries(formData.entries());
+    
+    if (activeTab === 'rights') {
+      setRights(prev => prev.map(item => 
+        item.id === editingItem.id 
+          ? {
+              ...item,
+              title: data.title as string,
+              description: data.description as string,
+              category: data.category as string,
+              details: (data.details as string).split('\n').filter(detail => detail.trim()),
+              status: data.status as 'active' | 'inactive',
+              lastUpdated: new Date().toISOString().split('T')[0]
+            }
+          : item
+      ));
+    } else if (activeTab === 'schemes') {
+      setSchemes(prev => prev.map(item => 
+        item.id === editingItem.id 
+          ? {
+              ...item,
+              name: data.title as string,
+              description: data.description as string,
+              category: data.category as string,
+              eligibility: (data.eligibility as string).split('\n').filter(item => item.trim()),
+              benefits: (data.benefits as string).split('\n').filter(item => item.trim()),
+              applyLink: data.applyLink as string,
+              status: data.status as 'active' | 'closed' | 'upcoming',
+              lastUpdated: new Date().toISOString().split('T')[0]
+            }
+          : item
+      ));
+    } else if (activeTab === 'resources') {
+      setResources(prev => prev.map(item => 
+        item.id === editingItem.id 
+          ? {
+              ...item,
+              title: data.title as string,
+              language: data.language as string,
+              format: (data.format as string).toUpperCase(),
+              status: data.status as 'active' | 'inactive',
+              uploadDate: new Date().toISOString().split('T')[0]
+            }
+          : item
+      ));
+    }
+    
+    setEditingItem(null);
+  };
+
+  // 3. Delete Function
+  const handleDelete = (type: 'right' | 'scheme' | 'resource', id: string) => {
+    if (window.confirm('Are you sure you want to delete this item?')) {
+      if (type === 'right') {
+        setRights(prev => prev.filter(item => item.id !== id));
+      } else if (type === 'scheme') {
+        setSchemes(prev => prev.filter(item => item.id !== id));
+      } else if (type === 'resource') {
+        setResources(prev => prev.filter(item => item.id !== id));
+      }
+    }
+  };
+
+  // 4. Get Category Icon Helper Function
+  const getCategoryIcon = (category: string) => {
+    const iconMap = {
+      'fundamental': <Shield className="w-6 h-6" />,
+      'education': <GraduationCap className="w-6 h-6" />,
+      'employment': <Briefcase className="w-6 h-6" />,
+      'social': <Users className="w-6 h-6" />,
+      'property': <Home className="w-6 h-6" />,
+      'housing': <Home className="w-6 h-6" />,
+      'agriculture': <Globe className="w-6 h-6" />,
+      'health': <Heart className="w-6 h-6" />
+    };
+    return iconMap[category as keyof typeof iconMap] || <Shield className="w-6 h-6" />;
+  };
+
   const stats = {
     totalRights: rights.length,
     activeRights: rights.filter(r => r.status === 'active').length,
@@ -456,7 +588,10 @@ export default function AdminLegalRightsSection() {
                   >
                     {right.status === 'active' ? 'Deactivate' : 'Activate'}
                   </button>
-                  <button className="flex items-center gap-2 px-3 py-2 bg-gray-50 text-gray-600 rounded-lg hover:bg-gray-100 text-sm">
+                  <button 
+                    onClick={() => handleDelete('right', right.id)}
+                    className="flex items-center gap-2 px-3 py-2 bg-gray-50 text-gray-600 rounded-lg hover:bg-gray-100 text-sm"
+                  >
                     <Trash2 className="w-4 h-4" />
                     Delete
                   </button>
@@ -550,9 +685,12 @@ export default function AdminLegalRightsSection() {
                   >
                     {scheme.status === 'active' ? 'Close' : 'Activate'}
                   </button>
-                  <button className="flex items-center gap-2 px-3 py-2 bg-gray-50 text-gray-600 rounded-lg hover:bg-gray-100 text-sm">
-                    <Eye className="w-4 h-4" />
-                    View
+                  <button 
+                    onClick={() => handleDelete('scheme', scheme.id)}
+                    className="flex items-center gap-2 px-3 py-2 bg-gray-50 text-gray-600 rounded-lg hover:bg-gray-100 text-sm"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                    Delete
                   </button>
                 </div>
               </div>
@@ -638,7 +776,10 @@ export default function AdminLegalRightsSection() {
                   >
                     {resource.status === 'active' ? 'Hide' : 'Show'}
                   </button>
-                  <button className="px-3 py-2 bg-gray-50 text-gray-600 rounded-lg hover:bg-gray-100 text-sm">
+                  <button 
+                    onClick={() => handleDelete('resource', resource.id)}
+                    className="px-3 py-2 bg-gray-50 text-gray-600 rounded-lg hover:bg-gray-100 text-sm"
+                  >
                     <Trash2 className="w-4 h-4" />
                   </button>
                 </div>
@@ -659,7 +800,7 @@ export default function AdminLegalRightsSection() {
           <motion.div
             initial={{ scale: 0.9, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
-            className="bg-white rounded-xl p-6 max-w-2xl w-full max-h-96 overflow-y-auto"
+            className="bg-white rounded-xl p-6 max-w-2xl w-full max-h-[90vh] overflow-y-auto"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between mb-6">
@@ -674,11 +815,13 @@ export default function AdminLegalRightsSection() {
               </button>
             </div>
 
-            <form className="space-y-4">
+            <form className="space-y-4" onSubmit={handleAddSubmit}>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">Title/Name</label>
                 <input
-                                   type="text"
+                  type="text"
+                  name="title"
+                  required
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   placeholder={`Enter ${addModalType} name`}
                 />
@@ -687,6 +830,8 @@ export default function AdminLegalRightsSection() {
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">Description</label>
                 <textarea
+                  name="description"
+                  required
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   rows={3}
                   placeholder={`Enter ${addModalType} description`}
@@ -697,7 +842,7 @@ export default function AdminLegalRightsSection() {
                 <>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">Category</label>
-                    <select className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                    <select name="category" required className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
                       <option value="">Select category</option>
                       <option value="fundamental">Fundamental Rights</option>
                       <option value="education">Education</option>
@@ -709,6 +854,8 @@ export default function AdminLegalRightsSection() {
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">Details (One per line)</label>
                     <textarea
+                      name="details"
+                      required
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                       rows={4}
                       placeholder="Enter details, one per line"
@@ -722,7 +869,7 @@ export default function AdminLegalRightsSection() {
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">Category</label>
-                      <select className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                      <select name="category" required className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
                         <option value="">Select category</option>
                         <option value="housing">Housing</option>
                         <option value="agriculture">Agriculture</option>
@@ -733,7 +880,7 @@ export default function AdminLegalRightsSection() {
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">Status</label>
-                      <select className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                      <select name="status" className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
                         <option value="active">Active</option>
                         <option value="upcoming">Upcoming</option>
                         <option value="closed">Closed</option>
@@ -743,6 +890,8 @@ export default function AdminLegalRightsSection() {
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">Eligibility (One per line)</label>
                     <textarea
+                      name="eligibility"
+                      required
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                       rows={3}
                       placeholder="Enter eligibility criteria"
@@ -751,6 +900,8 @@ export default function AdminLegalRightsSection() {
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">Benefits (One per line)</label>
                     <textarea
+                      name="benefits"
+                      required
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                       rows={3}
                       placeholder="Enter benefits"
@@ -760,6 +911,8 @@ export default function AdminLegalRightsSection() {
                     <label className="block text-sm font-medium text-gray-700 mb-2">Application Link</label>
                     <input
                       type="url"
+                      name="applyLink"
+                      required
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                       placeholder="Enter application URL"
                     />
@@ -772,17 +925,17 @@ export default function AdminLegalRightsSection() {
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">Language</label>
-                      <select className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
-                        <option value="english">English</option>
-                        <option value="hindi">Hindi</option>
-                        <option value="tamil">Tamil</option>
-                        <option value="telugu">Telugu</option>
-                        <option value="bengali">Bengali</option>
+                      <select name="language" required className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                        <option value="English">English</option>
+                        <option value="Hindi">Hindi</option>
+                        <option value="Tamil">Tamil</option>
+                        <option value="Telugu">Telugu</option>
+                        <option value="Bengali">Bengali</option>
                       </select>
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">Format</label>
-                      <select className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                      <select name="format" required className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
                         <option value="pdf">PDF</option>
                         <option value="doc">DOC</option>
                         <option value="xls">XLS</option>
@@ -797,12 +950,19 @@ export default function AdminLegalRightsSection() {
                         <Download className="w-8 h-8 text-gray-400 mb-2" />
                         <p className="text-sm text-gray-600">Drag and drop file here</p>
                         <p className="text-xs text-gray-500 mt-1">or</p>
-                        <button
-                          type="button"
-                          className="mt-2 px-4 py-2 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 text-sm"
+                        <input
+                          type="file"
+                          name="file"
+                          className="hidden"
+                          id="fileInput"
+                          accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png"
+                        />
+                        <label
+                          htmlFor="fileInput"
+                          className="mt-2 px-4 py-2 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 text-sm cursor-pointer"
                         >
                           Browse Files
-                        </button>
+                        </label>
                       </div>
                     </div>
                   </div>
@@ -840,7 +1000,7 @@ export default function AdminLegalRightsSection() {
           <motion.div
             initial={{ scale: 0.9, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
-            className="bg-white rounded-xl p-6 max-w-2xl w-full max-h-96 overflow-y-auto"
+            className="bg-white rounded-xl p-6 max-w-2xl w-full max-h-[90vh] overflow-y-auto"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between mb-6">
@@ -855,12 +1015,14 @@ export default function AdminLegalRightsSection() {
               </button>
             </div>
 
-            <form className="space-y-4">
+            <form className="space-y-4" onSubmit={handleEditSubmit}>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">Title/Name</label>
                 <input
                   type="text"
+                  name="title"
                   defaultValue={editingItem.title || editingItem.name}
+                  required
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 />
               </div>
@@ -868,7 +1030,9 @@ export default function AdminLegalRightsSection() {
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">Description</label>
                 <textarea
+                  name="description"
                   defaultValue={editingItem.description}
+                  required
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   rows={3}
                 ></textarea>
@@ -879,7 +1043,9 @@ export default function AdminLegalRightsSection() {
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">Category</label>
                     <select 
+                      name="category"
                       defaultValue={editingItem.category}
+                      required
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     >
                       <option value="fundamental">Fundamental Rights</option>
@@ -892,22 +1058,23 @@ export default function AdminLegalRightsSection() {
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">Details</label>
                     <textarea
+                      name="details"
                       defaultValue={editingItem.details.join('\n')}
+                      required
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                       rows={4}
                     ></textarea>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <label className="block text-sm font-medium text-gray-700">Status:</label>
-                    <div className="flex items-center gap-2">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Status</label>
+                    <div className="flex items-center gap-4">
                       <label className="inline-flex items-center">
                         <input
                           type="radio"
                           name="status"
                           value="active"
-                          checked={editingItem.status === 'active'}
+                          defaultChecked={editingItem.status === 'active'}
                           className="text-blue-600"
-                          onChange={() => {}}
                         />
                         <span className="ml-2">Active</span>
                       </label>
@@ -916,9 +1083,8 @@ export default function AdminLegalRightsSection() {
                           type="radio"
                           name="status"
                           value="inactive"
-                          checked={editingItem.status === 'inactive'}
+                          defaultChecked={editingItem.status === 'inactive'}
                           className="text-blue-600"
-                          onChange={() => {}}
                         />
                         <span className="ml-2">Inactive</span>
                       </label>
@@ -933,7 +1099,9 @@ export default function AdminLegalRightsSection() {
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">Category</label>
                       <select 
+                        name="category"
                         defaultValue={editingItem.category}
+                        required
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                       >
                         <option value="housing">Housing</option>
@@ -946,6 +1114,7 @@ export default function AdminLegalRightsSection() {
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">Status</label>
                       <select 
+                        name="status"
                         defaultValue={editingItem.status}
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                       >
@@ -958,7 +1127,9 @@ export default function AdminLegalRightsSection() {
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">Eligibility</label>
                     <textarea
+                      name="eligibility"
                       defaultValue={editingItem.eligibility.join('\n')}
+                      required
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                       rows={3}
                     ></textarea>
@@ -966,7 +1137,9 @@ export default function AdminLegalRightsSection() {
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">Benefits</label>
                     <textarea
+                      name="benefits"
                       defaultValue={editingItem.benefits.join('\n')}
+                      required
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                       rows={3}
                     ></textarea>
@@ -975,7 +1148,9 @@ export default function AdminLegalRightsSection() {
                     <label className="block text-sm font-medium text-gray-700 mb-2">Application Link</label>
                     <input
                       type="url"
+                      name="applyLink"
                       defaultValue={editingItem.applyLink}
+                      required
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     />
                   </div>
@@ -988,20 +1163,24 @@ export default function AdminLegalRightsSection() {
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">Language</label>
                       <select 
+                        name="language"
                         defaultValue={editingItem.language}
+                        required
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                       >
-                        <option value="english">English</option>
-                        <option value="hindi">Hindi</option>
-                        <option value="tamil">Tamil</option>
-                        <option value="telugu">Telugu</option>
-                        <option value="bengali">Bengali</option>
+                        <option value="English">English</option>
+                        <option value="Hindi">Hindi</option>
+                        <option value="Tamil">Tamil</option>
+                        <option value="Telugu">Telugu</option>
+                        <option value="Bengali">Bengali</option>
                       </select>
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">Format</label>
                       <select 
-                        defaultValue={editingItem.format}
+                        name="format"
+                        defaultValue={editingItem.format.toLowerCase()}
+                        required
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                       >
                         <option value="pdf">PDF</option>
@@ -1011,17 +1190,16 @@ export default function AdminLegalRightsSection() {
                       </select>
                     </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <label className="block text-sm font-medium text-gray-700">Status:</label>
-                    <div className="flex items-center gap-2">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Status</label>
+                    <div className="flex items-center gap-4">
                       <label className="inline-flex items-center">
                         <input
                           type="radio"
                           name="status"
                           value="active"
-                          checked={editingItem.status === 'active'}
+                          defaultChecked={editingItem.status === 'active'}
                           className="text-blue-600"
-                          onChange={() => {}}
                         />
                         <span className="ml-2">Active</span>
                       </label>
@@ -1030,9 +1208,8 @@ export default function AdminLegalRightsSection() {
                           type="radio"
                           name="status"
                           value="inactive"
-                          checked={editingItem.status === 'inactive'}
+                          defaultChecked={editingItem.status === 'inactive'}
                           className="text-blue-600"
-                          onChange={() => {}}
                         />
                         <span className="ml-2">Inactive</span>
                       </label>
@@ -1057,12 +1234,19 @@ export default function AdminLegalRightsSection() {
                         <Download className="w-8 h-8 text-gray-400 mb-2" />
                         <p className="text-sm text-gray-600">Drag and drop file here</p>
                         <p className="text-xs text-gray-500 mt-1">or</p>
-                        <button
-                          type="button"
-                          className="mt-2 px-4 py-2 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 text-sm"
+                        <input
+                          type="file"
+                          name="file"
+                          className="hidden"
+                          id="fileInputEdit"
+                          accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png"
+                        />
+                        <label
+                          htmlFor="fileInputEdit"
+                          className="mt-2 px-4 py-2 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 text-sm cursor-pointer"
                         >
                           Browse Files
-                        </button>
+                        </label>
                       </div>
                     </div>
                   </div>

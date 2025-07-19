@@ -32,6 +32,25 @@ interface Law {
   fullText: string;
 }
 
+interface RecentEdit {
+  lawId: string;
+  title: string;
+  editedAt: string;
+}
+
+interface PopularLaw {
+  id: string;
+  title: string;
+  searches: number;
+}
+
+interface Stats {
+  totalLaws: number;
+  totalSearches: number;
+  popularLaws: PopularLaw[];
+  recentEdits: RecentEdit[];
+}
+
 const AdminLawFinder = () => {
   const [laws, setLaws] = useState<Law[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
@@ -51,16 +70,193 @@ const AdminLawFinder = () => {
   const [newSection, setNewSection] = useState('');
   const [newKeyword, setNewKeyword] = useState('');
   const [activeTab, setActiveTab] = useState<'laws' | 'analytics' | 'settings'>('laws');
-  const [stats, setStats] = useState({
+  const [stats, setStats] = useState<Stats>({
     totalLaws: 0,
     totalSearches: 0,
-    popularLaws: [] as {id: string, title: string, searches: number}[],
-    recentEdits: [] as {lawId: string, title: string, editedAt: string}[]
+    popularLaws: [],
+    recentEdits: []
   });
 
-  // Load initial data
+  // 1. Fixed search functionality
   useEffect(() => {
-    // In a real app, this would fetch from your API
+    if (searchQuery.trim() === '') {
+      setSearchResults([]);
+      return;
+    }
+
+    const query = searchQuery.toLowerCase();
+    const results = laws.filter(law => 
+      law.title.toLowerCase().includes(query) ||
+      law.act.toLowerCase().includes(query) ||
+      law.keywords.some(keyword => keyword.toLowerCase().includes(query)) ||
+      law.summary.toLowerCase().includes(query) ||
+      law.sections.some(section => section.toLowerCase().includes(query))
+    );
+
+    setSearchResults(results);
+  }, [searchQuery, laws]);
+
+  // 2. Fixed handleAddNewLaw function
+  const handleAddNewLaw = () => {
+    if (!newLaw.title || !newLaw.act || !newLaw.summary || !newLaw.fullText) {
+      alert('Please fill in all required fields');
+      return;
+    }
+
+    const lawToAdd: Law = {
+      id: `law-${Date.now()}`,
+      title: newLaw.title,
+      act: newLaw.act,
+      sections: newLaw.sections || [],
+      keywords: newLaw.keywords || [],
+      summary: newLaw.summary,
+      fullText: newLaw.fullText
+    };
+
+    const updatedLaws = [...laws, lawToAdd];
+    setLaws(updatedLaws);
+    setIsAddingNew(false);
+    setNewLaw({
+      title: '',
+      act: '',
+      sections: [],
+      keywords: [],
+      summary: '',
+      fullText: ''
+    });
+
+    // Update stats
+    setStats(prev => ({
+      ...prev,
+      totalLaws: updatedLaws.length,
+      recentEdits: [
+        {lawId: lawToAdd.id, title: lawToAdd.title, editedAt: new Date().toISOString().split('T')[0]},
+        ...prev.recentEdits.slice(0, 4)
+      ]
+    }));
+  };
+
+  // 3. Fixed handleDeleteLaw function
+  const handleDeleteLaw = (id: string) => {
+    if (!confirm('Are you sure you want to delete this law?')) {
+      return;
+    }
+    
+    const updatedLaws = laws.filter(law => law.id !== id);
+    setLaws(updatedLaws);
+    
+    if (selectedLaw?.id === id) {
+      setSelectedLaw(null);
+    }
+    
+    // Update search results if needed
+    if (searchQuery) {
+      const updatedResults = searchResults.filter(law => law.id !== id);
+      setSearchResults(updatedResults);
+    }
+    
+    setStats(prev => ({
+      ...prev,
+      totalLaws: updatedLaws.length
+    }));
+  };
+
+  // 4. Fixed handleSaveEdit function
+  const handleSaveEdit = () => {
+    if (!editLaw) return;
+
+    if (!editLaw.title || !editLaw.act || !editLaw.summary || !editLaw.fullText) {
+      alert('Please fill in all required fields');
+      return;
+    }
+
+    const updatedLaws = laws.map(law => law.id === editLaw.id ? editLaw : law);
+    setLaws(updatedLaws);
+    setIsEditing(false);
+    setEditLaw(null);
+    setSelectedLaw(editLaw);
+
+    // Update search results if they exist
+    if (searchResults.length > 0) {
+      const updatedResults = searchResults.map(law => law.id === editLaw.id ? editLaw : law);
+      setSearchResults(updatedResults);
+    }
+
+    // Update stats
+    setStats(prev => ({
+      ...prev,
+      recentEdits: [
+        {lawId: editLaw.id, title: editLaw.title, editedAt: new Date().toISOString().split('T')[0]},
+        ...prev.recentEdits.slice(0, 4)
+      ]
+    }));
+  };
+
+  // 5. Fixed addSection function for editing
+  const addSection = () => {
+    if (!newSection.trim() || !editLaw) return;
+    
+    const updatedSections = [...editLaw.sections, newSection.trim()];
+    setEditLaw({
+      ...editLaw,
+      sections: updatedSections
+    });
+    setNewSection('');
+  };
+
+  // 6. Fixed addKeyword function for editing
+  const addKeyword = () => {
+    if (!newKeyword.trim() || !editLaw) return;
+    
+    if (editLaw.keywords.includes(newKeyword.trim())) {
+      alert('Keyword already exists');
+      return;
+    }
+    
+    const updatedKeywords = [...editLaw.keywords, newKeyword.trim()];
+    setEditLaw({
+      ...editLaw,
+      keywords: updatedKeywords
+    });
+    setNewKeyword('');
+  };
+
+  // 7. Fixed addNewSection function for new law form
+  const addNewSection = () => {
+    if (!newSection.trim()) return;
+    
+    const currentSections = newLaw.sections || [];
+    if (currentSections.includes(newSection.trim())) {
+      alert('Section already exists');
+      return;
+    }
+    
+    setNewLaw({
+      ...newLaw,
+      sections: [...currentSections, newSection.trim()]
+    });
+    setNewSection('');
+  };
+
+  // 8. Fixed addNewKeyword function for new law form
+  const addNewKeyword = () => {
+    if (!newKeyword.trim()) return;
+    
+    const currentKeywords = newLaw.keywords || [];
+    if (currentKeywords.includes(newKeyword.trim())) {
+      alert('Keyword already exists');
+      return;
+    }
+    
+    setNewLaw({
+      ...newLaw,
+      keywords: [...currentKeywords, newKeyword.trim()]
+    });
+    setNewKeyword('');
+  };
+
+  // 9. Fixed the initial stats calculation in useEffect
+  useEffect(() => {
     const initialLaws: Law[] = [
       {
         id: 'ipc-498a',
@@ -97,23 +293,35 @@ const AdminLawFinder = () => {
     });
   }, []);
 
-  // Search functionality
-  useEffect(() => {
-    if (searchQuery.trim() === '') {
-      setSearchResults([]);
-      return;
+  // 10. Add Enter key support for input fields
+  const handleSectionKeyPress = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      if (isEditing) {
+        addSection();
+      } else {
+        addNewSection();
+      }
     }
+  };
 
-    const query = searchQuery.toLowerCase();
-    const results = laws.filter(law => 
-      law.title.toLowerCase().includes(query) ||
-      law.act.toLowerCase().includes(query) ||
-      law.keywords.some(keyword => keyword.toLowerCase().includes(query)) ||
-      law.summary.toLowerCase().includes(query)
-    );
+  const handleKeywordKeyPress = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      if (isEditing) {
+        addKeyword();
+      } else {
+        addNewKeyword();
+      }
+    }
+  };
 
-    setSearchResults(results);
-  }, [searchQuery, laws]);
+  const handleSearchKeyPress = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      // Search is already handled by useEffect
+    }
+  };
 
   const handleSearch = (query: string) => {
     setSearchQuery(query);
@@ -131,82 +339,9 @@ const AdminLawFinder = () => {
     setSelectedLaw(law);
   };
 
-  const handleSaveEdit = () => {
-    if (!editLaw) return;
-
-    setLaws(laws.map(law => law.id === editLaw.id ? editLaw : law));
-    setIsEditing(false);
-    setEditLaw(null);
-    setSelectedLaw(editLaw);
-
-    // Update stats
-    setStats(prev => ({
-      ...prev,
-      recentEdits: [
-        {lawId: editLaw.id, title: editLaw.title, editedAt: new Date().toISOString().split('T')[0]},
-        ...prev.recentEdits.slice(0, 4)
-      ]
-    }));
-  };
-
   const handleCancelEdit = () => {
     setIsEditing(false);
     setEditLaw(null);
-  };
-
-  const handleAddNewLaw = () => {
-    if (!newLaw.title || !newLaw.act || !newLaw.summary || !newLaw.fullText) return;
-
-    const lawToAdd: Law = {
-      id: `law-${Date.now()}`,
-      title: newLaw.title || '',
-      act: newLaw.act || '',
-      sections: newLaw.sections || [],
-      keywords: newLaw.keywords || [],
-      summary: newLaw.summary || '',
-      fullText: newLaw.fullText || ''
-    };
-
-    setLaws([...laws, lawToAdd]);
-    setIsAddingNew(false);
-    setNewLaw({
-      title: '',
-      act: '',
-      sections: [],
-      keywords: [],
-      summary: '',
-      fullText: ''
-    });
-
-    // Update stats
-    setStats(prev => ({
-      ...prev,
-      totalLaws: prev.totalLaws + 1,
-      recentEdits: [
-        {lawId: lawToAdd.id, title: lawToAdd.title, editedAt: new Date().toISOString().split('T')[0]},
-        ...prev.recentEdits.slice(0, 4)
-      ]
-    }));
-  };
-
-  const handleDeleteLaw = (id: string) => {
-    setLaws(laws.filter(law => law.id !== id));
-    if (selectedLaw?.id === id) {
-      setSelectedLaw(null);
-    }
-    setStats(prev => ({
-      ...prev,
-      totalLaws: prev.totalLaws - 1
-    }));
-  };
-
-  const addSection = () => {
-    if (!newSection.trim() || !editLaw) return;
-    setEditLaw({
-      ...editLaw,
-      sections: [...editLaw.sections, newSection.trim()]
-    });
-    setNewSection('');
   };
 
   const removeSection = (section: string) => {
@@ -217,15 +352,6 @@ const AdminLawFinder = () => {
     });
   };
 
-  const addKeyword = () => {
-    if (!newKeyword.trim() || !editLaw) return;
-    setEditLaw({
-      ...editLaw,
-      keywords: [...editLaw.keywords, newKeyword.trim()]
-    });
-    setNewKeyword('');
-  };
-
   const removeKeyword = (keyword: string) => {
     if (!editLaw) return;
     setEditLaw({
@@ -234,30 +360,12 @@ const AdminLawFinder = () => {
     });
   };
 
-  const addNewSection = () => {
-    if (!newSection.trim() || !newLaw) return;
-    setNewLaw({
-      ...newLaw,
-      sections: [...(newLaw.sections || []), newSection.trim()]
-    });
-    setNewSection('');
-  };
-
   const removeNewSection = (section: string) => {
     if (!newLaw) return;
     setNewLaw({
       ...newLaw,
       sections: (newLaw.sections || []).filter(s => s !== section)
     });
-  };
-
-  const addNewKeyword = () => {
-    if (!newKeyword.trim() || !newLaw) return;
-    setNewLaw({
-      ...newLaw,
-      keywords: [...(newLaw.keywords || []), newKeyword.trim()]
-    });
-    setNewKeyword('');
   };
 
   const removeNewKeyword = (keyword: string) => {
@@ -325,6 +433,7 @@ const AdminLawFinder = () => {
                     placeholder="Search laws..."
                     value={searchQuery}
                     onChange={(e) => handleSearch(e.target.value)}
+                    onKeyPress={handleSearchKeyPress}
                   />
                   {searchQuery && (
                     <button
@@ -383,6 +492,7 @@ const AdminLawFinder = () => {
                           className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
                           value={newSection}
                           onChange={(e) => setNewSection(e.target.value)}
+                          onKeyPress={handleSectionKeyPress}
                           placeholder="Add section (e.g. Section 498A)"
                         />
                         <button
@@ -418,6 +528,7 @@ const AdminLawFinder = () => {
                           className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
                           value={newKeyword}
                           onChange={(e) => setNewKeyword(e.target.value)}
+                          onKeyPress={handleKeywordKeyPress}
                           placeholder="Add keyword"
                         />
                         <button
@@ -610,6 +721,7 @@ const AdminLawFinder = () => {
                             className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
                             value={newSection}
                             onChange={(e) => setNewSection(e.target.value)}
+                            onKeyPress={handleSectionKeyPress}
                             placeholder="Add section (e.g. Section 498A)"
                           />
                           <button
@@ -645,6 +757,7 @@ const AdminLawFinder = () => {
                             className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
                             value={newKeyword}
                             onChange={(e) => setNewKeyword(e.target.value)}
+                            onKeyPress={handleKeywordKeyPress}
                             placeholder="Add keyword"
                           />
                           <button
