@@ -1,7 +1,4 @@
-'use client';
-
 import { useState, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
 import { 
   MessageCircle, 
   Users, 
@@ -18,9 +15,9 @@ import {
   Eye,
   Reply,
   Heart,
-  Share2
+  Share2,
+  X
 } from 'lucide-react';
-import Image from 'next/image';
 
 interface ForumPost {
   id: number;
@@ -40,6 +37,7 @@ interface ForumPost {
   createdAt: string;
   isHelpful: boolean;
   isPinned?: boolean;
+  liked?: boolean;
 }
 
 interface ForumCategory {
@@ -51,6 +49,15 @@ interface ForumCategory {
   color: string;
 }
 
+interface Reply {
+  id: number;
+  postId: number;
+  author: string;
+  content: string;
+  createdAt: string;
+  avatar: string;
+}
+
 export default function CommunityForums() {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('all');
@@ -58,6 +65,15 @@ export default function CommunityForums() {
   const [filteredPosts, setFilteredPosts] = useState<ForumPost[]>([]);
   const [expandedPost, setExpandedPost] = useState<number | null>(null);
   const [showNewPostModal, setShowNewPostModal] = useState(false);
+  const [posts, setPosts] = useState<ForumPost[]>([]);
+  const [replies, setReplies] = useState<Reply[]>([]);
+  const [newReply, setNewReply] = useState('');
+  const [newPost, setNewPost] = useState({
+    title: '',
+    content: '',
+    category: 'exams',
+    tags: ''
+  });
 
   const categories: ForumCategory[] = [
     {
@@ -110,14 +126,14 @@ export default function CommunityForums() {
     }
   ];
 
-  const mockPosts: ForumPost[] = [
+  const initialPosts: ForumPost[] = [
     {
       id: 1,
       title: 'Best Strategy for UPSC Prelims 2024 - Need Guidance',
       content: 'I\'m preparing for UPSC 2024 and confused about the strategy for prelims. Should I focus more on current affairs or static portions? Any toppers here who can guide?',
       author: {
         name: 'Priya Sharma',
-        avatar: '/api/placeholder/40/40',
+        avatar: '👩‍🎓',
         badge: 'Newbie',
         points: 125
       },
@@ -128,7 +144,8 @@ export default function CommunityForums() {
       likes: 34,
       createdAt: '2 hours ago',
       isHelpful: true,
-      isPinned: true
+      isPinned: true,
+      liked: false
     },
     {
       id: 2,
@@ -136,7 +153,7 @@ export default function CommunityForums() {
       content: 'I\'m new to programming and want to start my coding journey. Everyone suggests different languages. What would be better for a complete beginner?',
       author: {
         name: 'Rahul Kumar',
-        avatar: '/api/placeholder/40/40',
+        avatar: '👨‍💻',
         badge: 'Top Helper',
         points: 2450
       },
@@ -146,7 +163,8 @@ export default function CommunityForums() {
       views: 289,
       likes: 27,
       createdAt: '4 hours ago',
-      isHelpful: false
+      isHelpful: false,
+      liked: false
     },
     {
       id: 3,
@@ -154,7 +172,7 @@ export default function CommunityForums() {
       content: 'I get really nervous during exams even though I prepare well. This affects my performance badly. How do you all manage exam stress?',
       author: {
         name: 'Anjali Patel',
-        avatar: '/api/placeholder/40/40',
+        avatar: '👩‍⚕️',
         badge: 'Volunteer Mentor',
         points: 1890
       },
@@ -164,7 +182,8 @@ export default function CommunityForums() {
       views: 578,
       likes: 45,
       createdAt: '6 hours ago',
-      isHelpful: true
+      isHelpful: true,
+      liked: false
     },
     {
       id: 4,
@@ -172,7 +191,7 @@ export default function CommunityForums() {
       content: 'Sharing some amazing math shortcuts that helped me solve SSC CGL quant section faster. These tricks can save you 30-40 minutes in the exam!',
       author: {
         name: 'Vikash Singh',
-        avatar: '/api/placeholder/40/40',
+        avatar: '🧮',
         badge: 'Expert',
         points: 3200
       },
@@ -182,7 +201,8 @@ export default function CommunityForums() {
       views: 1200,
       likes: 89,
       createdAt: '1 day ago',
-      isHelpful: true
+      isHelpful: true,
+      liked: false
     },
     {
       id: 5,
@@ -190,7 +210,7 @@ export default function CommunityForums() {
       content: 'Hi everyone! I\'m preparing for SBI PO and IBPS PO 2024. Looking for serious study partners to form a study group. Daily discussion and mock tests.',
       author: {
         name: 'Meera Reddy',
-        avatar: '/api/placeholder/40/40',
+        avatar: '🏦',
         badge: 'Newbie',
         points: 87
       },
@@ -200,12 +220,65 @@ export default function CommunityForums() {
       views: 234,
       likes: 19,
       createdAt: '2 days ago',
-      isHelpful: false
+      isHelpful: false,
+      liked: false
     }
   ];
 
+  const initialReplies: Reply[] = [
+    {
+      id: 1,
+      postId: 1,
+      author: 'Amit Gupta',
+      content: 'Focus on current affairs for the first 3 months, then shift to static portions. This strategy worked for me!',
+      createdAt: '1 hour ago',
+      avatar: '👨‍🎓'
+    },
+    {
+      id: 2,
+      postId: 1,
+      author: 'Sneha Verma',
+      content: 'I would suggest a balanced approach. Allocate 60% time to static and 40% to current affairs.',
+      createdAt: '30 minutes ago',
+      avatar: '👩‍💼'
+    },
+    {
+      id: 3,
+      postId: 2,
+      author: 'Dev Sharma',
+      content: 'Python is definitely better for beginners. It has simpler syntax and is very beginner-friendly.',
+      createdAt: '2 hours ago',
+      avatar: '👨‍💻'
+    },
+    {
+      id: 4,
+      postId: 3,
+      author: 'Dr. Maya Patel',
+      content: 'Practice meditation and deep breathing exercises. Also, ensure you get enough sleep before exams.',
+      createdAt: '3 hours ago',
+      avatar: '👩‍⚕️'
+    }
+  ];
+
+  // Initialize posts and replies
   useEffect(() => {
-    let filtered = mockPosts;
+    setPosts(initialPosts);
+    setReplies(initialReplies);
+  }, []);
+
+  // Update category post counts based on actual posts
+  useEffect(() => {
+    const updatedCategories = categories.map(category => {
+      if (category.id === 'all') {
+        return { ...category, posts: posts.length };
+      }
+      const categoryPosts = posts.filter(post => post.category === category.id);
+      return { ...category, posts: categoryPosts.length };
+    });
+  }, [posts]);
+
+  useEffect(() => {
+    let filtered = posts;
 
     if (selectedCategory !== 'all') {
       filtered = filtered.filter(post => post.category === selectedCategory);
@@ -215,25 +288,35 @@ export default function CommunityForums() {
       filtered = filtered.filter(post =>
         post.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
         post.content.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        post.tags.some(tag => tag.toLowerCase().includes(searchTerm.toLowerCase()))
+        post.tags.some(tag => tag.toLowerCase().includes(searchTerm.toLowerCase())) ||
+        post.author.name.toLowerCase().includes(searchTerm.toLowerCase())
       );
     }
 
     // Sort posts
     switch (sortBy) {
       case 'recent':
-        filtered.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+        // Sort by id (higher id = more recent)
+        filtered.sort((a, b) => b.id - a.id);
         break;
       case 'popular':
-        filtered.sort((a, b) => (b.likes + b.replies) - (a.likes + a.replies));
+        filtered.sort((a, b) => (b.likes + b.replies * 2 + b.views * 0.1) - (a.likes + a.replies * 2 + a.views * 0.1));
         break;
       case 'helpful':
-        filtered.sort((a, b) => Number(b.isHelpful) - Number(a.isHelpful));
+        filtered.sort((a, b) => {
+          if (a.isHelpful && !b.isHelpful) return -1;
+          if (!a.isHelpful && b.isHelpful) return 1;
+          return b.likes - a.likes;
+        });
         break;
     }
 
-    setFilteredPosts(filtered);
-  }, [searchTerm, selectedCategory, sortBy]);
+    // Pinned posts should always be at the top
+    const pinnedPosts = filtered.filter(post => post.isPinned);
+    const regularPosts = filtered.filter(post => !post.isPinned);
+    
+    setFilteredPosts([...pinnedPosts, ...regularPosts]);
+  }, [searchTerm, selectedCategory, sortBy, posts]);
 
   const getBadgeColor = (badge: string) => {
     switch (badge) {
@@ -255,49 +338,133 @@ export default function CommunityForums() {
   };
 
   const likePost = (postId: number) => {
-    console.log(`Liked post ${postId}`);
-    // In real implementation, this would update the like count
+    setPosts(prevPosts => 
+      prevPosts.map(post => 
+        post.id === postId 
+          ? { 
+              ...post, 
+              likes: post.liked ? post.likes - 1 : post.likes + 1,
+              liked: !post.liked
+            }
+          : post
+      )
+    );
+  };
+
+  const handleSubmitPost = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newPost.title.trim() || !newPost.content.trim()) return;
+
+    const post: ForumPost = {
+      id: Math.max(...posts.map(p => p.id)) + 1,
+      title: newPost.title,
+      content: newPost.content,
+      author: {
+        name: 'Current User',
+        avatar: '👤',
+        badge: 'Newbie',
+        points: 50
+      },
+      category: newPost.category,
+      tags: newPost.tags.split(',').map(tag => tag.trim()).filter(tag => tag),
+      replies: 0,
+      views: 1,
+      likes: 0,
+      createdAt: 'just now',
+      isHelpful: false,
+      liked: false
+    };
+
+    setPosts(prevPosts => [post, ...prevPosts]);
+    setNewPost({ title: '', content: '', category: 'exams', tags: '' });
+    setShowNewPostModal(false);
+  };
+
+  const handleViewPost = (postId: number) => {
+    setPosts(prevPosts => 
+      prevPosts.map(post => 
+        post.id === postId 
+          ? { ...post, views: post.views + 1 }
+          : post
+      )
+    );
+  };
+
+  const handleAddReply = (postId: number) => {
+    if (!newReply.trim()) return;
+    
+    const reply: Reply = {
+      id: Math.max(...replies.map(r => r.id), 0) + 1,
+      postId: postId,
+      author: 'Current User',
+      content: newReply,
+      createdAt: 'just now',
+      avatar: '👤'
+    };
+
+    setReplies(prevReplies => [...prevReplies, reply]);
+    
+    // Update reply count
+    setPosts(prevPosts => 
+      prevPosts.map(post => 
+        post.id === postId 
+          ? { ...post, replies: post.replies + 1 }
+          : post
+      )
+    );
+    
+    setNewReply('');
+  };
+
+  const getPostReplies = (postId: number) => {
+    return replies.filter(reply => reply.postId === postId);
+  };
+
+  const sharePost = (post: ForumPost) => {
+    if (navigator.share) {
+      navigator.share({
+        title: post.title,
+        text: post.content,
+        url: window.location.href
+      });
+    } else {
+      // Fallback - copy to clipboard
+      navigator.clipboard.writeText(`${post.title}\n\n${post.content}\n\nShared from Community Forums`);
+      alert('Post copied to clipboard!');
+    }
   };
 
   return (
-    <div className="space-y-8">
+    <div className="min-h-screen bg-gray-50 p-4 space-y-8">
       {/* Header */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.6 }}
-        className="text-center"
-      >
+      <div className="text-center">
         <h2 className="text-3xl md:text-4xl font-bold text-gray-800 mb-4">
           💬 Community Forums & Discussion
         </h2>
         <p className="text-lg text-gray-600 max-w-3xl mx-auto">
           Connect with fellow learners, ask questions, share knowledge, and build meaningful relationships
         </p>
-      </motion.div>
+      </div>
 
       {/* Categories Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {categories.map((category, index) => (
-          <motion.div
+        {categories.map((category) => (
+          <div
             key={category.id}
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6, delay: index * 0.1 }}
             onClick={() => setSelectedCategory(category.id)}
-            className={`cursor-pointer bg-gradient-to-r ${category.color} p-6 rounded-2xl text-white hover:shadow-xl transition-all duration-300 hover:-translate-y-1 ${
-              selectedCategory === category.id ? 'ring-4 ring-white ring-opacity-50' : ''
+            className={`cursor-pointer bg-gradient-to-r ${category.color} p-6 rounded-2xl text-white hover:shadow-xl transition-all duration-300 hover:-translate-y-1 transform ${
+              selectedCategory === category.id ? 'ring-4 ring-white ring-opacity-50 scale-105' : ''
             }`}
           >
             <div className="flex items-center justify-between mb-4">
               <span className="text-3xl">{category.icon}</span>
               <span className="bg-white/20 backdrop-blur-sm px-3 py-1 rounded-full text-sm font-medium">
-                {category.posts} posts
+                {category.id === 'all' ? posts.length : posts.filter(p => p.category === category.id).length} posts
               </span>
             </div>
             <h3 className="text-xl font-bold mb-2">{category.name}</h3>
             <p className="text-white/80 text-sm">{category.description}</p>
-          </motion.div>
+          </div>
         ))}
       </div>
 
@@ -311,7 +478,7 @@ export default function CommunityForums() {
             placeholder="Search discussions, topics, or users..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-10 pr-4 py-3 rounded-full border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            className="w-full pl-10 pr-4 py-3 rounded-full border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
           />
         </div>
 
@@ -320,7 +487,7 @@ export default function CommunityForums() {
           <select
             value={sortBy}
             onChange={(e) => setSortBy(e.target.value)}
-            className="px-4 py-2 rounded-full border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="px-4 py-2 rounded-full border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
           >
             <option value="recent">Most Recent</option>
             <option value="popular">Most Popular</option>
@@ -329,7 +496,7 @@ export default function CommunityForums() {
 
           <button
             onClick={() => setShowNewPostModal(true)}
-            className="flex items-center gap-2 px-6 py-2 bg-gradient-to-r from-blue-600 to-green-600 text-white rounded-full font-medium hover:from-blue-700 hover:to-green-700 transition-all duration-300 hover:shadow-lg"
+            className="flex items-center gap-2 px-6 py-2 bg-gradient-to-r from-blue-600 to-green-600 text-white rounded-full font-medium hover:from-blue-700 hover:to-green-700 transition-all duration-300 hover:shadow-lg transform hover:-translate-y-1"
           >
             <Plus className="w-4 h-4" />
             New Post
@@ -339,12 +506,9 @@ export default function CommunityForums() {
 
       {/* Forum Posts */}
       <div className="space-y-6">
-        {filteredPosts.map((post, index) => (
-          <motion.div
+        {filteredPosts.map((post) => (
+          <div
             key={post.id}
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6, delay: index * 0.1 }}
             className={`bg-white rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 overflow-hidden ${
               post.isPinned ? 'border-l-4 border-yellow-400' : ''
             }`}
@@ -354,13 +518,9 @@ export default function CommunityForums() {
               <div className="flex items-start justify-between mb-4">
                 <div className="flex items-center gap-3">
                   <div className="relative">
-                    <Image
-                      src={post.author.avatar}
-                      alt={post.author.name}
-                      width={48}
-                      height={48}
-                      className="rounded-full"
-                    />
+                    <div className="w-12 h-12 rounded-full bg-gradient-to-r from-blue-400 to-purple-500 flex items-center justify-center text-white text-xl">
+                      {post.author.avatar}
+                    </div>
                     {/* Online indicator */}
                     <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-green-400 rounded-full border-2 border-white"></div>
                   </div>
@@ -372,7 +532,7 @@ export default function CommunityForums() {
                         {post.author.badge}
                       </span>
                       {post.isPinned && (
-                        <span className="text-yellow-500">📌</span>
+                        <span className="text-yellow-500" title="Pinned Post">📌</span>
                       )}
                     </div>
                     <div className="flex items-center gap-2 text-sm text-gray-500">
@@ -392,7 +552,10 @@ export default function CommunityForums() {
               </div>
 
               {/* Post Title and Content */}
-              <h3 className="text-xl font-bold text-gray-800 mb-3 hover:text-blue-600 cursor-pointer transition-colors">
+              <h3 
+                className="text-xl font-bold text-gray-800 mb-3 hover:text-blue-600 cursor-pointer transition-colors"
+                onClick={() => handleViewPost(post.id)}
+              >
                 {post.title}
               </h3>
               
@@ -406,6 +569,7 @@ export default function CommunityForums() {
                   <span
                     key={tagIndex}
                     className="px-3 py-1 bg-blue-50 text-blue-600 rounded-full text-sm hover:bg-blue-100 cursor-pointer transition-colors"
+                    onClick={() => setSearchTerm(tag)}
                   >
                     #{tag}
                   </span>
@@ -428,18 +592,26 @@ export default function CommunityForums() {
                 <div className="flex items-center gap-3">
                   <button
                     onClick={() => likePost(post.id)}
-                    className="flex items-center gap-1 text-gray-500 hover:text-red-500 transition-colors"
+                    className={`flex items-center gap-1 transition-colors transform hover:scale-110 ${
+                      post.liked ? 'text-red-500' : 'text-gray-500 hover:text-red-500'
+                    }`}
                   >
-                    <Heart className="w-4 h-4" />
+                    <Heart className={`w-4 h-4 ${post.liked ? 'fill-current' : ''}`} />
                     <span>{post.likes}</span>
                   </button>
                   
-                  <button className="flex items-center gap-1 text-gray-500 hover:text-blue-500 transition-colors">
+                  <button 
+                    onClick={() => toggleExpansion(post.id)}
+                    className="flex items-center gap-1 text-gray-500 hover:text-blue-500 transition-colors transform hover:scale-110"
+                  >
                     <Reply className="w-4 h-4" />
                     <span>Reply</span>
                   </button>
                   
-                  <button className="flex items-center gap-1 text-gray-500 hover:text-green-500 transition-colors">
+                  <button 
+                    onClick={() => sharePost(post)}
+                    className="flex items-center gap-1 text-gray-500 hover:text-green-500 transition-colors transform hover:scale-110"
+                  >
                     <Share2 className="w-4 h-4" />
                     <span>Share</span>
                   </button>
@@ -448,105 +620,111 @@ export default function CommunityForums() {
             </div>
 
             {/* Expanded Content */}
-            <AnimatePresence>
-              {expandedPost === post.id && (
-                <motion.div
-                  initial={{ height: 0, opacity: 0 }}
-                  animate={{ height: 'auto', opacity: 1 }}
-                  exit={{ height: 0, opacity: 0 }}
-                  transition={{ duration: 0.3 }}
-                  className="border-t border-gray-100 bg-gray-50 p-6"
-                >
-                  <h4 className="font-medium text-gray-800 mb-3">Recent Replies</h4>
-                  <div className="space-y-4">
-                    {/* Sample replies */}
-                    {[1, 2, 3].map((reply) => (
-                      <div key={reply} className="flex gap-3">
-                        <Image
-                          src="/api/placeholder/32/32"
-                          alt="User"
-                          width={32}
-                          height={32}
-                          className="rounded-full"
-                        />
-                        <div className="flex-1">
-                          <div className="bg-white p-3 rounded-lg">
-                            <div className="flex items-center gap-2 mb-1">
-                              <span className="font-medium text-sm">User {reply}</span>
-                              <span className="text-xs text-gray-500">2 hours ago</span>
-                            </div>
-                            <p className="text-sm text-gray-600">
-                              This is a sample reply to demonstrate the expanded view functionality.
-                            </p>
+            {expandedPost === post.id && (
+              <div className="border-t border-gray-100 bg-gray-50 p-6">
+                <h4 className="font-medium text-gray-800 mb-3">Replies ({getPostReplies(post.id).length})</h4>
+                
+                {/* Existing Replies */}
+                <div className="space-y-4 mb-6">
+                  {getPostReplies(post.id).map((reply) => (
+                    <div key={reply.id} className="flex gap-3">
+                      <div className="w-8 h-8 rounded-full bg-gradient-to-r from-green-400 to-blue-500 flex items-center justify-center text-white text-sm">
+                        {reply.avatar}
+                      </div>
+                      <div className="flex-1">
+                        <div className="bg-white p-3 rounded-lg shadow-sm">
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className="font-medium text-sm">{reply.author}</span>
+                            <span className="text-xs text-gray-500">{reply.createdAt}</span>
                           </div>
+                          <p className="text-sm text-gray-600">{reply.content}</p>
                         </div>
                       </div>
-                    ))}
-                  </div>
+                    </div>
+                  ))}
                   
-                  <button
-                    onClick={() => toggleExpansion(post.id)}
-                    className="mt-4 text-blue-600 hover:text-blue-700 text-sm font-medium"
-                  >
-                    Hide Replies
-                  </button>
-                </motion.div>
-              )}
-            </AnimatePresence>
-          </motion.div>
+                  {getPostReplies(post.id).length === 0 && (
+                    <p className="text-gray-500 text-center py-4">No replies yet. Be the first to reply!</p>
+                  )}
+                </div>
+                
+                {/* New Reply Form */}
+                <div className="flex gap-3">
+                  <div className="w-8 h-8 rounded-full bg-gradient-to-r from-blue-400 to-purple-500 flex items-center justify-center text-white text-sm">
+                    👤
+                  </div>
+                  <div className="flex-1">
+                    <textarea
+                      value={newReply}
+                      onChange={(e) => setNewReply(e.target.value)}
+                      placeholder="Write your reply..."
+                      className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+                      rows={3}
+                    />
+                    <div className="flex gap-2 mt-2">
+                      <button
+                        onClick={() => handleAddReply(post.id)}
+                        disabled={!newReply.trim()}
+                        className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        Reply
+                      </button>
+                      <button
+                        onClick={() => toggleExpansion(post.id)}
+                        className="px-4 py-2 text-gray-600 hover:text-gray-700 text-sm font-medium transition-colors"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
         ))}
       </div>
 
       {/* No Results */}
       {filteredPosts.length === 0 && (
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          className="text-center py-16"
-        >
+        <div className="text-center py-16">
           <MessageCircle className="w-16 h-16 text-gray-400 mx-auto mb-4" />
           <h3 className="text-xl font-medium text-gray-600 mb-2">No discussions found</h3>
-          <p className="text-gray-500 mb-6">Be the first to start a conversation in this category!</p>
+          <p className="text-gray-500 mb-6">
+            {searchTerm ? 
+              `No posts match "${searchTerm}". Try different keywords or browse all categories.` :
+              'Be the first to start a conversation in this category!'
+            }
+          </p>
           <button
             onClick={() => setShowNewPostModal(true)}
-            className="px-6 py-3 bg-gradient-to-r from-blue-600 to-green-600 text-white rounded-full font-medium hover:from-blue-700 hover:to-green-700 transition-all duration-300"
+            className="px-6 py-3 bg-gradient-to-r from-blue-600 to-green-600 text-white rounded-full font-medium hover:from-blue-700 hover:to-green-700 transition-all duration-300 transform hover:-translate-y-1"
           >
             Start Discussion
           </button>
-        </motion.div>
+        </div>
       )}
 
       {/* Community Stats */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mt-12">
         {[
           { icon: Users, label: 'Active Members', value: '25,000+', color: 'text-blue-500' },
-          { icon: MessageCircle, label: 'Total Posts', value: '1,250+', color: 'text-green-500' },
-          { icon: Star, label: 'Helpful Answers', value: '890+', color: 'text-yellow-500' },
-          { icon: TrendingUp, label: 'Daily Active', value: '2,500+', color: 'text-purple-500' }
+          { icon: MessageCircle, label: 'Total Posts', value: `${posts.length}`, color: 'text-green-500' },
+          { icon: Star, label: 'Helpful Answers', value: `${posts.filter(p => p.isHelpful).length}`, color: 'text-yellow-500' },
+          { icon: TrendingUp, label: 'Total Replies', value: `${replies.length}`, color: 'text-purple-500' }
         ].map((stat, index) => (
-          <motion.div
+          <div
             key={index}
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.6, delay: index * 0.1 }}
-            className="bg-white p-6 rounded-2xl shadow-lg text-center hover:shadow-xl transition-shadow"
+            className="bg-white p-6 rounded-2xl shadow-lg text-center hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1"
           >
             <stat.icon className={`w-8 h-8 ${stat.color} mx-auto mb-3`} />
             <h3 className="text-2xl font-bold text-gray-800 mb-1">{stat.value}</h3>
             <p className="text-gray-600 text-sm">{stat.label}</p>
-          </motion.div>
+          </div>
         ))}
       </div>
 
       {/* Community Guidelines */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        whileInView={{ opacity: 1, y: 0 }}
-        viewport={{ once: true }}
-        transition={{ duration: 0.6 }}
-        className="bg-gradient-to-r from-blue-50 to-green-50 p-8 rounded-2xl border border-blue-100"
-      >
+      <div className="bg-gradient-to-r from-blue-50 to-green-50 p-8 rounded-2xl border border-blue-100">
         <h3 className="text-2xl font-bold text-gray-800 mb-4">📋 Community Guidelines</h3>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div>
@@ -566,94 +744,101 @@ export default function CommunityForums() {
             <p className="text-gray-600 text-sm">Avoid promotional content and repetitive posts</p>
           </div>
         </div>
-      </motion.div>
+      </div>
 
       {/* New Post Modal */}
-      <AnimatePresence>
-        {showNewPostModal && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4"
-            onClick={() => setShowNewPostModal(false)}
-          >
-            <motion.div
-              initial={{ scale: 0.9, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.9, opacity: 0 }}
-              className="bg-white rounded-2xl p-8 max-w-2xl w-full max-h-[80vh] overflow-y-auto"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <div className="flex items-center justify-between mb-6">
-                <h3 className="text-2xl font-bold text-gray-800">Start New Discussion</h3>
-                <button
-                  onClick={() => setShowNewPostModal(false)}
-                  className="text-gray-500 hover:text-gray-700"
+      {showNewPostModal && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl p-8 max-w-2xl w-full max-h-[80vh] overflow-y-auto shadow-2xl">
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-2xl font-bold text-gray-800">Start New Discussion</h3>
+              <button
+                onClick={() => setShowNewPostModal(false)}
+                className="text-gray-500 hover:text-gray-700 p-2 hover:bg-gray-100 rounded-full transition-all"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            
+            <form onSubmit={handleSubmitPost} className="space-y-6">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Category</label>
+                <select 
+                  value={newPost.category}
+                  onChange={(e) => setNewPost({...newPost, category: e.target.value})}
+                  className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
                 >
-                  ✕
-                </button>
+                  {categories.slice(1).map((category) => (
+                    <option key={category.id} value={category.id}>
+                      {category.name}
+                    </option>
+                  ))}
+                </select>
               </div>
               
-              <form className="space-y-6">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Category</label>
-                  <select className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
-                    {categories.slice(1).map((category) => (
-                      <option key={category.id} value={category.id}>
-                        {category.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Title</label>
-                  <input
-                    type="text"
-                    placeholder="Enter a descriptive title for your post"
-                    className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-                
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Content</label>
-                  <textarea
-                    rows={6}
-                    placeholder="Describe your question or topic in detail..."
-                    className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
-                  ></textarea>
-                </div>
-                
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Tags</label>
-                  <input
-                    type="text"
-                    placeholder="Add tags separated by commas (e.g., UPSC, Strategy, Tips)"
-                    className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-                
-                <div className="flex gap-4">
-                  <button
-                    type="button"
-                    onClick={() => setShowNewPostModal(false)}
-                    className="flex-1 py-3 border border-gray-300 rounded-lg font-medium hover:bg-gray-50 transition-colors"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    className="flex-1 py-3 bg-gradient-to-r from-blue-600 to-green-600 text-white rounded-lg font-medium hover:from-blue-700 hover:to-green-700 transition-all duration-300"
-                  >
-                    Post Discussion
-                  </button>
-                </div>
-              </form>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Title</label>
+                <input
+                  type="text"
+                  value={newPost.title}
+                  onChange={(e) => setNewPost({...newPost, title: e.target.value})}
+                  placeholder="Enter a descriptive title for your post"
+                  className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
+                  required
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Content</label>
+                <textarea
+                  rows={6}
+                  value={newPost.content}
+                  onChange={(e) => setNewPost({...newPost, content: e.target.value})}
+                  placeholder="Describe your question or topic in detail..."
+                  className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none transition-all"
+                  required
+                ></textarea>
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Tags</label>
+                <input
+                  type="text"
+                  value={newPost.tags}
+                  onChange={(e) => setNewPost({...newPost, tags: e.target.value})}
+                  placeholder="Add tags separated by commas (e.g., UPSC, Strategy, Tips)"
+                  className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
+                />
+              </div>
+              
+              <div className="flex gap-4">
+                <button
+                  type="button"
+                  onClick={() => setShowNewPostModal(false)}
+                  className="flex-1 py-3 border border-gray-300 rounded-lg font-medium hover:bg-gray-50 transition-all"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="flex-1 py-3 bg-gradient-to-r from-blue-600 to-green-600 text-white rounded-lg font-medium hover:from-blue-700 hover:to-green-700 transition-all duration-300 transform hover:-translate-y-1"
+                >
+                  Post Discussion
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      <style jsx>{`
+        .line-clamp-3 {
+          display: -webkit-box;
+          -webkit-line-clamp: 3;
+          -webkit-box-orient: vertical;
+          overflow: hidden;
+        }
+      `}</style>
     </div>
   );
 }

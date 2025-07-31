@@ -1,9 +1,5 @@
-'use client';
-
 import { useState, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
 import { ChevronLeft, ChevronRight, Star, Quote } from 'lucide-react';
-import Image from 'next/image';
 
 interface Testimonial {
   id: number;
@@ -21,13 +17,14 @@ interface Testimonial {
 export default function TestimonialsCarousel() {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isAutoPlaying, setIsAutoPlaying] = useState(true);
+  const [isTransitioning, setIsTransitioning] = useState(false);
 
   const testimonials: Testimonial[] = [
     {
       id: 1,
       name: 'Ranjitha',
       location: 'Tamil Nadu',
-      avatar: '/api/placeholder/80/80',
+      avatar: 'https://images.unsplash.com/photo-1494790108755-2616b612b789?w=80&h=80&fit=crop&crop=face',
       achievement: 'Cleared Group 4 Exams',
       quote: 'Thanks to the free books and study materials, I was able to clear my Group 4 exams on the first attempt. The quality of content is excellent!',
       category: 'TNPSC',
@@ -39,7 +36,7 @@ export default function TestimonialsCarousel() {
       id: 2,
       name: 'Ajay',
       location: 'Chennai',
-      avatar: '/api/placeholder/80/80',
+      avatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=80&h=80&fit=crop&crop=face',
       achievement: 'Cracked IBPS PO',
       quote: 'Found a mentor who guided me from zero to cracking IBPS! The mentorship program completely transformed my preparation strategy.',
       category: 'Banking',
@@ -51,7 +48,7 @@ export default function TestimonialsCarousel() {
       id: 3,
       name: 'Neha',
       location: 'Delhi',
-      avatar: '/api/placeholder/80/80',
+      avatar: 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=80&h=80&fit=crop&crop=face',
       achievement: 'Learned Python Programming',
       quote: 'I love the video section. Learning Python was never easier. The step-by-step tutorials helped me land my first tech job!',
       category: 'Programming',
@@ -62,7 +59,7 @@ export default function TestimonialsCarousel() {
       id: 4,
       name: 'Priyanka Sharma',
       location: 'Mumbai',
-      avatar: '/api/placeholder/80/80',
+      avatar: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=80&h=80&fit=crop&crop=face',
       achievement: 'UPSC Mains Qualified',
       quote: 'The comprehensive study materials and community support helped me qualify for UPSC Mains. The current affairs section is particularly helpful.',
       category: 'UPSC',
@@ -73,7 +70,7 @@ export default function TestimonialsCarousel() {
       id: 5,
       name: 'Rohit Kumar',
       location: 'Bangalore',
-      avatar: '/api/placeholder/80/80',
+      avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=80&h=80&fit=crop&crop=face',
       achievement: 'Got Placed in Microsoft',
       quote: 'The coding workshops and technical interview preparation materials were game-changers. Secured my dream job at Microsoft!',
       category: 'Tech Career',
@@ -84,7 +81,7 @@ export default function TestimonialsCarousel() {
       id: 6,
       name: 'Anita Patel',
       location: 'Gujarat',
-      avatar: '/api/placeholder/80/80',
+      avatar: 'https://images.unsplash.com/photo-1508214751196-bcfd4ca60f91?w=80&h=80&fit=crop&crop=face',
       achievement: 'Started Own Business',
       quote: 'The entrepreneurship workshops and business mentorship helped me start my own successful consultancy. Forever grateful!',
       category: 'Entrepreneurship',
@@ -95,27 +92,40 @@ export default function TestimonialsCarousel() {
 
   // Auto-play functionality
   useEffect(() => {
-    if (!isAutoPlaying) return;
+    if (!isAutoPlaying || isTransitioning) return;
 
     const interval = setInterval(() => {
       setCurrentIndex((prevIndex) => 
         prevIndex === testimonials.length - 1 ? 0 : prevIndex + 1
       );
-    }, 5000); // Change slide every 5 seconds
+    }, 5000);
 
     return () => clearInterval(interval);
-  }, [isAutoPlaying, testimonials.length]);
+  }, [isAutoPlaying, isTransitioning, testimonials.length]);
+
+  const handleTransition = (newIndex: number) => {
+    if (isTransitioning || newIndex === currentIndex) return;
+    
+    setIsTransitioning(true);
+    setCurrentIndex(newIndex);
+    
+    setTimeout(() => {
+      setIsTransitioning(false);
+    }, 500);
+  };
 
   const goToNext = () => {
-    setCurrentIndex(currentIndex === testimonials.length - 1 ? 0 : currentIndex + 1);
+    const nextIndex = currentIndex === testimonials.length - 1 ? 0 : currentIndex + 1;
+    handleTransition(nextIndex);
   };
 
   const goToPrev = () => {
-    setCurrentIndex(currentIndex === 0 ? testimonials.length - 1 : currentIndex - 1);
+    const prevIndex = currentIndex === 0 ? testimonials.length - 1 : currentIndex - 1;
+    handleTransition(prevIndex);
   };
 
   const goToSlide = (index: number) => {
-    setCurrentIndex(index);
+    handleTransition(index);
   };
 
   const getCategoryColor = (category: string) => {
@@ -142,113 +152,94 @@ export default function TestimonialsCarousel() {
     return highlightedText;
   };
 
+  const currentTestimonial = testimonials[currentIndex];
+
   return (
-    <div className="relative max-w-4xl mx-auto">
+    <div className="relative max-w-4xl mx-auto p-4">
       {/* Main Carousel */}
       <div 
         className="relative overflow-hidden rounded-2xl"
         onMouseEnter={() => setIsAutoPlaying(false)}
         onMouseLeave={() => setIsAutoPlaying(true)}
       >
-        <AnimatePresence mode="wait">
-          <motion.div
-            key={currentIndex}
-            initial={{ opacity: 0, x: 100 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: -100 }}
-            transition={{ duration: 0.5, ease: 'easeInOut' }}
-            className={`bg-gradient-to-r ${getCategoryColor(testimonials[currentIndex].category)} p-8 md:p-12 text-white min-h-[400px] flex items-center`}
-          >
-            <div className="w-full">
-              {/* Quote Icon */}
-              <motion.div
-                initial={{ scale: 0 }}
-                animate={{ scale: 1 }}
-                transition={{ delay: 0.2, duration: 0.5 }}
-                className="mb-6"
-              >
-                <Quote className="w-12 h-12 text-white/30" />
-              </motion.div>
+        <div
+          className={`bg-gradient-to-r ${getCategoryColor(currentTestimonial.category)} p-8 md:p-12 text-white min-h-[400px] flex items-center transition-all duration-500 ease-in-out ${
+            isTransitioning ? 'opacity-80 scale-[0.98]' : 'opacity-100 scale-100'
+          }`}
+        >
+          <div className="w-full">
+            {/* Quote Icon */}
+            <div className="mb-6">
+              <Quote className="w-12 h-12 text-white/30" />
+            </div>
 
-              {/* Testimonial Content */}
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-center">
-                {/* User Info */}
-                <motion.div 
-                  className="text-center lg:text-left"
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.3, duration: 0.6 }}
-                >
-                  <div className="relative inline-block mb-4">
-                    <Image
-                      src={testimonials[currentIndex].avatar}
-                      alt={testimonials[currentIndex].name}
-                      width={100}
-                      height={100}
-                      className="rounded-full border-4 border-white/20 shadow-lg"
-                    />
-                    {/* Achievement Badge */}
-                    <div className="absolute -bottom-2 -right-2 bg-white/20 backdrop-blur-sm rounded-full p-2">
-                      <Star className="w-5 h-5 text-yellow-300 fill-current" />
-                    </div>
+            {/* Testimonial Content */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-center">
+              {/* User Info */}
+              <div className="text-center lg:text-left">
+                <div className="relative inline-block mb-4">
+                  <img
+                    src={currentTestimonial.avatar}
+                    alt={currentTestimonial.name}
+                    className="w-24 h-24 rounded-full border-4 border-white/20 shadow-lg object-cover"
+                  />
+                  {/* Achievement Badge */}
+                  <div className="absolute -bottom-2 -right-2 bg-white/20 backdrop-blur-sm rounded-full p-2">
+                    <Star className="w-5 h-5 text-yellow-300 fill-current" />
                   </div>
-                  
-                  <h3 className="text-2xl font-bold mb-2">{testimonials[currentIndex].name}</h3>
-                  <p className="text-white/80 mb-1">{testimonials[currentIndex].location}</p>
-                  
-                  {/* Category Tag */}
-                  <span className="inline-block bg-white/20 backdrop-blur-sm px-3 py-1 rounded-full text-sm font-medium mb-3">
-                    {testimonials[currentIndex].category}
-                  </span>
-                  
-                  {/* Achievement */}
-                  <div className="bg-white/10 backdrop-blur-sm rounded-lg p-3">
-                    <h4 className="font-bold text-lg text-yellow-300 mb-1">
-                      🏆 {testimonials[currentIndex].achievement}
-                    </h4>
-                    {testimonials[currentIndex].examYear && (
-                      <p className="text-white/70 text-sm">Class of {testimonials[currentIndex].examYear}</p>
-                    )}
-                    {testimonials[currentIndex].currentRole && (
-                      <p className="text-white/70 text-sm">{testimonials[currentIndex].currentRole}</p>
-                    )}
-                  </div>
-                </motion.div>
+                </div>
+                
+                <h3 className="text-2xl font-bold mb-2">{currentTestimonial.name}</h3>
+                <p className="text-white/80 mb-1">{currentTestimonial.location}</p>
+                
+                {/* Category Tag */}
+                <span className="inline-block bg-white/20 backdrop-blur-sm px-3 py-1 rounded-full text-sm font-medium mb-3">
+                  {currentTestimonial.category}
+                </span>
+                
+                {/* Achievement */}
+                <div className="bg-white/10 backdrop-blur-sm rounded-lg p-3">
+                  <h4 className="font-bold text-lg text-yellow-300 mb-1">
+                    🏆 {currentTestimonial.achievement}
+                  </h4>
+                  {currentTestimonial.examYear && (
+                    <p className="text-white/70 text-sm">Class of {currentTestimonial.examYear}</p>
+                  )}
+                  {currentTestimonial.currentRole && (
+                    <p className="text-white/70 text-sm">{currentTestimonial.currentRole}</p>
+                  )}
+                </div>
+              </div>
 
-                {/* Quote */}
-                <motion.div 
-                  className="lg:col-span-2"
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.4, duration: 0.6 }}
-                >
-                  <blockquote className="text-xl md:text-2xl font-medium leading-relaxed mb-6">
-                    "<span 
-                      dangerouslySetInnerHTML={{ 
-                        __html: highlightKeywords(testimonials[currentIndex].quote) 
-                      }} 
-                    />"
-                  </blockquote>
-                  
-                  {/* Rating */}
-                  <div className="flex items-center gap-2">
-                    <div className="flex">
-                      {[...Array(testimonials[currentIndex].rating)].map((_, i) => (
-                        <Star key={i} className="w-5 h-5 text-yellow-300 fill-current" />
-                      ))}
-                    </div>
-                    <span className="text-white/80">({testimonials[currentIndex].rating}/5)</span>
+              {/* Quote */}
+              <div className="lg:col-span-2">
+                <blockquote className="text-xl md:text-2xl font-medium leading-relaxed mb-6">
+                  "<span 
+                    dangerouslySetInnerHTML={{ 
+                      __html: highlightKeywords(currentTestimonial.quote) 
+                    }} 
+                  />"
+                </blockquote>
+                
+                {/* Rating */}
+                <div className="flex items-center gap-2">
+                  <div className="flex">
+                    {[...Array(currentTestimonial.rating)].map((_, i) => (
+                      <Star key={i} className="w-5 h-5 text-yellow-300 fill-current" />
+                    ))}
                   </div>
-                </motion.div>
+                  <span className="text-white/80">({currentTestimonial.rating}/5)</span>
+                </div>
               </div>
             </div>
-          </motion.div>
-        </AnimatePresence>
+          </div>
+        </div>
 
         {/* Navigation Arrows */}
         <button
           onClick={goToPrev}
-          className="absolute left-4 top-1/2 transform -translate-y-1/2 bg-white/20 backdrop-blur-sm hover:bg-white/30 rounded-full p-3 transition-all duration-300 hover:scale-110"
+          disabled={isTransitioning}
+          className="absolute left-4 top-1/2 transform -translate-y-1/2 bg-white/20 backdrop-blur-sm hover:bg-white/30 disabled:opacity-50 disabled:cursor-not-allowed rounded-full p-3 transition-all duration-300 hover:scale-110"
           aria-label="Previous testimonial"
         >
           <ChevronLeft className="w-6 h-6 text-white" />
@@ -256,7 +247,8 @@ export default function TestimonialsCarousel() {
         
         <button
           onClick={goToNext}
-          className="absolute right-4 top-1/2 transform -translate-y-1/2 bg-white/20 backdrop-blur-sm hover:bg-white/30 rounded-full p-3 transition-all duration-300 hover:scale-110"
+          disabled={isTransitioning}
+          className="absolute right-4 top-1/2 transform -translate-y-1/2 bg-white/20 backdrop-blur-sm hover:bg-white/30 disabled:opacity-50 disabled:cursor-not-allowed rounded-full p-3 transition-all duration-300 hover:scale-110"
           aria-label="Next testimonial"
         >
           <ChevronRight className="w-6 h-6 text-white" />
@@ -270,7 +262,8 @@ export default function TestimonialsCarousel() {
                 <button
                   key={index}
                   onClick={() => goToSlide(index)}
-                  className={`w-3 h-3 rounded-full transition-all duration-300 ${
+                  disabled={isTransitioning}
+                  className={`w-3 h-3 rounded-full transition-all duration-300 disabled:cursor-not-allowed ${
                     index === currentIndex 
                       ? 'bg-white scale-125' 
                       : 'bg-white/50 hover:bg-white/70'
@@ -284,26 +277,23 @@ export default function TestimonialsCarousel() {
       </div>
 
       {/* Thumbnail Navigation */}
-      <div className="flex justify-center mt-6 space-x-4 overflow-x-auto pb-2">
+      <div className="flex justify-center mt-6 space-x-4 overflow-x-auto pb-2 px-4">
         {testimonials.map((testimonial, index) => (
-          <motion.button
+          <button
             key={testimonial.id}
             onClick={() => goToSlide(index)}
-            className={`flex-shrink-0 p-3 rounded-xl transition-all duration-300 ${
+            disabled={isTransitioning}
+            className={`flex-shrink-0 p-3 rounded-xl transition-all duration-300 disabled:cursor-not-allowed ${
               index === currentIndex
-                ? 'bg-white shadow-lg scale-105'
+                ? 'bg-white shadow-lg scale-105 ring-2 ring-blue-500'
                 : 'bg-white/50 hover:bg-white/70 hover:scale-105'
             }`}
-            whileHover={{ y: -2 }}
-            whileTap={{ scale: 0.95 }}
           >
             <div className="flex items-center gap-3 min-w-[200px]">
-              <Image
+              <img
                 src={testimonial.avatar}
                 alt={testimonial.name}
-                width={40}
-                height={40}
-                className="rounded-full"
+                className="w-10 h-10 rounded-full object-cover"
               />
               <div className="text-left">
                 <h4 className={`font-medium text-sm ${
@@ -318,7 +308,7 @@ export default function TestimonialsCarousel() {
                 </p>
               </div>
             </div>
-          </motion.button>
+          </button>
         ))}
       </div>
 
@@ -338,38 +328,20 @@ export default function TestimonialsCarousel() {
 
       {/* Statistics */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-8">
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-          transition={{ duration: 0.6 }}
-          className="bg-white p-6 rounded-xl shadow-lg text-center"
-        >
+        <div className="bg-white p-6 rounded-xl shadow-lg text-center border border-gray-100">
           <div className="text-3xl font-bold text-blue-600 mb-2">25,000+</div>
           <div className="text-gray-600">Success Stories</div>
-        </motion.div>
+        </div>
         
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-          transition={{ duration: 0.6, delay: 0.2 }}
-          className="bg-white p-6 rounded-xl shadow-lg text-center"
-        >
+        <div className="bg-white p-6 rounded-xl shadow-lg text-center border border-gray-100">
           <div className="text-3xl font-bold text-green-600 mb-2">95%</div>
           <div className="text-gray-600">Success Rate</div>
-        </motion.div>
+        </div>
         
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-          transition={{ duration: 0.6, delay: 0.4 }}
-          className="bg-white p-6 rounded-xl shadow-lg text-center"
-        >
+        <div className="bg-white p-6 rounded-xl shadow-lg text-center border border-gray-100">
           <div className="text-3xl font-bold text-purple-600 mb-2">4.9/5</div>
           <div className="text-gray-600">Average Rating</div>
-        </motion.div>
+        </div>
       </div>
     </div>
   );

@@ -1,7 +1,4 @@
-'use client';
-
 import { useState, useEffect } from 'react';
-import { motion } from 'framer-motion';
 import { 
   Calendar, 
   Clock, 
@@ -19,7 +16,6 @@ import {
   Zap,
   Globe
 } from 'lucide-react';
-import Image from 'next/image';
 
 interface Workshop {
   id: number;
@@ -56,6 +52,7 @@ export default function WorkshopsSection() {
   const [selectedLevel, setSelectedLevel] = useState('all');
   const [filteredWorkshops, setFilteredWorkshops] = useState<Workshop[]>([]);
   const [timeLeft, setTimeLeft] = useState<{[key: number]: string}>({});
+  const [quickFilter, setQuickFilter] = useState('');
 
   const categories = [
     { id: 'all', name: 'All Categories', icon: Globe },
@@ -72,7 +69,7 @@ export default function WorkshopsSection() {
       description: 'Comprehensive strategy session by UPSC topper covering prelims, mains, and interview preparation with personalized guidance.',
       instructor: {
         name: 'Dr. Rajesh Sharma',
-        avatar: '/api/placeholder/60/60',
+        avatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=60&h=60&fit=crop&crop=face',
         expertise: 'UPSC Topper 2019, AIR 25',
         rating: 4.9
       },
@@ -86,7 +83,7 @@ export default function WorkshopsSection() {
       price: 0,
       level: 'Intermediate',
       tags: ['UPSC', 'Strategy', 'Prelims', 'Mains'],
-      thumbnail: '/api/placeholder/400/300',
+      thumbnail: 'https://images.unsplash.com/photo-1513475382585-d06e58bcb0e0?w=400&h=300&fit=crop',
       features: ['Live Q&A', 'Study Material', 'Recording Access', 'Certificate'],
       language: 'English',
       isPopular: true,
@@ -98,7 +95,7 @@ export default function WorkshopsSection() {
       description: 'Learn effective communication techniques, body language, and confidence building for job interviews and professional interactions.',
       instructor: {
         name: 'Priya Patel',
-        avatar: '/api/placeholder/60/60',
+        avatar: 'https://images.unsplash.com/photo-1494790108755-2616b612b789?w=60&h=60&fit=crop&crop=face',
         expertise: 'HR Expert & Life Coach',
         rating: 4.8
       },
@@ -113,7 +110,7 @@ export default function WorkshopsSection() {
       originalPrice: 499,
       level: 'Beginner',
       tags: ['Communication', 'Interview', 'Confidence', 'Body Language'],
-      thumbnail: '/api/placeholder/400/300',
+      thumbnail: 'https://images.unsplash.com/photo-1559136555-9303baea8ebd?w=400&h=300&fit=crop',
       features: ['Interactive Sessions', 'Mock Interviews', 'Feedback', 'Resources'],
       language: 'English'
     },
@@ -123,7 +120,7 @@ export default function WorkshopsSection() {
       description: 'Explore the latest trends in AI and ML, career opportunities, and hands-on introduction to popular frameworks and tools.',
       instructor: {
         name: 'Vikash Kumar',
-        avatar: '/api/placeholder/60/60',
+        avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=60&h=60&fit=crop&crop=face',
         expertise: 'ML Engineer at Google',
         rating: 4.9
       },
@@ -138,7 +135,7 @@ export default function WorkshopsSection() {
       originalPrice: 999,
       level: 'Advanced',
       tags: ['AI', 'ML', 'Technology', 'Career'],
-      thumbnail: '/api/placeholder/400/300',
+      thumbnail: 'https://images.unsplash.com/photo-1485827404703-89b55fcc595e?w=400&h=300&fit=crop',
       features: ['Lifetime Access', 'Code Examples', 'Projects', 'Community'],
       language: 'English',
       isPopular: true
@@ -149,7 +146,7 @@ export default function WorkshopsSection() {
       description: 'Psychological strategies to handle exam stress, maintain motivation, and develop a winning mindset for long-term preparation.',
       instructor: {
         name: 'Dr. Anita Singh',
-        avatar: '/api/placeholder/60/60',
+        avatar: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=60&h=60&fit=crop&crop=face',
         expertise: 'Clinical Psychologist',
         rating: 4.7
       },
@@ -163,7 +160,7 @@ export default function WorkshopsSection() {
       price: 0,
       level: 'Beginner',
       tags: ['Mental Health', 'Stress Management', 'Motivation', 'Psychology'],
-      thumbnail: '/api/placeholder/400/300',
+      thumbnail: 'https://images.unsplash.com/photo-1506126613408-eca07ce68773?w=400&h=300&fit=crop',
       features: ['Guided Meditation', 'Workbook', 'Follow-up Session', 'Support Group'],
       language: 'Hindi & English',
       isFree: true
@@ -174,7 +171,7 @@ export default function WorkshopsSection() {
       description: 'Create a standout resume and optimize your LinkedIn profile to attract recruiters and land your dream job.',
       instructor: {
         name: 'Rohit Gupta',
-        avatar: '/api/placeholder/60/60',
+        avatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=60&h=60&fit=crop&crop=face',
         expertise: 'Career Consultant & Recruiter',
         rating: 4.6
       },
@@ -189,27 +186,32 @@ export default function WorkshopsSection() {
       originalPrice: 399,
       level: 'Beginner',
       tags: ['Resume', 'LinkedIn', 'Job Search', 'Career'],
-      thumbnail: '/api/placeholder/400/300',
+      thumbnail: 'https://images.unsplash.com/photo-1586281380349-632531db7ed4?w=400&h=300&fit=crop',
       features: ['Template Access', 'Profile Review', 'Job Portal Tips', 'Networking'],
       language: 'English'
     }
   ];
 
+  // Filter workshops based on all criteria
   useEffect(() => {
     let filtered = mockWorkshops;
 
+    // Category filter
     if (selectedCategory !== 'all') {
       filtered = filtered.filter(workshop => workshop.category === selectedCategory);
     }
 
+    // Type filter
     if (selectedType !== 'all') {
       filtered = filtered.filter(workshop => workshop.type === selectedType);
     }
 
+    // Level filter
     if (selectedLevel !== 'all') {
       filtered = filtered.filter(workshop => workshop.level === selectedLevel);
     }
 
+    // Search filter
     if (searchTerm) {
       filtered = filtered.filter(workshop =>
         workshop.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -218,17 +220,44 @@ export default function WorkshopsSection() {
       );
     }
 
+    // Quick filter
+    if (quickFilter) {
+      switch (quickFilter) {
+        case 'Free Workshops':
+          filtered = filtered.filter(workshop => workshop.isFree);
+          break;
+        case 'Live Now':
+          filtered = filtered.filter(workshop => workshop.type === 'live');
+          break;
+        case 'Popular':
+          filtered = filtered.filter(workshop => workshop.isPopular);
+          break;
+        case 'This Week':
+          const today = new Date();
+          const nextWeek = new Date(today.getTime() + 7 * 24 * 60 * 60 * 1000);
+          filtered = filtered.filter(workshop => {
+            const workshopDate = new Date(workshop.date);
+            return workshopDate >= today && workshopDate <= nextWeek;
+          });
+          break;
+      }
+    }
+
     setFilteredWorkshops(filtered);
-  }, [searchTerm, selectedCategory, selectedType, selectedLevel]);
+  }, [searchTerm, selectedCategory, selectedType, selectedLevel, quickFilter]);
 
   // Countdown timer for upcoming workshops
   useEffect(() => {
-    const interval = setInterval(() => {
+    const updateCountdown = () => {
       const newTimeLeft: {[key: number]: string} = {};
       
       filteredWorkshops.forEach(workshop => {
         if (workshop.type === 'upcoming') {
-          const eventDate = new Date(`${workshop.date} ${workshop.time}`);
+          // For demo purposes, create a future date
+          const eventDate = new Date();
+          eventDate.setDate(eventDate.getDate() + Math.floor(Math.random() * 7) + 1);
+          eventDate.setHours(parseInt(workshop.time.split(':')[0]), parseInt(workshop.time.split(':')[1]), 0, 0);
+          
           const now = new Date();
           const difference = eventDate.getTime() - now.getTime();
 
@@ -245,7 +274,10 @@ export default function WorkshopsSection() {
       });
       
       setTimeLeft(newTimeLeft);
-    }, 60000); // Update every minute
+    };
+
+    updateCountdown();
+    const interval = setInterval(updateCountdown, 60000); // Update every minute
 
     return () => clearInterval(interval);
   }, [filteredWorkshops]);
@@ -277,26 +309,29 @@ export default function WorkshopsSection() {
   };
 
   const joinWorkshop = (workshop: Workshop) => {
-    console.log(`Joining workshop: ${workshop.title}`);
+    alert(`Joining workshop: ${workshop.title}`);
     // In real implementation, this would handle workshop registration
   };
 
+  const clearFilters = () => {
+    setSearchTerm('');
+    setSelectedCategory('all');
+    setSelectedType('all');
+    setSelectedLevel('all');
+    setQuickFilter('');
+  };
+
   return (
-    <div className="space-y-8">
+    <div className="space-y-8 p-4 max-w-7xl mx-auto">
       {/* Header */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.6 }}
-        className="text-center"
-      >
+      <div className="text-center">
         <h2 className="text-3xl md:text-4xl font-bold text-gray-800 mb-4">
           📅 Online Workshops & Webinars
         </h2>
         <p className="text-lg text-gray-600 max-w-3xl mx-auto">
           Join live sessions by experts, career counselors, exam toppers, and industry professionals
         </p>
-      </motion.div>
+      </div>
 
       {/* Quick Stats */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -306,17 +341,14 @@ export default function WorkshopsSection() {
           { label: 'Participants', value: '15K+', icon: Users, color: 'text-green-500' },
           { label: 'Success Rate', value: '95%', icon: Award, color: 'text-purple-500' }
         ].map((stat, index) => (
-          <motion.div
+          <div
             key={index}
-            initial={{ opacity: 0, scale: 0.9 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ duration: 0.6, delay: index * 0.1 }}
-            className="bg-white p-4 rounded-xl shadow-lg text-center hover:shadow-xl transition-shadow"
+            className="bg-white p-4 rounded-xl shadow-lg text-center hover:shadow-xl transition-shadow duration-300"
           >
             <stat.icon className={`w-6 h-6 ${stat.color} mx-auto mb-2`} />
             <h3 className="text-2xl font-bold text-gray-800">{stat.value}</h3>
             <p className="text-sm text-gray-600">{stat.label}</p>
-          </motion.div>
+          </div>
         ))}
       </div>
 
@@ -370,6 +402,15 @@ export default function WorkshopsSection() {
               <option value="Intermediate">Intermediate</option>
               <option value="Advanced">Advanced</option>
             </select>
+
+            {(searchTerm || selectedCategory !== 'all' || selectedType !== 'all' || selectedLevel !== 'all' || quickFilter) && (
+              <button
+                onClick={clearFilters}
+                className="px-4 py-2 bg-gray-100 text-gray-700 rounded-full text-sm font-medium hover:bg-gray-200 transition-colors"
+              >
+                Clear All
+              </button>
+            )}
           </div>
         </div>
 
@@ -378,7 +419,12 @@ export default function WorkshopsSection() {
           {['Free Workshops', 'Live Now', 'Popular', 'This Week'].map((filter, index) => (
             <button
               key={index}
-              className="px-4 py-2 bg-blue-50 text-blue-600 rounded-full text-sm font-medium hover:bg-blue-100 transition-colors"
+              onClick={() => setQuickFilter(quickFilter === filter ? '' : filter)}
+              className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
+                quickFilter === filter
+                  ? 'bg-blue-500 text-white'
+                  : 'bg-blue-50 text-blue-600 hover:bg-blue-100'
+              }`}
             >
               {filter}
             </button>
@@ -386,23 +432,23 @@ export default function WorkshopsSection() {
         </div>
       </div>
 
+      {/* Results Counter */}
+      <div className="text-gray-600">
+        Showing {filteredWorkshops.length} of {mockWorkshops.length} workshops
+      </div>
+
       {/* Workshops Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         {filteredWorkshops.map((workshop, index) => (
-          <motion.div
+          <div
             key={workshop.id}
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6, delay: index * 0.1 }}
             className="bg-white rounded-2xl shadow-lg overflow-hidden hover:shadow-2xl transition-all duration-500 hover:-translate-y-1"
           >
             {/* Workshop Header */}
             <div className="relative">
-              <Image
+              <img
                 src={workshop.thumbnail}
                 alt={workshop.title}
-                width={400}
-                height={240}
                 className="w-full h-48 object-cover"
               />
               
@@ -451,12 +497,10 @@ export default function WorkshopsSection() {
 
               {/* Instructor Info */}
               <div className="flex items-center gap-3 mb-4">
-                <Image
+                <img
                   src={workshop.instructor.avatar}
                   alt={workshop.instructor.name}
-                  width={48}
-                  height={48}
-                  className="rounded-full"
+                  className="w-12 h-12 rounded-full object-cover"
                 />
                 <div>
                   <h4 className="font-medium text-gray-800">{workshop.instructor.name}</h4>
@@ -567,21 +611,23 @@ export default function WorkshopsSection() {
                 </button>
               </div>
             </div>
-          </motion.div>
+          </div>
         ))}
       </div>
 
       {/* No Results */}
       {filteredWorkshops.length === 0 && (
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          className="text-center py-16"
-        >
+        <div className="text-center py-16">
           <Calendar className="w-16 h-16 text-gray-400 mx-auto mb-4" />
           <h3 className="text-xl font-medium text-gray-600 mb-2">No workshops found</h3>
-          <p className="text-gray-500">Try adjusting your search or filter criteria</p>
-        </motion.div>
+          <p className="text-gray-500 mb-4">Try adjusting your search or filter criteria</p>
+          <button
+            onClick={clearFilters}
+            className="px-6 py-2 bg-blue-500 text-white rounded-full hover:bg-blue-600 transition-colors"
+          >
+            Clear All Filters
+          </button>
+        </div>
       )}
 
       {/* Upcoming Events Calendar */}
@@ -620,37 +666,31 @@ export default function WorkshopsSection() {
             {
               name: "Priya Sharma",
               achievement: "Cleared UPSC after attending strategy workshops",
-              image: "/api/placeholder/60/60",
+              image: "https://images.unsplash.com/photo-1494790108755-2616b612b789?w=60&h=60&fit=crop&crop=face",
               quote: "The workshops completely changed my approach to UPSC preparation!"
             },
             {
               name: "Rahul Kumar",
               achievement: "Got job at Google after tech workshops",
-              image: "/api/placeholder/60/60",
+              image: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=60&h=60&fit=crop&crop=face",
               quote: "The AI/ML workshop opened doors I never thought possible."
             },
             {
               name: "Anjali Patel",
               achievement: "Built confidence through communication workshops",
-              image: "/api/placeholder/60/60",
+              image: "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=60&h=60&fit=crop&crop=face",
               quote: "Now I can speak confidently in any interview or meeting."
             }
           ].map((story, index) => (
-            <motion.div
+            <div
               key={index}
-              initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ duration: 0.6, delay: index * 0.2 }}
               className="bg-gradient-to-br from-blue-50 to-green-50 p-6 rounded-2xl border border-blue-100"
             >
               <div className="flex items-center gap-3 mb-4">
-                <Image
+                <img
                   src={story.image}
                   alt={story.name}
-                  width={48}
-                  height={48}
-                  className="rounded-full"
+                  className="w-12 h-12 rounded-full object-cover"
                 />
                 <div>
                   <h4 className="font-medium text-gray-800">{story.name}</h4>
@@ -658,19 +698,13 @@ export default function WorkshopsSection() {
                 </div>
               </div>
               <p className="text-gray-600 text-sm italic">"{story.quote}"</p>
-            </motion.div>
+            </div>
           ))}
         </div>
       </section>
 
       {/* Call to Action */}
-      <motion.section
-        initial={{ opacity: 0, y: 20 }}
-        whileInView={{ opacity: 1, y: 0 }}
-        viewport={{ once: true }}
-        transition={{ duration: 0.6 }}
-        className="mt-16 bg-gradient-to-r from-purple-600 to-blue-600 text-white p-8 rounded-2xl text-center"
-      >
+      <section className="mt-16 bg-gradient-to-r from-purple-600 to-blue-600 text-white p-8 rounded-2xl text-center">
         <h3 className="text-2xl md:text-3xl font-bold mb-4">Ready to Transform Your Career?</h3>
         <p className="text-purple-100 mb-6 max-w-2xl mx-auto">
           Join thousands of learners who have accelerated their success through our expert-led workshops and webinars.
@@ -683,7 +717,7 @@ export default function WorkshopsSection() {
             Become an Instructor
           </button>
         </div>
-      </motion.section>
+      </section>
     </div>
   );
 }

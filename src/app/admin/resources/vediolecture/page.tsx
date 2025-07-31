@@ -30,9 +30,18 @@ import {
   UserCheck,
   MessageCircle,
   Share,
-  Recording
+  
+  X,
+  Check,
+  AlertTriangle
 } from 'lucide-react';
-
+import {
+  // ... other imports
+  Mic,
+  Circle,
+  Dot,
+  // ... rest of your imports
+} from 'lucide-react';
 interface VideoLecture {
   id: number;
   title: string;
@@ -70,6 +79,20 @@ interface LiveLecture {
   meetingLink?: string;
 }
 
+interface NotificationState {
+  show: boolean;
+  message: string;
+  type: 'success' | 'error' | 'warning' | 'info';
+}
+
+interface ConfirmDialogState {
+  show: boolean;
+  title: string;
+  message: string;
+  onConfirm: () => void;
+  type: 'danger' | 'warning' | 'info';
+}
+
 export default function AdminVideoLectures() {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('all');
@@ -78,12 +101,43 @@ export default function AdminVideoLectures() {
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [activeTab, setActiveTab] = useState<'videos' | 'live'>('videos');
   const [showScheduleModal, setShowScheduleModal] = useState(false);
+  const [notification, setNotification] = useState<NotificationState>({
+    show: false, message: '', type: 'info'
+  });
+  const [confirmDialog, setConfirmDialog] = useState<ConfirmDialogState>({
+    show: false, title: '', message: '', onConfirm: () => {}, type: 'info'
+  });
+
+  // Form states
+  const [uploadForm, setUploadForm] = useState({
+    title: '',
+    instructor: '',
+    category: 'UPSC',
+    description: '',
+    level: 'Beginner' as 'Beginner' | 'Intermediate' | 'Advanced',
+    tags: '',
+    file: null as File | null
+  });
+
+  const [scheduleForm, setScheduleForm] = useState({
+    title: '',
+    instructor: '',
+    category: 'UPSC',
+    description: '',
+    scheduledTime: '',
+    duration: '',
+    level: 'Beginner' as 'Beginner' | 'Intermediate' | 'Advanced',
+    maxAttendees: 100,
+    tags: '',
+    chatEnabled: true,
+    isRecording: false
+  });
 
   const categories = ['all', 'UPSC', 'SSC', 'RRB', 'Banking', 'TNPSC', 'Programming', 'Life Skills'];
   const statuses = ['all', 'Published', 'Draft', 'Review'];
   const liveStatuses = ['all', 'Scheduled', 'Live', 'Ended', 'Cancelled'];
 
-  const mockVideos: VideoLecture[] = [
+  const [mockVideos, setMockVideos] = useState<VideoLecture[]>([
     {
       id: 1,
       title: 'UPSC Current Affairs 2024 - Complete Analysis',
@@ -149,16 +203,16 @@ export default function AdminVideoLectures() {
       status: 'Review',
       featured: false
     }
-  ];
+  ]);
 
-  const mockLiveLectures: LiveLecture[] = [
+  const [mockLiveLectures, setMockLiveLectures] = useState<LiveLecture[]>([
     {
       id: 1,
       title: 'UPSC Mains Strategy Session - Live Q&A',
       instructor: 'Dr. Priya Singh',
       category: 'UPSC',
       description: 'Interactive session discussing UPSC Mains strategy with live Q&A and doubt clearing.',
-      scheduledTime: '2024-06-29T10:00:00',
+      scheduledTime: '2024-07-30T10:00:00',
       duration: '2:00:00',
       status: 'Live',
       attendees: 1250,
@@ -176,7 +230,7 @@ export default function AdminVideoLectures() {
       instructor: 'Prof. Rajesh Kumar',
       category: 'SSC',
       description: 'Live problem-solving session for SSC CGL mathematics with real-time doubt clearing.',
-      scheduledTime: '2024-06-29T14:00:00',
+      scheduledTime: '2024-07-30T14:00:00',
       duration: '1:30:00',
       status: 'Scheduled',
       attendees: 0,
@@ -194,7 +248,7 @@ export default function AdminVideoLectures() {
       instructor: 'CA Anita Sharma',
       category: 'Banking',
       description: 'Weekly current affairs update specifically for banking examinations with key highlights.',
-      scheduledTime: '2024-06-28T16:00:00',
+      scheduledTime: '2024-07-28T16:00:00',
       duration: '1:00:00',
       status: 'Ended',
       attendees: 890,
@@ -211,7 +265,7 @@ export default function AdminVideoLectures() {
       instructor: 'Tech Academy',
       category: 'Programming',
       description: 'Intensive live bootcamp covering Python web development with Django framework.',
-      scheduledTime: '2024-06-30T09:00:00',
+      scheduledTime: '2024-07-31T09:00:00',
       duration: '4:00:00',
       status: 'Scheduled',
       attendees: 0,
@@ -223,7 +277,17 @@ export default function AdminVideoLectures() {
       chatEnabled: true,
       meetingLink: 'https://meet.example.com/python-bootcamp'
     }
-  ];
+  ]);
+
+  // Utility functions
+  const showNotification = (message: string, type: NotificationState['type'] = 'info') => {
+    setNotification({ show: true, message, type });
+    setTimeout(() => setNotification(prev => ({ ...prev, show: false })), 3000);
+  };
+
+  const showConfirmDialog = (title: string, message: string, onConfirm: () => void, type: ConfirmDialogState['type'] = 'info') => {
+    setConfirmDialog({ show: true, title, message, onConfirm, type });
+  };
 
   const filteredVideos = mockVideos.filter(video => {
     const matchesSearch = video.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -306,32 +370,163 @@ export default function AdminVideoLectures() {
     return `Starts in ${minutes}m`;
   };
 
+  // Event handlers
   const handleEdit = (item: VideoLecture | LiveLecture) => {
-    console.log('Editing:', item.title);
+    showNotification(`Opening edit dialog for: ${item.title}`, 'info');
+    // In real implementation, this would open an edit modal
   };
 
   const handleDelete = (item: VideoLecture | LiveLecture) => {
-    console.log('Deleting:', item.title);
+    showConfirmDialog(
+      'Delete Confirmation',
+      `Are you sure you want to delete "${item.title}"? This action cannot be undone.`,
+      () => {
+        if (activeTab === 'videos') {
+          setMockVideos(prev => prev.filter(v => v.id !== item.id));
+          showNotification('Video deleted successfully', 'success');
+        } else {
+          setMockLiveLectures(prev => prev.filter(l => l.id !== item.id));
+          showNotification('Live lecture deleted successfully', 'success');
+        }
+      },
+      'danger'
+    );
   };
 
   const handleView = (item: VideoLecture | LiveLecture) => {
-    console.log('Viewing:', item.title);
+    showNotification(`Opening viewer for: ${item.title}`, 'info');
+    // In real implementation, this would open the video/lecture viewer
   };
 
   const handleJoinLive = (lecture: LiveLecture) => {
     if (lecture.meetingLink) {
-      window.open(lecture.meetingLink, '_blank');
+      showNotification(`Joining live session: ${lecture.title}`, 'success');
+      // In real implementation: window.open(lecture.meetingLink, '_blank');
+    } else {
+      showNotification('Meeting link not available', 'error');
     }
   };
 
   const handleStartLive = (lecture: LiveLecture) => {
-    console.log('Starting live lecture:', lecture.title);
+    showConfirmDialog(
+      'Start Live Session',
+      `Are you ready to start the live session "${lecture.title}"?`,
+      () => {
+        setMockLiveLectures(prev => prev.map(l => 
+          l.id === lecture.id ? { ...l, status: 'Live' as const } : l
+        ));
+        showNotification('Live session started successfully', 'success');
+      },
+      'info'
+    );
   };
 
   const handleEndLive = (lecture: LiveLecture) => {
-    console.log('Ending live lecture:', lecture.title);
+    showConfirmDialog(
+      'End Live Session',
+      `Are you sure you want to end the live session "${lecture.title}"?`,
+      () => {
+        setMockLiveLectures(prev => prev.map(l => 
+          l.id === lecture.id ? { ...l, status: 'Ended' as const } : l
+        ));
+        showNotification('Live session ended successfully', 'success');
+      },
+      'warning'
+    );
   };
 
+  const handleToggleFeatured = (video: VideoLecture) => {
+    setMockVideos(prev => prev.map(v => 
+      v.id === video.id ? { ...v, featured: !v.featured } : v
+    ));
+    showNotification(
+      `Video ${video.featured ? 'removed from' : 'added to'} featured list`, 
+      'success'
+    );
+  };
+
+  const handleUploadVideo = () => {
+    if (!uploadForm.title || !uploadForm.instructor) {
+      showNotification('Please fill in all required fields', 'error');
+      return;
+    }
+
+    const newVideo: VideoLecture = {
+      id: Date.now(),
+      title: uploadForm.title,
+      instructor: uploadForm.instructor,
+      category: uploadForm.category,
+      description: uploadForm.description,
+      duration: '0:00:00', // Would be calculated from actual file
+      views: 0,
+      rating: 0,
+      thumbnail: '/api/placeholder/400/300',
+      level: uploadForm.level,
+      tags: uploadForm.tags.split(',').map(tag => tag.trim()).filter(Boolean),
+      uploadDate: new Date().toISOString().split('T')[0],
+      status: 'Draft',
+      isNew: true,
+      featured: false
+    };
+
+    setMockVideos(prev => [newVideo, ...prev]);
+    setShowUploadModal(false);
+    setUploadForm({
+      title: '', instructor: '', category: 'UPSC', description: '',
+      level: 'Beginner', tags: '', file: null
+    });
+    showNotification('Video uploaded successfully', 'success');
+  };
+
+  const handleScheduleLive = () => {
+    if (!scheduleForm.title || !scheduleForm.instructor || !scheduleForm.scheduledTime) {
+      showNotification('Please fill in all required fields', 'error');
+      return;
+    }
+
+    const newLecture: LiveLecture = {
+      id: Date.now(),
+      title: scheduleForm.title,
+      instructor: scheduleForm.instructor,
+      category: scheduleForm.category,
+      description: scheduleForm.description,
+      scheduledTime: scheduleForm.scheduledTime,
+      duration: scheduleForm.duration,
+      status: 'Scheduled',
+      attendees: 0,
+      maxAttendees: scheduleForm.maxAttendees,
+      thumbnail: '/api/placeholder/400/300',
+      level: scheduleForm.level,
+      tags: scheduleForm.tags.split(',').map(tag => tag.trim()).filter(Boolean),
+      isRecording: scheduleForm.isRecording,
+      chatEnabled: scheduleForm.chatEnabled,
+      meetingLink: `https://meet.example.com/${scheduleForm.title.toLowerCase().replace(/\s+/g, '-')}`
+    };
+
+    setMockLiveLectures(prev => [newLecture, ...prev]);
+    setShowScheduleModal(false);
+    setScheduleForm({
+      title: '', instructor: '', category: 'UPSC', description: '',
+      scheduledTime: '', duration: '', level: 'Beginner', maxAttendees: 100,
+      tags: '', chatEnabled: true, isRecording: false
+    });
+    showNotification('Live lecture scheduled successfully', 'success');
+  };
+
+  const handleExport = () => {
+    const data = activeTab === 'videos' ? filteredVideos : filteredLiveLectures;
+    const dataStr = JSON.stringify(data, null, 2);
+    const dataBlob = new Blob([dataStr], { type: 'application/json' });
+    const url = URL.createObjectURL(dataBlob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `${activeTab}-export-${new Date().toISOString().split('T')[0]}.json`;
+    link.click();
+    URL.revokeObjectURL(url);
+    showNotification('Data exported successfully', 'success');
+  };
+
+  // Render functions
   const renderLiveGridView = () => (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
       {filteredLiveLectures.map((lecture, index) => (
@@ -538,8 +733,12 @@ export default function AdminVideoLectures() {
                 Edit
               </button>
               <div className="relative">
-                <button className="p-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors">
-                  <MoreVertical className="w-4 h-4" />
+                <button 
+                  onClick={() => handleToggleFeatured(video)}
+                  className="p-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+                  title={video.featured ? "Remove from featured" : "Add to featured"}
+                >
+                  <Star className={`w-4 h-4 ${video.featured ? 'text-yellow-500 fill-current' : ''}`} />
                 </button>
               </div>
             </div>
@@ -615,13 +814,22 @@ export default function AdminVideoLectures() {
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-2">
                         {lecture.status === 'Live' ? (
-                          <button
-                            onClick={() => handleJoinLive(lecture)}
-                            className="p-1 text-red-600 hover:bg-red-100 rounded transition-colors"
-                            title="Join Live"
-                          >
-                            <Wifi className="w-4 h-4" />
-                          </button>
+                          <>
+                            <button
+                              onClick={() => handleJoinLive(lecture)}
+                              className="p-1 text-red-600 hover:bg-red-100 rounded transition-colors"
+                              title="Join Live"
+                            >
+                              <Wifi className="w-4 h-4" />
+                            </button>
+                            <button
+                              onClick={() => handleEndLive(lecture)}
+                              className="p-1 text-gray-600 hover:bg-gray-100 rounded transition-colors"
+                              title="End Live"
+                            >
+                              <Square className="w-4 h-4" />
+                            </button>
+                          </>
                         ) : lecture.status === 'Scheduled' ? (
                           <button
                             onClick={() => handleStartLive(lecture)}
@@ -753,10 +961,12 @@ export default function AdminVideoLectures() {
                       </button>
                       <button
                         onClick={() => handleToggleFeatured(video)}
-                        className="p-1 text-orange-600 hover:bg-orange-100 rounded transition-colors"
+                        className={`p-1 hover:bg-orange-100 rounded transition-colors ${
+                          video.featured ? 'text-orange-600' : 'text-gray-400'
+                        }`}
                         title="Toggle Featured"
                       >
-                        <Star className="w-4 h-4" />
+                        <Star className={`w-4 h-4 ${video.featured ? 'fill-current' : ''}`} />
                       </button>
                     </div>
                   </td>
@@ -769,12 +979,347 @@ export default function AdminVideoLectures() {
     );
   };
 
-  const handleToggleFeatured = (video: VideoLecture) => {
-    console.log('Toggling featured status for:', video.title);
-  };
-
   return (
     <div className="min-h-screen bg-gray-50">
+      {/* Notification */}
+      {notification.show && (
+        <div className="fixed top-4 right-4 z-50 animate-in fade-in slide-in-from-top-2 duration-300">
+          <div className={`rounded-lg p-4 shadow-lg border ${
+            notification.type === 'success' ? 'bg-green-50 border-green-200 text-green-800' :
+            notification.type === 'error' ? 'bg-red-50 border-red-200 text-red-800' :
+            notification.type === 'warning' ? 'bg-yellow-50 border-yellow-200 text-yellow-800' :
+            'bg-blue-50 border-blue-200 text-blue-800'
+          }`}>
+            <div className="flex items-center gap-2">
+              {notification.type === 'success' && <Check className="w-5 h-5" />}
+              {notification.type === 'error' && <X className="w-5 h-5" />}
+              {notification.type === 'warning' && <AlertTriangle className="w-5 h-5" />}
+              {notification.type === 'info' && <AlertCircle className="w-5 h-5" />}
+              <span>{notification.message}</span>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Confirm Dialog */}
+      {confirmDialog.show && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl p-6 max-w-md w-full mx-4 shadow-2xl">
+            <div className="flex items-center gap-3 mb-4">
+              {confirmDialog.type === 'danger' && <AlertTriangle className="w-6 h-6 text-red-500" />}
+              {confirmDialog.type === 'warning' && <AlertTriangle className="w-6 h-6 text-yellow-500" />}
+              {confirmDialog.type === 'info' && <AlertCircle className="w-6 h-6 text-blue-500" />}
+              <h3 className="text-lg font-semibold text-gray-900">{confirmDialog.title}</h3>
+            </div>
+            <p className="text-gray-600 mb-6">{confirmDialog.message}</p>
+            <div className="flex items-center gap-3 justify-end">
+              <button
+                onClick={() => setConfirmDialog(prev => ({ ...prev, show: false }))}
+                className="px-4 py-2 text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => {
+                  confirmDialog.onConfirm();
+                  setConfirmDialog(prev => ({ ...prev, show: false }));
+                }}
+                className={`px-4 py-2 text-white rounded-lg transition-colors ${
+                  confirmDialog.type === 'danger' ? 'bg-red-600 hover:bg-red-700' :
+                  confirmDialog.type === 'warning' ? 'bg-yellow-600 hover:bg-yellow-700' :
+                  'bg-blue-600 hover:bg-blue-700'
+                }`}
+              >
+                Confirm
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Upload Video Modal */}
+      {showUploadModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl p-6 max-w-2xl w-full mx-4 shadow-2xl max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-xl font-semibold text-gray-900">Upload New Video</h3>
+              <button
+                onClick={() => setShowUploadModal(false)}
+                className="p-1 text-gray-400 hover:text-gray-600 transition-colors"
+              >
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+            
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Title *</label>
+                <input
+                  type="text"
+                  value={uploadForm.title}
+                  onChange={(e) => setUploadForm(prev => ({ ...prev, title: e.target.value }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  placeholder="Enter video title"
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Instructor *</label>
+                <input
+                  type="text"
+                  value={uploadForm.instructor}
+                  onChange={(e) => setUploadForm(prev => ({ ...prev, instructor: e.target.value }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  placeholder="Enter instructor name"
+                />
+              </div>
+              
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Category</label>
+                  <select
+                    value={uploadForm.category}
+                    onChange={(e) => setUploadForm(prev => ({ ...prev, category: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  >
+                    {categories.slice(1).map(cat => (
+                      <option key={cat} value={cat}>{cat}</option>
+                    ))}
+                  </select>
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Level</label>
+                  <select
+                    value={uploadForm.level}
+                    onChange={(e) => setUploadForm(prev => ({ ...prev, level: e.target.value as any }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  >
+                    <option value="Beginner">Beginner</option>
+                    <option value="Intermediate">Intermediate</option>
+                    <option value="Advanced">Advanced</option>
+                  </select>
+                </div>
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
+                <textarea
+                  value={uploadForm.description}
+                  onChange={(e) => setUploadForm(prev => ({ ...prev, description: e.target.value }))}
+                  rows={3}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  placeholder="Enter video description"
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Tags</label>
+                <input
+                  type="text"
+                  value={uploadForm.tags}
+                  onChange={(e) => setUploadForm(prev => ({ ...prev, tags: e.target.value }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  placeholder="Enter tags separated by commas"
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Video File</label>
+                <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-blue-400 transition-colors">
+                  <Upload className="w-8 h-8 text-gray-400 mx-auto mb-2" />
+                  <p className="text-gray-600">Click to upload or drag and drop</p>
+                  <p className="text-sm text-gray-500">MP4, MOV, AVI up to 2GB</p>
+                  <input
+                    type="file"
+                    accept="video/*"
+                    onChange={(e) => setUploadForm(prev => ({ ...prev, file: e.target.files?.[0] || null }))}
+                    className="hidden"
+                  />
+                </div>
+              </div>
+            </div>
+            
+            <div className="flex items-center gap-3 justify-end mt-6 pt-6 border-t border-gray-200">
+              <button
+                onClick={() => setShowUploadModal(false)}
+                className="px-4 py-2 text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleUploadVideo}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+              >
+                Upload Video
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Schedule Live Modal */}
+      {showScheduleModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl p-6 max-w-2xl w-full mx-4 shadow-2xl max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-xl font-semibold text-gray-900">Schedule Live Lecture</h3>
+              <button
+                onClick={() => setShowScheduleModal(false)}
+                className="p-1 text-gray-400 hover:text-gray-600 transition-colors"
+              >
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+            
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Title *</label>
+                <input
+                  type="text"
+                  value={scheduleForm.title}
+                  onChange={(e) => setScheduleForm(prev => ({ ...prev, title: e.target.value }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  placeholder="Enter lecture title"
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Instructor *</label>
+                <input
+                  type="text"
+                  value={scheduleForm.instructor}
+                  onChange={(e) => setScheduleForm(prev => ({ ...prev, instructor: e.target.value }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  placeholder="Enter instructor name"
+                />
+              </div>
+              
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Category</label>
+                  <select
+                    value={scheduleForm.category}
+                    onChange={(e) => setScheduleForm(prev => ({ ...prev, category: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  >
+                    {categories.slice(1).map(cat => (
+                      <option key={cat} value={cat}>{cat}</option>
+                    ))}
+                  </select>
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Level</label>
+                  <select
+                    value={scheduleForm.level}
+                    onChange={(e) => setScheduleForm(prev => ({ ...prev, level: e.target.value as any }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  >
+                    <option value="Beginner">Beginner</option>
+                    <option value="Intermediate">Intermediate</option>
+                    <option value="Advanced">Advanced</option>
+                  </select>
+                </div>
+              </div>
+              
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Scheduled Time *</label>
+                  <input
+                    type="datetime-local"
+                    value={scheduleForm.scheduledTime}
+                    onChange={(e) => setScheduleForm(prev => ({ ...prev, scheduledTime: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Duration</label>
+                  <input
+                    type="text"
+                    value={scheduleForm.duration}
+                    onChange={(e) => setScheduleForm(prev => ({ ...prev, duration: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    placeholder="e.g., 1:30:00"
+                  />
+                </div>
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Max Attendees</label>
+                <input
+                  type="number"
+                  value={scheduleForm.maxAttendees}
+                  onChange={(e) => setScheduleForm(prev => ({ ...prev, maxAttendees: parseInt(e.target.value) || 100 }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  min="1"
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
+                <textarea
+                  value={scheduleForm.description}
+                  onChange={(e) => setScheduleForm(prev => ({ ...prev, description: e.target.value }))}
+                  rows={3}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  placeholder="Enter lecture description"
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Tags</label>
+                <input
+                  type="text"
+                  value={scheduleForm.tags}
+                  onChange={(e) => setScheduleForm(prev => ({ ...prev, tags: e.target.value }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  placeholder="Enter tags separated by commas"
+                />
+              </div>
+              
+              <div className="flex items-center gap-6">
+                <label className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    checked={scheduleForm.chatEnabled}
+                    onChange={(e) => setScheduleForm(prev => ({ ...prev, chatEnabled: e.target.checked }))}
+                    className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                  />
+                  <span className="text-sm text-gray-700">Enable Chat</span>
+                </label>
+                
+                <label className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    checked={scheduleForm.isRecording}
+                    onChange={(e) => setScheduleForm(prev => ({ ...prev, isRecording: e.target.checked }))}
+                    className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                  />
+                  <span className="text-sm text-gray-700">Auto Record</span>
+                </label>
+              </div>
+            </div>
+            
+            <div className="flex items-center gap-3 justify-end mt-6 pt-6 border-t border-gray-200">
+              <button
+                onClick={() => setShowScheduleModal(false)}
+                className="px-4 py-2 text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleScheduleLive}
+                className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+              >
+                Schedule Live
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Header */}
       <div className="bg-white shadow-sm border-b border-gray-200">
         <div className="px-6 py-4">
@@ -784,7 +1329,10 @@ export default function AdminVideoLectures() {
               <p className="text-gray-600">Manage all video lectures, live sessions, and educational content</p>
             </div>
             <div className="flex items-center gap-3">
-              <button className="px-4 py-2 text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors">
+              <button 
+                onClick={handleExport}
+                className="px-4 py-2 text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+              >
                 <Download className="w-4 h-4 inline mr-2" />
                 Export
               </button>
